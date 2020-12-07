@@ -12,16 +12,20 @@ from torchvision.utils import save_image
 from torchvision.datasets import MNIST
 import matplotlib.pyplot as plt
 import os
+import sys
 from torch.utils.data.sampler import SubsetRandomSampler
 from siren_pytorch import Sine
 from rbm_example.rbm import RBM
+np.set_printoptions(threshold=sys.maxsize)
+
 
 # %%
-batch_size = 10
+batch_size = 100
 epochs = 1
+rbm_epochs = 1
 target_digit = 1
-RBM_VISIBLE_UNITS = 64 * 7 * 7
-RBM_HIDDEN_UNITS = 500
+RBM_VISIBLE_UNITS = 12 * 7 * 7
+RBM_HIDDEN_UNITS = 588
 
 # %% Load data
 train_data = MNIST('./data', train=True, download=True,
@@ -49,13 +53,18 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, 16, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
+        # self.conv1 = nn.Conv2d(1, 16, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
+
+        self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.Conv2d(8, 12, (3, 3), stride=1, padding=1)
         #
-        # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(8, 12, (3, 3), stride=1, padding=1)
+        # self.conv1 = nn.Conv2d(1, 2, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(2, 3, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.Conv2d(3, 4, (3, 3), stride=1, padding=1)
+
         self.maxpool = nn.MaxPool2d((2, 2))
 
         self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS, 2, use_cuda=True)
@@ -87,13 +96,17 @@ class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # self.conv1 = nn.ConvTranspose2d(12, 8, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
-        #
-        self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(16, 1, (3, 3), stride=1, padding=1)
+        # self.conv1 = nn.ConvTranspose2d(4, 3, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.ConvTranspose2d(3, 2, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.ConvTranspose2d(2, 1, (3, 3), stride=1, padding=1)
+
+        self.conv1 = nn.ConvTranspose2d(12, 8, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
+
+        # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.ConvTranspose2d(16, 1, (3, 3), stride=1, padding=1)
 
         self.upsample = nn.Upsample(scale_factor=(2, 2))
         self.act = nn.SELU()
@@ -136,10 +149,11 @@ class AE(nn.Module):
         self.model = Network()
         self.model.to(self.device)
 
-        self.log_interval = 10
+        self.log_interval = 100
 
         self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False,
                                                         sampler=SubsetRandomSampler(subset_indices))
+        # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False)
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
@@ -195,8 +209,8 @@ model = AE()
 
 for epoch in range(epochs):
     model.train(epoch)
-# for epoch in range(epochs):
-#     model.train_rbm()
+for epoch in range(rbm_epochs):
+    model.train_rbm()
 model.test()
 
 # %% Visualise data
@@ -207,6 +221,7 @@ num_col = num_images
 
 images = []
 labels = []
+energies = []
 
 for data, target in model.test_loader:
     used_images = data[:num_images, :, :, :]
@@ -216,24 +231,56 @@ for data, target in model.test_loader:
     rbm_input = model.model.encode(used_images)
     output_energies = model.model.encoder.get_rbm(rbm_input)
 
-    for i in range(num_images):
-        image = used_images[i]
-        images.append(image[0].cpu().detach().numpy())
-        energy = torch.sum(output_energies[i])
-        labels.append(0)
+    # for i in range(used_images.shape[0]):
+    #     image = used_images[i]
+    #     images.append(image[0].cpu().detach().numpy())
+    #     energy = torch.sum(output_energies[i])
+    #     labels.append(0)
 
-    for i in range(num_images):
+    for i in range(used_images.shape[0]):
         label = output_images[i]
         images.append(label[0].cpu().detach().numpy())
-        energy = torch.sum(output_energies[i])
-        labels.append(np.around(energy.cpu().detach().numpy(), 1))
+        energy = torch.mean(output_energies[i])
+        labels.append(target[i].detach().numpy())
+        energies.append(np.around(energy.cpu().detach().numpy(), 5))
 
-    break
+    if num_images * 2 <= len(images):
+        images = images[:num_images*2]
+        labels = labels[:num_images*2]
+        energies = energies[:num_images*2]
+        break
 
 fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
 for i in range(num_images * 2):
     ax = axes[i // num_col, i % num_col]
     ax.imshow(images[i], cmap='gray')
-    ax.set_title('Energy: {}'.format(str(labels[i])))
+    ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
 plt.tight_layout()
 plt.show()
+#%% Print out experiment results
+energies = []
+labels = []
+to_output = []
+
+for data, target in model.test_loader:
+    data = data.to(model.device)
+    rbm_input = model.model.encode(data)
+    output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
+    target = target.cpu().detach()
+
+    for i in range(data.shape[0]):
+        t = target[i]
+        energy = output_energies[i]
+
+        to_output.append([t.numpy(), torch.mean(energy).numpy()])
+
+to_output = np.array(to_output)
+to_output = to_output[to_output[:, 1].argsort()]
+print(to_output)
+
+print([i for i, e in enumerate(to_output) if int(e[0]) == target_digit])
+
+
+
+
+
