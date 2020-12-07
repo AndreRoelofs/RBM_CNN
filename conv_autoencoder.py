@@ -21,11 +21,11 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # %%
 batch_size = 100
-epochs = 1
-rbm_epochs = 1
+epochs = 10
+rbm_epochs = 30
 target_digit = 1
-RBM_VISIBLE_UNITS = 12 * 7 * 7
-RBM_HIDDEN_UNITS = 588
+RBM_VISIBLE_UNITS = 64 * 7 * 7
+RBM_HIDDEN_UNITS = 500
 
 # %% Load data
 train_data = MNIST('./data', train=True, download=True,
@@ -53,24 +53,24 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # self.conv1 = nn.Conv2d(1, 16, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(1, 16, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
 
-        self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.Conv2d(8, 12, (3, 3), stride=1, padding=1)
+        # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.Conv2d(8, 12, (3, 3), stride=1, padding=1)
         #
-        # self.conv1 = nn.Conv2d(1, 2, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(2, 3, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(3, 4, (3, 3), stride=1, padding=1)
+        # self.conv1 = nn.Conv2d(1, 3, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(3, 5, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.Conv2d(5, 6, (3, 3), stride=1, padding=1)
 
         self.maxpool = nn.MaxPool2d((2, 2))
 
         self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS, 2, use_cuda=True)
 
-
         self.act = nn.SELU()
+        # self.act = nn.ReLU()
 
     def forward(self, x):
         x = self.act(self.conv1(x))
@@ -96,20 +96,21 @@ class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # self.conv1 = nn.ConvTranspose2d(4, 3, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(3, 2, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.ConvTranspose2d(2, 1, (3, 3), stride=1, padding=1)
+        # self.conv1 = nn.ConvTranspose2d(6, 5, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.ConvTranspose2d(5, 3, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.ConvTranspose2d(3, 1, (3, 3), stride=1, padding=1)
+        #
+        # self.conv1 = nn.ConvTranspose2d(12, 8, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
 
-        self.conv1 = nn.ConvTranspose2d(12, 8, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
-
-        # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.ConvTranspose2d(16, 1, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(16, 1, (3, 3), stride=1, padding=1)
 
         self.upsample = nn.Upsample(scale_factor=(2, 2))
         self.act = nn.SELU()
+        # self.act = nn.ReLU()
 
     def forward(self, z):
         z = self.act(self.conv1(z))
