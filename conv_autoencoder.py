@@ -22,9 +22,9 @@ np.set_printoptions(threshold=sys.maxsize)
 # %%
 batch_size = 1000
 epochs = 0
-rbm_epochs = 3
+rbm_epochs = 10
 rbm_epochs_single = 15
-target_digit = 1
+target_digit = 9
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 32
@@ -32,8 +32,8 @@ RBM_VISIBLE_UNITS = filters * 28 * 28
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.21
 RBM_HIDDEN_UNITS = 500
-# torch.manual_seed(0)
-# np.random.seed(0)
+torch.manual_seed(0)
+np.random.seed(0)
 
 # %% Load data
 train_data = MNIST('./data', train=False, download=True,
@@ -73,11 +73,11 @@ class Encoder(nn.Module):
         # self.conv2 = nn.Conv2d(3, 5, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.Conv2d(5, 6, (3, 3), stride=1, padding=1)
 
-        nn.init.normal_(self.conv1.weight, 0, variance)
+        # nn.init.normal_(self.conv1.weight, 0, variance)
         # nn.init.normal_(self.conv2.weight, 0, variance)
         # nn.init.normal_(self.conv3.weight, 0, variance)
 
-        # nn.init.xavier_normal_(self.conv1.weight, 1.0)
+        nn.init.xavier_normal_(self.conv1.weight, 2.0)
         # nn.init.xavier_normal_(self.conv2.weight, 0.5)
         # nn.init.xavier_normal_(self.conv3.weight, 0.1)
 

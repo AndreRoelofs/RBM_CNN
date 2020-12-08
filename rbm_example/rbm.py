@@ -13,6 +13,8 @@ class RBM():
         self.use_cuda = use_cuda
 
         self.weights = torch.randn(num_visible, num_hidden) * 0.1
+        torch.nn.init.normal_(self.weights, 0, 0.5)
+
         self.visible_bias = torch.ones(num_visible) * 0.5
         self.hidden_bias = torch.zeros(num_hidden)
 
