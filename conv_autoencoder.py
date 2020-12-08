@@ -24,9 +24,10 @@ batch_size = 100
 epochs = 0
 rbm_epochs = 3
 target_digit = 1
-RBM_VISIBLE_UNITS = 128 * 7 * 7
+# RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-# RBM_VISIBLE_UNITS = 32 * 28 * 28
+RBM_VISIBLE_UNITS = 32 * 28 * 28
+# RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
 RBM_HIDDEN_UNITS = 500
 
@@ -82,6 +83,9 @@ class Encoder(nn.Module):
     def forward(self, x):
         return self._forward_3(x)
 
+    def _forward_0(self, x):
+        return x
+
     def _forward_1(self, x):
         x = self.act(self.conv1(x))
         return x
@@ -129,6 +133,7 @@ class Decoder(nn.Module):
         self.conv2 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
         self.conv3 = nn.ConvTranspose2d(32, 1, (3, 3), stride=1, padding=1)
 
+        # nn.init.zeros_(self.conv1.weight)
         nn.init.normal_(self.conv1.weight, 0, variance)
         nn.init.normal_(self.conv2.weight, 0, variance)
         nn.init.normal_(self.conv3.weight, 0, variance)
@@ -213,9 +218,10 @@ class AE(nn.Module):
         with torch.no_grad():
             for i, (data, _) in enumerate(self.train_loader):
                 data = data.to(self.device)
-                rbm_input = self.model.encode(data)
+                # rbm_input = self.model.encode(data)
                 # rbm_input = self.model.encoder._forward_2(data)
-                # rbm_input = self.model.encoder._forward_1(data)
+                rbm_input = self.model.encoder._forward_1(data)
+                # rbm_input = self.model.encoder._forward_0(data)
                 self.model.encoder.train_rbm(rbm_input)
 
     def test(self):
@@ -256,9 +262,10 @@ for data, target in model.test_loader:
     used_images = used_images.to(model.device)
     output = model.model(used_images)
     output_images = output
-    rbm_input = model.model.encode(used_images)
+    # rbm_input = model.model.encode(used_images)
     # rbm_input = model.model.encoder._forward_2(used_images)
-    # rbm_input = model.model.encoder._forward_1(used_images)
+    rbm_input = model.model.encoder._forward_1(used_images)
+    # rbm_input = model.model.encoder._forward_0(data).to(model.device)
     output_energies = model.model.encoder.get_rbm(rbm_input)
 
     # for i in range(used_images.shape[0]):
@@ -294,9 +301,11 @@ to_output = []
 
 for data, target in model.test_loader:
     data = data.to(model.device)
-    rbm_input = model.model.encode(data)
+    # rbm_input = model.model.encode(data)
     # rbm_input = model.model.encoder._forward_2(data)
-    # rbm_input = model.model.encoder._forward_1(data)
+    rbm_input = model.model.encoder._forward_1(data)
+    # rbm_input = model.model.encoder._forward_0(data).to(model.device)
+
 
     output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
     target = target.cpu().detach()
