@@ -21,14 +21,14 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # %%
 batch_size = 1000
-epochs = 0
+epochs = 10
 rbm_epochs = 10
-rbm_epochs_single = 15
-target_digit = 9
+rbm_epochs_single = 30
+target_digit = 2
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 64
-RBM_VISIBLE_UNITS = filters * 32 * 32
+RBM_VISIBLE_UNITS = filters * 8 * 8
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.21
 RBM_HIDDEN_UNITS = 500
@@ -68,9 +68,9 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(3, filters, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(3, 16, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
 
         # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
@@ -84,15 +84,15 @@ class Encoder(nn.Module):
         # nn.init.normal_(self.conv2.weight, 0, variance)
         # nn.init.normal_(self.conv3.weight, 0, variance)
 
-        nn.init.xavier_normal_(self.conv1.weight, 2.0)
-        # nn.init.xavier_normal_(self.conv2.weight, 0.5)
-        # nn.init.xavier_normal_(self.conv3.weight, 0.1)
+        nn.init.xavier_normal_(self.conv1.weight, 10.0)
+        nn.init.xavier_normal_(self.conv2.weight, 5.0)
+        nn.init.xavier_normal_(self.conv3.weight, 1.0)
 
         self.maxpool = nn.MaxPool2d((2, 2))
 
         self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
                        k=1,
-                       learning_rate=1e-3,
+                       learning_rate=1e-10,
                        momentum_coefficient=0.1,
                        weight_decay=0,
                        use_cuda=True)
@@ -118,10 +118,10 @@ class Encoder(nn.Module):
 
     def _forward_3(self, x):
         x = self.act(self.conv1(x))
-        # print(x.shape)
-        # x = self.maxpool(x)
-        # x = self.act(self.conv2(x))
-        # x = self.act(self.conv3(x))
+        x = self.maxpool(x)
+        x = self.act(self.conv2(x))
+        x = self.maxpool(x)
+        x = self.act(self.conv3(x))
 
         return x
 
@@ -150,24 +150,27 @@ class Decoder(nn.Module):
         # self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
 
-        # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(filters, 3, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(16, 3, (3, 3), stride=1, padding=1)
 
         # nn.init.zeros_(self.conv1.weight)
         # nn.init.normal_(self.conv1.weight, 0, variance)
         # nn.init.normal_(self.conv2.weight, 0, variance)
-        nn.init.normal_(self.conv3.weight, 0, variance)
+        # nn.init.normal_(self.conv3.weight, 0, variance)
+        nn.init.xavier_normal_(self.conv1.weight, 1.0)
+        nn.init.xavier_normal_(self.conv2.weight, 5.0)
+        nn.init.xavier_normal_(self.conv3.weight, 10.0)
 
         self.upsample = nn.Upsample(scale_factor=(2, 2))
         self.act = nn.SELU()
         # self.act = nn.ReLU()
 
     def forward(self, z):
-        # z = self.act(self.conv1(z))
-        # z = self.upsample(z)
-        # z = self.act(self.conv2(z))
-        # z = self.upsample(z)
+        z = self.act(self.conv1(z))
+        z = self.upsample(z)
+        z = self.act(self.conv2(z))
+        z = self.upsample(z)
         z = torch.sigmoid(self.conv3(z))
 
         return z
@@ -296,8 +299,8 @@ for data, target in model.test_loader:
     #     labels.append(0)
 
     for i in range(used_images.shape[0]):
-        # label = output_images[i]
-        label = used_images[i]
+        label = output_images[i]
+        # label = used_images[i]
         images.append(label.cpu().detach().numpy())
         energy = torch.mean(output_energies[i])
         labels.append(target[i].detach().numpy())
