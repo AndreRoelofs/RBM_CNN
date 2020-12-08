@@ -21,10 +21,13 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # %%
 batch_size = 100
-epochs = 10
-rbm_epochs = 30
+epochs = 0
+rbm_epochs = 3
 target_digit = 1
-RBM_VISIBLE_UNITS = 64 * 7 * 7
+RBM_VISIBLE_UNITS = 128 * 7 * 7
+# RBM_VISIBLE_UNITS = 64 * 14 * 14
+# RBM_VISIBLE_UNITS = 32 * 28 * 28
+variance = 0.07
 RBM_HIDDEN_UNITS = 500
 
 # %% Load data
@@ -53,9 +56,9 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, 16, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(1, 32, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, (3, 3), stride=1, padding=1)
 
         # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
@@ -65,20 +68,36 @@ class Encoder(nn.Module):
         # self.conv2 = nn.Conv2d(3, 5, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.Conv2d(5, 6, (3, 3), stride=1, padding=1)
 
+        nn.init.normal_(self.conv1.weight, 0, variance)
+        nn.init.normal_(self.conv2.weight, 0, variance)
+        nn.init.normal_(self.conv3.weight, 0, variance)
+
         self.maxpool = nn.MaxPool2d((2, 2))
 
-        self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS, 2, learning_rate=1e-2, momentum_coefficient=0.9, use_cuda=True)
+        self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS, 5, learning_rate=1e-3, momentum_coefficient=0.1, use_cuda=True)
 
         self.act = nn.SELU()
         # self.act = nn.ReLU()
 
     def forward(self, x):
+        return self._forward_3(x)
+
+    def _forward_1(self, x):
+        x = self.act(self.conv1(x))
+        return x
+
+    def _forward_2(self, x):
+        x = self.act(self.conv1(x))
+        x = self.maxpool(x)
+        x = self.act(self.conv2(x))
+        return x
+
+    def _forward_3(self, x):
         x = self.act(self.conv1(x))
         x = self.maxpool(x)
         x = self.act(self.conv2(x))
         x = self.maxpool(x)
         x = self.act(self.conv3(x))
-
         return x
 
     def train_rbm(self, x):
@@ -106,9 +125,13 @@ class Decoder(nn.Module):
         # self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
 
-        self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(16, 1, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.ConvTranspose2d(128, 64, (3, 3), stride=1, padding=1)
+        self.conv2 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(32, 1, (3, 3), stride=1, padding=1)
+
+        nn.init.normal_(self.conv1.weight, 0, variance)
+        nn.init.normal_(self.conv2.weight, 0, variance)
+        nn.init.normal_(self.conv3.weight, 0, variance)
 
         self.upsample = nn.Upsample(scale_factor=(2, 2))
         self.act = nn.SELU()
@@ -191,6 +214,8 @@ class AE(nn.Module):
             for i, (data, _) in enumerate(self.train_loader):
                 data = data.to(self.device)
                 rbm_input = self.model.encode(data)
+                # rbm_input = self.model.encoder._forward_2(data)
+                # rbm_input = self.model.encoder._forward_1(data)
                 self.model.encoder.train_rbm(rbm_input)
 
     def test(self):
@@ -232,6 +257,8 @@ for data, target in model.test_loader:
     output = model.model(used_images)
     output_images = output
     rbm_input = model.model.encode(used_images)
+    # rbm_input = model.model.encoder._forward_2(used_images)
+    # rbm_input = model.model.encoder._forward_1(used_images)
     output_energies = model.model.encoder.get_rbm(rbm_input)
 
     # for i in range(used_images.shape[0]):
@@ -268,6 +295,9 @@ to_output = []
 for data, target in model.test_loader:
     data = data.to(model.device)
     rbm_input = model.model.encode(data)
+    # rbm_input = model.model.encoder._forward_2(data)
+    # rbm_input = model.model.encoder._forward_1(data)
+
     output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
     target = target.cpu().detach()
     data = data.cpu().detach()
@@ -276,13 +306,17 @@ for data, target in model.test_loader:
         t = target[i]
         energy = output_energies[i]
 
-        to_output.append([t.numpy(), torch.sum(energy).numpy(), data[i].numpy()])
+        to_output.append([t.numpy(), torch.mean(energy).numpy(), data[i].numpy()])
 
 to_output = np.array(to_output)
 to_output = to_output[to_output[:, 1].argsort()]
 print(to_output[:, 0])
 
-print([i for i, e in enumerate(to_output) if int(e[0]) == target_digit])
+target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
+
+print(target_digit_indices)
+
+print("500 test: {}".format(target_digit_indices[500]-500))
 
 
 
