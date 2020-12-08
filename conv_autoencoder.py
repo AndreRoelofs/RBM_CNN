@@ -22,17 +22,18 @@ np.set_printoptions(threshold=sys.maxsize)
 # %%
 batch_size = 1000
 epochs = 0
-rbm_epochs = 30
+rbm_epochs = 3
 rbm_epochs_single = 15
-target_digit = 0
+target_digit = 1
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-RBM_VISIBLE_UNITS = 64 * 28 * 28
+filters = 32
+RBM_VISIBLE_UNITS = filters * 28 * 28
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
-variance = 0.07
+variance = 0.21
 RBM_HIDDEN_UNITS = 500
-torch.manual_seed(0)
-np.random.seed(0)
+# torch.manual_seed(0)
+# np.random.seed(0)
 
 # %% Load data
 train_data = MNIST('./data', train=False, download=True,
@@ -60,9 +61,9 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, 16, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
+        # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
 
         # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
@@ -73,8 +74,8 @@ class Encoder(nn.Module):
         # self.conv3 = nn.Conv2d(5, 6, (3, 3), stride=1, padding=1)
 
         nn.init.normal_(self.conv1.weight, 0, variance)
-        nn.init.normal_(self.conv2.weight, 0, variance)
-        nn.init.normal_(self.conv3.weight, 0, variance)
+        # nn.init.normal_(self.conv2.weight, 0, variance)
+        # nn.init.normal_(self.conv3.weight, 0, variance)
 
         # nn.init.xavier_normal_(self.conv1.weight, 1.0)
         # nn.init.xavier_normal_(self.conv2.weight, 0.5)
@@ -86,7 +87,7 @@ class Encoder(nn.Module):
                        k=1,
                        learning_rate=1e-3,
                        momentum_coefficient=0.1,
-                       # weight_decay=0,
+                       weight_decay=0,
                        use_cuda=True)
 
         self.act = nn.SELU()
@@ -111,8 +112,8 @@ class Encoder(nn.Module):
     def _forward_3(self, x):
         x = self.act(self.conv1(x))
         # x = self.maxpool(x)
-        x = self.act(self.conv2(x))
-        x = self.act(self.conv3(x))
+        # x = self.act(self.conv2(x))
+        # x = self.act(self.conv3(x))
 
         return x
 
@@ -124,7 +125,7 @@ class Encoder(nn.Module):
 
     def get_rbm(self, x):
         flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
-        return self.rbm.sample_hidden(flat_x)
+        return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
 
@@ -141,13 +142,13 @@ class Decoder(nn.Module):
         # self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
 
-        self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
-        self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(16, 1, (3, 3), stride=1, padding=1)
+        # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(filters, 1, (3, 3), stride=1, padding=1)
 
         # nn.init.zeros_(self.conv1.weight)
-        nn.init.normal_(self.conv1.weight, 0, variance)
-        nn.init.normal_(self.conv2.weight, 0, variance)
+        # nn.init.normal_(self.conv1.weight, 0, variance)
+        # nn.init.normal_(self.conv2.weight, 0, variance)
         nn.init.normal_(self.conv3.weight, 0, variance)
 
         self.upsample = nn.Upsample(scale_factor=(2, 2))
@@ -155,9 +156,9 @@ class Decoder(nn.Module):
         # self.act = nn.ReLU()
 
     def forward(self, z):
-        z = self.act(self.conv1(z))
+        # z = self.act(self.conv1(z))
         # z = self.upsample(z)
-        z = self.act(self.conv2(z))
+        # z = self.act(self.conv2(z))
         # z = self.upsample(z)
         z = torch.sigmoid(self.conv3(z))
 
@@ -260,52 +261,52 @@ for epoch in range(rbm_epochs):
 # model.test()
 
 # %% Visualise data
-# num_images = 10
-#
-# num_row = 2
-# num_col = num_images
-#
-# images = []
-# labels = []
-# energies = []
-#
-# for data, target in model.test_loader:
-#     used_images = data[:num_images, :, :, :]
-#     used_images = used_images.to(model.device)
-#     output = model.model(used_images)
-#     output_images = output
-#     # rbm_input = model.model.encode(used_images)
-#     # rbm_input = model.model.encoder._forward_2(used_images)
-#     rbm_input = model.model.encoder._forward_1(used_images)
-#     # rbm_input = model.model.encoder._forward_0(data).to(model.device)
-#     output_energies = model.model.encoder.get_rbm(rbm_input)
-#
-#     # for i in range(used_images.shape[0]):
-#     #     image = used_images[i]
-#     #     images.append(image[0].cpu().detach().numpy())
-#     #     energy = torch.sum(output_energies[i])
-#     #     labels.append(0)
-#
-#     for i in range(used_images.shape[0]):
-#         label = output_images[i]
-#         images.append(label[0].cpu().detach().numpy())
-#         energy = torch.mean(output_energies[i])
-#         labels.append(target[i].detach().numpy())
-#         energies.append(np.around(energy.cpu().detach().numpy(), 5))
-#
-#     if num_images * 2 <= len(images):
-#         images = images[:num_images*2]
-#         labels = labels[:num_images*2]
-#         energies = energies[:num_images*2]
-#         break
-#
-# fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
-# for i in range(num_images * 2):
-#     ax = axes[i // num_col, i % num_col]
-#     ax.imshow(images[i], cmap='gray')
-#     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
-# plt.tight_layout()
-# plt.show()
+num_images = 10
+
+num_row = 2
+num_col = num_images
+
+images = []
+labels = []
+energies = []
+
+for data, target in model.test_loader:
+    used_images = data[:num_images, :, :, :]
+    used_images = used_images.to(model.device)
+    output = model.model(used_images)
+    output_images = output
+    rbm_input = model.model.encode(used_images)
+    # rbm_input = model.model.encoder._forward_2(used_images)
+    # rbm_input = model.model.encoder._forward_1(used_images)
+    # rbm_input = model.model.encoder._forward_0(data).to(model.device)
+    output_energies = model.model.encoder.get_rbm(rbm_input)
+
+    # for i in range(used_images.shape[0]):
+    #     image = used_images[i]
+    #     images.append(image[0].cpu().detach().numpy())
+    #     energy = torch.sum(output_energies[i])
+    #     labels.append(0)
+
+    for i in range(used_images.shape[0]):
+        label = output_images[i]
+        images.append(label[0].cpu().detach().numpy())
+        energy = torch.mean(output_energies[i])
+        labels.append(target[i].detach().numpy())
+        energies.append(np.around(energy.cpu().detach().numpy(), 5))
+
+    if num_images * 2 <= len(images):
+        images = images[:num_images*2]
+        labels = labels[:num_images*2]
+        energies = energies[:num_images*2]
+        break
+
+fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
+for i in range(num_images * 2):
+    ax = axes[i // num_col, i % num_col]
+    ax.imshow(images[i], cmap='gray')
+    ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
+plt.tight_layout()
+plt.show()
 #%% Print out experiment results
 energies = []
 labels = []
@@ -317,8 +318,6 @@ for data, target in model.test_loader:
     # rbm_input = model.model.encoder._forward_2(data)
     # rbm_input = model.model.encoder._forward_1(data)
     # rbm_input = model.model.encoder._forward_0(data).to(model.device)
-
-
     output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
     target = target.cpu().detach()
     data = data.cpu().detach()
