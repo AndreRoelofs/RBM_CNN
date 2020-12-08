@@ -9,7 +9,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 import matplotlib.pyplot as plt
 import os
 import sys
@@ -27,8 +27,8 @@ rbm_epochs_single = 15
 target_digit = 9
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 32
-RBM_VISIBLE_UNITS = filters * 28 * 28
+filters = 64
+RBM_VISIBLE_UNITS = filters * 32 * 32
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.21
 RBM_HIDDEN_UNITS = 500
@@ -36,11 +36,15 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 # %% Load data
-train_data = MNIST('./data', train=False, download=True,
+train_data = CIFAR10('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor()]))
+# train_data = MNIST('./data', train=False, download=True,
+#                    transform=transforms.Compose([
+#                        transforms.ToTensor()]))
 
-subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
+
+subset_indices = (torch.tensor(train_data.targets) == target_digit).nonzero().view(-1)
 
 # mask = train_data.targets == target_digit
 # indices = torch.nonzero(mask)
@@ -52,7 +56,10 @@ subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
 # indices = torch.nonzero(target[mask])
 # target = target[indices]
 
-test_data = MNIST('./data', train=False, transform=transforms.Compose([
+# test_data = MNIST('./data', train=False, transform=transforms.Compose([
+#     transforms.ToTensor()]))
+
+test_data = CIFAR10('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor()]))
 
 
@@ -61,7 +68,7 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(3, filters, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
 
@@ -111,6 +118,7 @@ class Encoder(nn.Module):
 
     def _forward_3(self, x):
         x = self.act(self.conv1(x))
+        # print(x.shape)
         # x = self.maxpool(x)
         # x = self.act(self.conv2(x))
         # x = self.act(self.conv3(x))
@@ -144,7 +152,7 @@ class Decoder(nn.Module):
 
         # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(filters, 1, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(filters, 3, (3, 3), stride=1, padding=1)
 
         # nn.init.zeros_(self.conv1.weight)
         # nn.init.normal_(self.conv1.weight, 0, variance)
@@ -288,8 +296,9 @@ for data, target in model.test_loader:
     #     labels.append(0)
 
     for i in range(used_images.shape[0]):
-        label = output_images[i]
-        images.append(label[0].cpu().detach().numpy())
+        # label = output_images[i]
+        label = used_images[i]
+        images.append(label.cpu().detach().numpy())
         energy = torch.mean(output_energies[i])
         labels.append(target[i].detach().numpy())
         energies.append(np.around(energy.cpu().detach().numpy(), 5))
@@ -303,7 +312,7 @@ for data, target in model.test_loader:
 fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
 for i in range(num_images * 2):
     ax = axes[i // num_col, i % num_col]
-    ax.imshow(images[i], cmap='gray')
+    ax.imshow(images[i].transpose())
     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
 plt.tight_layout()
 plt.show()
