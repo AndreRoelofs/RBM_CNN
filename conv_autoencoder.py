@@ -67,7 +67,7 @@ class Encoder(nn.Module):
 
         self.maxpool = nn.MaxPool2d((2, 2))
 
-        self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS, 2, use_cuda=True)
+        self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS, 2, learning_rate=1e-2, momentum_coefficient=0.9, use_cuda=True)
 
         self.act = nn.SELU()
         # self.act = nn.ReLU()
@@ -83,7 +83,9 @@ class Encoder(nn.Module):
 
     def train_rbm(self, x):
         flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
-        self.rbm.contrastive_divergence(flat_x)
+
+        for i in range(15):
+            self.rbm.contrastive_divergence(flat_x)
 
     def get_rbm(self, x):
         flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
@@ -268,16 +270,17 @@ for data, target in model.test_loader:
     rbm_input = model.model.encode(data)
     output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
     target = target.cpu().detach()
+    data = data.cpu().detach()
 
     for i in range(data.shape[0]):
         t = target[i]
         energy = output_energies[i]
 
-        to_output.append([t.numpy(), torch.mean(energy).numpy()])
+        to_output.append([t.numpy(), torch.sum(energy).numpy(), data[i].numpy()])
 
 to_output = np.array(to_output)
 to_output = to_output[to_output[:, 1].argsort()]
-print(to_output)
+print(to_output[:, 0])
 
 print([i for i, e in enumerate(to_output) if int(e[0]) == target_digit])
 
