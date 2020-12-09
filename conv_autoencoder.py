@@ -22,10 +22,10 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # %%
 batch_size = 1000
-epochs = 0
+epochs = 10
 rbm_epochs = 10
 rbm_epochs_single = 15
-target_digit = 9
+target_digit = 8
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
