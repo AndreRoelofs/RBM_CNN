@@ -24,7 +24,7 @@ batch_size = 1000
 epochs = 0
 rbm_epochs = 10
 rbm_epochs_single = 15
-target_digit = 9
+target_digit = 1
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 32
@@ -336,6 +336,7 @@ target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == targe
 
 print(target_digit_indices)
 
+# print("1000 test: {}".format(target_digit_indices[1000]-1000))
 print("500 test: {}".format(target_digit_indices[500]-500))
 print("100 test: {}".format(target_digit_indices[100]-100))
 
