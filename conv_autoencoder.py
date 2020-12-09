@@ -9,6 +9,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
+from torchvision.transforms.functional import resize
 from torchvision.datasets import MNIST
 import matplotlib.pyplot as plt
 import os
@@ -27,16 +28,18 @@ rbm_epochs_single = 15
 target_digit = 9
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 32
-RBM_VISIBLE_UNITS = filters * 28 * 28
+filters = 8
+# RBM_VISIBLE_UNITS = filters * 14**2
+size = 14
+RBM_VISIBLE_UNITS = filters * size**2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.21
-RBM_HIDDEN_UNITS = 500
+RBM_HIDDEN_UNITS = 100
 torch.manual_seed(0)
 np.random.seed(0)
 
 # %% Load data
-train_data = MNIST('./data', train=False, download=True,
+train_data = MNIST('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor()]))
 
@@ -118,12 +121,14 @@ class Encoder(nn.Module):
         return x
 
     def train_rbm(self, x):
+        x = resize(x, [size, size])
         flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
 
         for i in range(rbm_epochs_single):
             self.rbm.contrastive_divergence(flat_x)
 
     def get_rbm(self, x):
+        x = resize(x, [size, size])
         flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
         return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
@@ -190,6 +195,7 @@ class AE(nn.Module):
     def __init__(self):
         super().__init__()
         self.device = torch.device("cuda")
+        # self.device = torch.device("cpu")
         self.model = Network()
         self.model.to(self.device)
 
@@ -336,8 +342,10 @@ target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == targe
 
 print(target_digit_indices)
 
-print("500 test: {}".format(target_digit_indices[500]-500))
 print("100 test: {}".format(target_digit_indices[100]-100))
+print("500 test: {}".format(target_digit_indices[500]-500))
+print("1000 test: {}".format(target_digit_indices[1000]-1000))
+
 
 
 
