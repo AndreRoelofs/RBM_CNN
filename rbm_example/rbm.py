@@ -33,12 +33,12 @@ class RBM():
 
     def sample_hidden(self, visible_probabilities):
         hidden_activations = torch.matmul(visible_probabilities, self.weights) + self.hidden_bias
-        hidden_probabilities = self._sigmoid(hidden_activations)
+        hidden_probabilities = torch.sigmoid(hidden_activations)
         return hidden_probabilities
 
     def sample_visible(self, hidden_probabilities):
         visible_activations = torch.matmul(hidden_probabilities, self.weights.t()) + self.visible_bias
-        visible_probabilities = self._sigmoid(visible_activations)
+        visible_probabilities = torch.sigmoid(visible_activations)
         return visible_probabilities
 
     def contrastive_divergence(self, input_data, update_weights=True):
@@ -81,6 +81,8 @@ class RBM():
 
             self.weights -= self.weights * self.weight_decay  # L2 weight decay
 
+        if update_weights:
+            return visible_probabilities
         # Compute reconstruction error
         error = torch.sum((input_data - negative_visible_probabilities)**2, dim=1)
 

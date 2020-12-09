@@ -23,7 +23,7 @@ np.set_printoptions(threshold=sys.maxsize)
 # %%
 batch_size = 1000
 epochs = 10
-rbm_epochs = 10
+rbm_epochs = 0
 rbm_epochs_single = 15
 target_digit = 8
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
@@ -65,26 +65,7 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
-
-        # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(8, 12, (3, 3), stride=1, padding=1)
-        #
-        # self.conv1 = nn.Conv2d(1, 3, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(3, 5, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(5, 6, (3, 3), stride=1, padding=1)
-
-        # nn.init.normal_(self.conv1.weight, 0, variance)
-        # nn.init.normal_(self.conv2.weight, 0, variance)
-        # nn.init.normal_(self.conv3.weight, 0, variance)
-
         nn.init.xavier_normal_(self.conv1.weight, 2.0)
-        # nn.init.xavier_normal_(self.conv2.weight, 0.5)
-        # nn.init.xavier_normal_(self.conv3.weight, 0.1)
-
-        self.maxpool = nn.MaxPool2d((2, 2))
 
         self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
                        k=1,
@@ -94,43 +75,11 @@ class Encoder(nn.Module):
                        use_cuda=True)
 
         self.act = nn.SELU()
-        # self.act = nn.ReLU()
 
     def forward(self, x):
-        return self._forward_3(x)
+        return torch.sigmoid(self.act(self.conv1(x)))
 
-    def _forward_0(self, x):
-        return x
 
-    def _forward_1(self, x):
-        x = self.act(self.conv1(x))
-        return x
-
-    def _forward_2(self, x):
-        x = self.act(self.conv1(x))
-        x = self.maxpool(x)
-        x = self.act(self.conv2(x))
-        return x
-
-    def _forward_3(self, x):
-        x = self.act(self.conv1(x))
-        # x = self.maxpool(x)
-        # x = self.act(self.conv2(x))
-        # x = self.act(self.conv3(x))
-
-        return x
-
-    def train_rbm(self, x):
-        x = resize(x, [size, size])
-        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
-
-        for i in range(rbm_epochs_single):
-            self.rbm.contrastive_divergence(flat_x)
-
-    def get_rbm(self, x):
-        x = resize(x, [size, size])
-        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
-        return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
 
@@ -138,22 +87,8 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
-
-        # self.conv1 = nn.ConvTranspose2d(6, 5, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(5, 3, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.ConvTranspose2d(3, 1, (3, 3), stride=1, padding=1)
-        #
-        # self.conv1 = nn.ConvTranspose2d(12, 8, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
-
-        # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
         self.conv3 = nn.ConvTranspose2d(filters, 1, (3, 3), stride=1, padding=1)
 
-        # nn.init.zeros_(self.conv1.weight)
-        # nn.init.normal_(self.conv1.weight, 0, variance)
-        # nn.init.normal_(self.conv2.weight, 0, variance)
         nn.init.normal_(self.conv3.weight, 0, variance)
 
         self.upsample = nn.Upsample(scale_factor=(2, 2))
@@ -178,17 +113,42 @@ class Network(nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = Encoder()
-        self.decoder = Decoder()
+        self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
+                       k=1,
+                       learning_rate=1e-3,
+                       momentum_coefficient=0.1,
+                       weight_decay=0,
+                       use_cuda=True)
+        # self.decoder = Decoder()
 
     def encode(self, x):
         return self.encoder(x)
 
-    def decode(self, z):
-        return self.decoder(z)
+    # def decode(self, z):
+    #     return self.decoder(z)
 
     def forward(self, x):
         z = self.encode(x)
-        return self.decode(z)
+        z = resize(z, [size, size])
+        flat_z = z.view(len(z), RBM_VISIBLE_UNITS)
+        # self.rbm.contrastive_divergence(flat_z)
+
+        hidden = self.rbm.sample_hidden(flat_z)
+        visible = self.rbm.sample_visible(hidden)
+
+        return z, visible
+
+    def train_rbm(self, x):
+        x = resize(x, [size, size])
+        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
+
+        for i in range(rbm_epochs_single):
+            self.rbm.contrastive_divergence(flat_x)
+
+    def get_rbm(self, x):
+        x = resize(x, [size, size])
+        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
+        return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
 class AE(nn.Module):
@@ -210,7 +170,8 @@ class AE(nn.Module):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
     def loss_function(self, recon_x, x):
-        return F.binary_cross_entropy(recon_x, x, reduction='sum')
+        return F.mse_loss(x, recon_x)
+        # return F.binary_cross_entropy(recon_x, x, reduction='sum')
 
     def train(self, epoch):
         self.model.train()
@@ -218,11 +179,13 @@ class AE(nn.Module):
         for batch_idx, (data, _) in enumerate(self.train_loader):
             data = data.to(self.device)
             self.optimizer.zero_grad()
-            recon_batch = self.model(data)
-            loss = self.loss_function(recon_batch, data)
+            z, recon_z = self.model(data)
+            recon_z = recon_z.reshape((data.shape[0], filters, size, size))
+            loss = self.loss_function(recon_z, z)
             loss.backward()
             train_loss += loss.item()
             self.optimizer.step()
+            # self.model.train_rbm(z)
             if batch_idx % self.log_interval == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, batch_idx * len(data), len(self.train_loader.dataset),
@@ -260,59 +223,61 @@ class AE(nn.Module):
 
 model = AE()
 
+torch.autograd.set_detect_anomaly(True)
 for epoch in range(epochs):
     model.train(epoch)
 for epoch in range(rbm_epochs):
     model.train_rbm()
 # model.test()
 
+
 # %% Visualise data
-num_images = 10
-
-num_row = 2
-num_col = num_images
-
-images = []
-labels = []
-energies = []
-
-for data, target in model.test_loader:
-    used_images = data[:num_images, :, :, :]
-    used_images = used_images.to(model.device)
-    output = model.model(used_images)
-    output_images = output
-    rbm_input = model.model.encode(used_images)
-    # rbm_input = model.model.encoder._forward_2(used_images)
-    # rbm_input = model.model.encoder._forward_1(used_images)
-    # rbm_input = model.model.encoder._forward_0(data).to(model.device)
-    output_energies = model.model.encoder.get_rbm(rbm_input)
-
-    # for i in range(used_images.shape[0]):
-    #     image = used_images[i]
-    #     images.append(image[0].cpu().detach().numpy())
-    #     energy = torch.sum(output_energies[i])
-    #     labels.append(0)
-
-    for i in range(used_images.shape[0]):
-        label = output_images[i]
-        images.append(label[0].cpu().detach().numpy())
-        energy = torch.mean(output_energies[i])
-        labels.append(target[i].detach().numpy())
-        energies.append(np.around(energy.cpu().detach().numpy(), 5))
-
-    if num_images * 2 <= len(images):
-        images = images[:num_images*2]
-        labels = labels[:num_images*2]
-        energies = energies[:num_images*2]
-        break
-
-fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
-for i in range(num_images * 2):
-    ax = axes[i // num_col, i % num_col]
-    ax.imshow(images[i], cmap='gray')
-    ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
-plt.tight_layout()
-plt.show()
+# num_images = 10
+#
+# num_row = 2
+# num_col = num_images
+#
+# images = []
+# labels = []
+# energies = []
+#
+# for data, target in model.test_loader:
+#     used_images = data[:num_images, :, :, :]
+#     used_images = used_images.to(model.device)
+#     output = model.model(used_images)
+#     output_images = output[1]
+#     rbm_input = model.model.encode(used_images)
+#     # rbm_input = model.model.encoder._forward_2(used_images)
+#     # rbm_input = model.model.encoder._forward_1(used_images)
+#     # rbm_input = model.model.encoder._forward_0(data).to(model.device)
+#     output_energies = model.model.get_rbm(rbm_input)
+#
+#     # for i in range(used_images.shape[0]):
+#     #     image = used_images[i]
+#     #     images.append(image[0].cpu().detach().numpy())
+#     #     energy = torch.sum(output_energies[i])
+#     #     labels.append(0)
+#
+#     for i in range(used_images.shape[0]):
+#         label = output_images[i]
+#         images.append(label[0].cpu().detach().numpy())
+#         energy = torch.mean(output_energies[i])
+#         labels.append(target[i].detach().numpy())
+#         energies.append(np.around(energy.cpu().detach().numpy(), 5))
+#
+#     if num_images * 2 <= len(images):
+#         images = images[:num_images*2]
+#         labels = labels[:num_images*2]
+#         energies = energies[:num_images*2]
+#         break
+#
+# fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
+# for i in range(num_images * 2):
+#     ax = axes[i // num_col, i % num_col]
+#     ax.imshow(images[i], cmap='gray')
+#     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
+# plt.tight_layout()
+# plt.show()
 #%% Print out experiment results
 energies = []
 labels = []
@@ -324,7 +289,7 @@ for data, target in model.test_loader:
     # rbm_input = model.model.encoder._forward_2(data)
     # rbm_input = model.model.encoder._forward_1(data)
     # rbm_input = model.model.encoder._forward_0(data).to(model.device)
-    output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
+    output_energies = model.model.get_rbm(rbm_input).cpu().detach()
     target = target.cpu().detach()
     data = data.cpu().detach()
 
