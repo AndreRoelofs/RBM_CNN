@@ -82,7 +82,8 @@ class RBM():
             self.weights -= self.weights * self.weight_decay  # L2 weight decay
 
         # Compute reconstruction error
-        error = torch.sum((input_data - negative_visible_probabilities)**2, dim=1)
+        # error = torch.sum((input_data - negative_visible_probabilities)**2, dim=1)
+        error = (input_data - negative_visible_probabilities)**2
 
         return error
 

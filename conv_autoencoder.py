@@ -23,9 +23,10 @@ np.set_printoptions(threshold=sys.maxsize)
 # %%
 batch_size = 1000
 epochs = 10
-rbm_epochs = 10
+rbm_epochs = 1
+ae_epochs = 3
 rbm_epochs_single = 30
-target_digit = 9
+target_digit = 5
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
@@ -90,7 +91,7 @@ class Encoder(nn.Module):
                        k=1,
                        learning_rate=1e-3,
                        momentum_coefficient=0.1,
-                       weight_decay=0,
+                       weight_decay=0.0,
                        use_cuda=True)
 
         self.act = nn.SELU()
@@ -172,6 +173,65 @@ class Decoder(nn.Module):
 
         return z
 
+def run_test():
+    to_output = []
+
+    for data, target in model.test_loader:
+        data = data.to(model.device)
+        rbm_input = model.model.encode(data)
+        # rbm_input = model.model.encoder._forward_2(data)
+        # rbm_input = model.model.encoder._forward_1(data)
+        # rbm_input = model.model.encoder._forward_0(data).to(model.device)
+        output_energies = torch.sum(model.model.encoder.get_rbm(rbm_input), dim=1).cpu().detach()
+        target = target.cpu().detach()
+        data = data.cpu().detach()
+
+        for i in range(data.shape[0]):
+            t = target[i]
+            energy = output_energies[i]
+
+            to_output.append([t.numpy(), torch.mean(energy).numpy(), data[i].numpy()])
+
+    to_output = np.array(to_output, dtype=object)
+    to_output = to_output[to_output[:, 1].argsort()]
+    # print(to_output[:, 0])
+
+    target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
+
+    # print(target_digit_indices)
+
+    print("500 test: {}".format(target_digit_indices[500]-500))
+    print("100 test: {}".format(target_digit_indices[100]-100))
+
+def run_max_test():
+    to_output = []
+
+    for data, target in model.test_loader:
+        data = data.to(model.device)
+        rbm_input = model.model.encode(data)
+        # rbm_input = model.model.encoder._forward_2(data)
+        # rbm_input = model.model.encoder._forward_1(data)
+        # rbm_input = model.model.encoder._forward_0(data).to(model.device)
+        output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
+        target = target.cpu().detach()
+        data = data.cpu().detach()
+
+        for i in range(data.shape[0]):
+            t = target[i]
+            energy = output_energies[i]
+
+            to_output.append([t.numpy(), energy.max().numpy(), data[i].numpy()])
+
+    to_output = np.array(to_output, dtype=object)
+    to_output = to_output[to_output[:, 1].argsort()]
+    # print(to_output[:, 0])
+
+    target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
+
+    # print(target_digit_indices)
+
+    print("500 max test: {}".format(target_digit_indices[500]-500))
+    print("100 max test: {}".format(target_digit_indices[100]-100))
 
 
 
@@ -249,7 +309,7 @@ class AE(nn.Module):
                 # rbm_input = self.model.encoder._forward_2(data)
                 # rbm_input = self.model.encoder._forward_1(data)
                 # rbm_input = self.model.encoder._forward_0(data)
-                train_loss += torch.sum(self.model.encoder.train_rbm(rbm_input))
+                train_loss += torch.mean(self.model.encoder.train_rbm(rbm_input))
             print('====> RBM Epoch: {} Average loss: {:.4f}'.format(
                 epoch, train_loss / len(self.train_loader.dataset)))
 
@@ -270,10 +330,15 @@ class AE(nn.Module):
 
 model = AE()
 
-for epoch in range(rbm_epochs):
-    model.train_rbm()
-    model.train(epoch)
-    model.train_rbm()
+for epoch in range(epochs):
+    for rbm_epoch in range(rbm_epochs):
+        model.train_rbm()
+    for ae_epoch in range(ae_epochs):
+        model.train(epoch)
+    run_test()
+    # run_max_test()
+
+model.train_rbm()
 
 
 # model.test()
@@ -326,38 +391,10 @@ for i in range(num_images * 2):
 plt.tight_layout()
 plt.show()
 #%% Print out experiment results
-energies = []
-labels = []
-to_output = []
 
-for data, target in model.test_loader:
-    data = data.to(model.device)
-    rbm_input = model.model.encode(data)
-    # rbm_input = model.model.encoder._forward_2(data)
-    # rbm_input = model.model.encoder._forward_1(data)
-    # rbm_input = model.model.encoder._forward_0(data).to(model.device)
-    output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
-    target = target.cpu().detach()
-    data = data.cpu().detach()
 
-    for i in range(data.shape[0]):
-        t = target[i]
-        energy = output_energies[i]
 
-        to_output.append([t.numpy(), torch.mean(energy).numpy(), data[i].numpy()])
-
-to_output = np.array(to_output)
-to_output = to_output[to_output[:, 1].argsort()]
-print(to_output[:, 0])
-
-target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
-
-print(target_digit_indices)
-
-print("500 test: {}".format(target_digit_indices[500]-500))
-print("100 test: {}".format(target_digit_indices[100]-100))
-# print("1000 test: {}".format(target_digit_indices[1000]-1000))
-
+run_test()
 
 
 
