@@ -12,7 +12,8 @@ class RBM():
         self.weight_decay = weight_decay
         self.use_cuda = use_cuda
 
-        self.act = torch.nn.SELU()
+        # self.act = torch.nn.SELU()
+        self.act = torch.nn.Sigmoid()
 
         self.weights = torch.randn(num_visible, num_hidden) * 0.1
         torch.nn.init.normal_(self.weights, 0, 0.5)

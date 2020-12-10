@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
 from torchvision.transforms.functional import resize
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 import matplotlib.pyplot as plt
 import os
 import sys
@@ -23,10 +23,10 @@ np.set_printoptions(threshold=sys.maxsize)
 # %%
 batch_size = 100
 epochs = 2
-rbm_epochs = 2
+rbm_epochs = 1
 ae_epochs = 1
-rbm_epochs_single = 5
-target_digit = 9
+rbm_epochs_single = 30
+target_digit = 0
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
@@ -35,16 +35,17 @@ size = 14
 RBM_VISIBLE_UNITS = filters * size**2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
-RBM_HIDDEN_UNITS = 100
+RBM_HIDDEN_UNITS = 300
 torch.manual_seed(0)
 np.random.seed(0)
 
 # %% Load data
-train_data = MNIST('./data', train=True, download=True,
+train_data = CIFAR10('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor()]))
 
-subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
+# subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
+subset_indices = (torch.tensor(train_data.targets) == target_digit).nonzero().view(-1)
 
 # mask = train_data.targets == target_digit
 # indices = torch.nonzero(mask)
@@ -56,7 +57,7 @@ subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
 # indices = torch.nonzero(target[mask])
 # target = target[indices]
 
-test_data = MNIST('./data', train=False, transform=transforms.Compose([
+test_data = CIFAR10('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor()]))
 
 
@@ -65,7 +66,7 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(3, filters, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
 
@@ -94,7 +95,8 @@ class Encoder(nn.Module):
                        weight_decay=0.0,
                        use_cuda=True)
 
-        self.act = nn.SELU()
+        # self.act = nn.SELU()
+        self.act = nn.Sigmoid()
         # self.act = nn.ReLU()
 
     def forward(self, x):
@@ -153,7 +155,7 @@ class Decoder(nn.Module):
 
         # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(filters, 1, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(filters, 3, (3, 3), stride=1, padding=1)
 
         # nn.init.zeros_(self.conv1.weight)
         # nn.init.normal_(self.conv1.weight, 0, variance)
@@ -195,6 +197,11 @@ def run_test():
     to_output = np.array(to_output, dtype=object)
     to_output = to_output[to_output[:, 1].argsort()]
     # print(to_output[:, 0])
+
+    target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == 0 or int(e[0]) == 1 or int(e[0]) == 8 or int(e[0]) == 9]
+
+    print("fake 500 test: {}".format(target_digit_indices[500]-500))
+    print("fake 100 test: {}".format(target_digit_indices[100]-100))
 
     target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
 
