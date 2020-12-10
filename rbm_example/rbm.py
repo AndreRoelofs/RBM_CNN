@@ -51,7 +51,7 @@ class RBM():
         positive_hidden_probabilities = self.sample_hidden(input_data)
         threshold = (positive_hidden_probabilities.max() - positive_hidden_probabilities.min())/1.5
         positive_hidden_activations = (positive_hidden_probabilities >= threshold).float()
-        # positive_hidden_activations = (positive_hidden_probabilities >= self._random_probabilities(self.num_hidden)).float()
+        # positive_hidden_activations = (positive_hidden_probabilities >= 0.999).float()
         positive_associations = torch.matmul(input_data.t(), positive_hidden_activations)
 
         # Negative phase
@@ -63,6 +63,7 @@ class RBM():
             threshold = (hidden_probabilities.max() - hidden_probabilities.min()) / 1.5
             hidden_activations = (hidden_probabilities >= threshold).float()
             # hidden_activations = (hidden_probabilities >= self._random_probabilities(self.num_hidden)).float()
+            # hidden_activations = (hidden_probabilities >= 0.999).float()
 
         negative_visible_probabilities = visible_probabilities
         negative_hidden_probabilities = hidden_probabilities
