@@ -24,8 +24,8 @@ np.set_printoptions(threshold=sys.maxsize)
 batch_size = 1000
 epochs = 10
 rbm_epochs = 10
-rbm_epochs_single = 15
-target_digit = 8
+rbm_epochs_single = 30
+target_digit = 9
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
@@ -33,7 +33,7 @@ filters = 8
 size = 14
 RBM_VISIBLE_UNITS = filters * size**2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
-variance = 0.21
+variance = 0.07
 RBM_HIDDEN_UNITS = 100
 torch.manual_seed(0)
 np.random.seed(0)
@@ -124,8 +124,11 @@ class Encoder(nn.Module):
         x = resize(x, [size, size])
         flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
 
+        error = 0
+
         for i in range(rbm_epochs_single):
-            self.rbm.contrastive_divergence(flat_x)
+            error += self.rbm.contrastive_divergence(flat_x)
+        return error
 
     def get_rbm(self, x):
         x = resize(x, [size, size])
@@ -178,17 +181,16 @@ class Network(nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = Encoder()
-        self.decoder = Decoder()
+        # self.decoder = Decoder()
 
     def encode(self, x):
         return self.encoder(x)
 
-    def decode(self, z):
-        return self.decoder(z)
+    # def decode(self, z):
+    #     return self.decoder(z)
 
     def forward(self, x):
-        z = self.encode(x)
-        return self.decode(z)
+        return self.encode(x)
 
 
 class AE(nn.Module):
@@ -210,7 +212,8 @@ class AE(nn.Module):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
     def loss_function(self, recon_x, x):
-        return F.binary_cross_entropy(recon_x, x, reduction='sum')
+        return F.mse_loss(x, recon_x)
+        # return F.binary_cross_entropy(recon_x, x, reduction='sum')
 
     def train(self, epoch):
         self.model.train()
@@ -218,8 +221,12 @@ class AE(nn.Module):
         for batch_idx, (data, _) in enumerate(self.train_loader):
             data = data.to(self.device)
             self.optimizer.zero_grad()
-            recon_batch = self.model(data)
-            loss = self.loss_function(recon_batch, data)
+            rbm_input = self.model(data)
+            rbm_input_x = resize(rbm_input, [size, size])
+            flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
+            hidden = self.model.encoder.rbm.sample_hidden(flat_rbm_input)
+            visible = self.model.encoder.rbm.sample_visible(hidden).reshape((data.shape[0], filters, size, size))
+            loss = self.loss_function(visible, rbm_input_x)
             loss.backward()
             train_loss += loss.item()
             self.optimizer.step()
@@ -229,19 +236,22 @@ class AE(nn.Module):
                            100. * batch_idx / len(self.train_loader),
                            loss.item() / len(data)))
 
-        print('====> Epoch: {} Average loss: {:.4f}'.format(
+        print('====> AE Epoch: {} Average loss: {:.4f}'.format(
             epoch, train_loss / len(self.train_loader.dataset)))
 
     def train_rbm(self):
         self.model.eval()
         with torch.no_grad():
-            for i, (data, _) in enumerate(self.train_loader):
+            train_loss = 0
+            for batch_idx, (data, _) in enumerate(self.train_loader):
                 data = data.to(self.device)
                 rbm_input = self.model.encode(data)
                 # rbm_input = self.model.encoder._forward_2(data)
                 # rbm_input = self.model.encoder._forward_1(data)
                 # rbm_input = self.model.encoder._forward_0(data)
-                self.model.encoder.train_rbm(rbm_input)
+                train_loss += torch.sum(self.model.encoder.train_rbm(rbm_input))
+            print('====> RBM Epoch: {} Average loss: {:.4f}'.format(
+                epoch, train_loss / len(self.train_loader.dataset)))
 
     def test(self):
         self.model.eval()
@@ -260,10 +270,12 @@ class AE(nn.Module):
 
 model = AE()
 
-for epoch in range(epochs):
-    model.train(epoch)
 for epoch in range(rbm_epochs):
     model.train_rbm()
+    model.train(epoch)
+    model.train_rbm()
+
+
 # model.test()
 
 # %% Visualise data
@@ -342,9 +354,9 @@ target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == targe
 
 print(target_digit_indices)
 
-print("100 test: {}".format(target_digit_indices[100]-100))
 print("500 test: {}".format(target_digit_indices[500]-500))
-print("1000 test: {}".format(target_digit_indices[1000]-1000))
+print("100 test: {}".format(target_digit_indices[100]-100))
+# print("1000 test: {}".format(target_digit_indices[1000]-1000))
 
 
 
