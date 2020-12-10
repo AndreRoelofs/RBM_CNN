@@ -10,28 +10,28 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
 from torchvision.transforms.functional import resize
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 import matplotlib.pyplot as plt
 import os
 import sys
 from torch.utils.data.sampler import SubsetRandomSampler
 from siren_pytorch import Sine
 from rbm_example.rbm import RBM
-np.set_printoptions(threshold=sys.maxsize)
 
+np.set_printoptions(threshold=sys.maxsize)
 
 # %%
 batch_size = 1000
 epochs = 10
-rbm_epochs = 10
+rbm_epochs = 5
 rbm_epochs_single = 30
-target_digit = 9
+target_digit = 0
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 8
+filters = 16
 # RBM_VISIBLE_UNITS = filters * 14**2
-size = 14
-RBM_VISIBLE_UNITS = filters * size**2
+size = 8
+RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
 RBM_HIDDEN_UNITS = 100
@@ -39,12 +39,12 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 # %% Load data
-train_data = MNIST('./data', train=True, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor()]))
+train_data = CIFAR10('./data', train=True, download=True,
+                     transform=transforms.Compose([
+                         transforms.ToTensor()]))
 
-subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
-
+# subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
+subset_indices = (torch.tensor(train_data.targets) == target_digit).nonzero().view(-1)
 # mask = train_data.targets == target_digit
 # indices = torch.nonzero(mask)
 #
@@ -55,7 +55,7 @@ subset_indices = (train_data.targets == target_digit).nonzero().view(-1)
 # indices = torch.nonzero(target[mask])
 # target = target[indices]
 
-test_data = MNIST('./data', train=False, transform=transforms.Compose([
+test_data = CIFAR10('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor()]))
 
 
@@ -64,8 +64,9 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(3, filters, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(8, filters, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(32, filters, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
 
         # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
@@ -80,15 +81,15 @@ class Encoder(nn.Module):
         # nn.init.normal_(self.conv2.weight, 0, variance)
         # nn.init.normal_(self.conv3.weight, 0, variance)
 
-        nn.init.xavier_normal_(self.conv1.weight, 2.0)
-        # nn.init.xavier_normal_(self.conv2.weight, 0.5)
+        nn.init.xavier_normal_(self.conv1.weight, 0.5)
+        # nn.init.xavier_normal_(self.conv2.weight, 2.0)
         # nn.init.xavier_normal_(self.conv3.weight, 0.1)
 
         self.maxpool = nn.MaxPool2d((2, 2))
 
         self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
                        k=1,
-                       learning_rate=1e-3,
+                       learning_rate=1e-5,
                        momentum_coefficient=0.1,
                        weight_decay=0,
                        use_cuda=True)
@@ -118,6 +119,7 @@ class Encoder(nn.Module):
         # x = self.act(self.conv2(x))
         # x = self.act(self.conv3(x))
 
+        # return torch.sigmoid(x)
         return x
 
     def train_rbm(self, x):
@@ -136,7 +138,6 @@ class Encoder(nn.Module):
         return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
-
 # %% Define Decoder
 class Decoder(nn.Module):
     def __init__(self):
@@ -152,7 +153,7 @@ class Decoder(nn.Module):
 
         # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
         # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(filters, 1, (3, 3), stride=1, padding=1)
+        self.conv3 = nn.ConvTranspose2d(filters, 3, (3, 3), stride=1, padding=1)
 
         # nn.init.zeros_(self.conv1.weight)
         # nn.init.normal_(self.conv1.weight, 0, variance)
@@ -171,8 +172,6 @@ class Decoder(nn.Module):
         z = torch.sigmoid(self.conv3(z))
 
         return z
-
-
 
 
 # %% Create Autoencoder
@@ -203,8 +202,7 @@ class AE(nn.Module):
 
         self.log_interval = 100
 
-        self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False,
-                                                        sampler=SubsetRandomSampler(subset_indices))
+        # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False)
         # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False)
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
@@ -249,7 +247,7 @@ class AE(nn.Module):
                 # rbm_input = self.model.encoder._forward_2(data)
                 # rbm_input = self.model.encoder._forward_1(data)
                 # rbm_input = self.model.encoder._forward_0(data)
-                train_loss += torch.sum(self.model.encoder.train_rbm(rbm_input))
+                train_loss += torch.mean(self.model.encoder.train_rbm(rbm_input))
             print('====> RBM Epoch: {} Average loss: {:.4f}'.format(
                 epoch, train_loss / len(self.train_loader.dataset)))
 
@@ -259,8 +257,12 @@ class AE(nn.Module):
         with torch.no_grad():
             for i, (data, _) in enumerate(self.test_loader):
                 data = data.to(self.device)
-                recon_batch = self.model(data)
-                test_loss += self.loss_function(recon_batch, data).item()
+                rbm_input = self.model(data)
+                rbm_input_x = resize(rbm_input, [size, size])
+                flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
+                hidden = self.model.encoder.rbm.sample_hidden(flat_rbm_input)
+                visible = self.model.encoder.rbm.sample_visible(hidden).reshape((data.shape[0], filters, size, size))
+                test_loss += self.loss_function(visible, rbm_input_x).item()
 
         test_loss /= len(self.test_loader.dataset)
         print('====> Test set loss: {:.4f}'.format(test_loss))
@@ -270,13 +272,19 @@ class AE(nn.Module):
 
 model = AE()
 
+train_loader_1 = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False)
+
+train_loader_2 = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False,
+                                                        sampler=SubsetRandomSampler(subset_indices))
+model.train_loader = train_loader_2
 for epoch in range(rbm_epochs):
-    model.train_rbm()
+    # model.train_loader = train_loader_1
     model.train(epoch)
+    # model.train_loader = train_loader_2
     model.train_rbm()
-
-
-# model.test()
+    # model.test()
+model.train_loader = train_loader_1
+# model.train_rbm()
 
 # %% Visualise data
 num_images = 10
@@ -313,9 +321,9 @@ for data, target in model.test_loader:
         energies.append(np.around(energy.cpu().detach().numpy(), 5))
 
     if num_images * 2 <= len(images):
-        images = images[:num_images*2]
-        labels = labels[:num_images*2]
-        energies = energies[:num_images*2]
+        images = images[:num_images * 2]
+        labels = labels[:num_images * 2]
+        energies = energies[:num_images * 2]
         break
 
 fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
@@ -325,7 +333,7 @@ for i in range(num_images * 2):
     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
 plt.tight_layout()
 plt.show()
-#%% Print out experiment results
+# %% Print out experiment results
 energies = []
 labels = []
 to_output = []
@@ -350,16 +358,14 @@ to_output = np.array(to_output)
 to_output = to_output[to_output[:, 1].argsort()]
 print(to_output[:, 0])
 
-target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
-
+target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == 0 or int(e[0]) == 1 or int(e[0]) == 8 or int(e[0]) == 9]
 print(target_digit_indices)
 
-print("500 test: {}".format(target_digit_indices[500]-500))
-print("100 test: {}".format(target_digit_indices[100]-100))
+print("fake 500 test: {}".format(target_digit_indices[500] - 500))
+print("fake 100 test: {}".format(target_digit_indices[100] - 100))
+
+target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
+print("500 test: {}".format(target_digit_indices[500] - 500))
+print("100 test: {}".format(target_digit_indices[100] - 100))
+
 # print("1000 test: {}".format(target_digit_indices[1000]-1000))
-
-
-
-
-
-
