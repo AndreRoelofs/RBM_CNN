@@ -21,12 +21,12 @@ np.set_printoptions(threshold=sys.maxsize)
 
 
 # %%
-batch_size = 1000
-epochs = 10
-rbm_epochs = 1
-ae_epochs = 3
-rbm_epochs_single = 30
-target_digit = 5
+batch_size = 100
+epochs = 2
+rbm_epochs = 2
+ae_epochs = 1
+rbm_epochs_single = 5
+target_digit = 9
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
@@ -89,8 +89,8 @@ class Encoder(nn.Module):
 
         self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
                        k=1,
-                       learning_rate=1e-3,
-                       momentum_coefficient=0.1,
+                       learning_rate=1e-2,
+                       momentum_coefficient=0.0,
                        weight_decay=0.0,
                        use_cuda=True)
 
@@ -338,7 +338,6 @@ for epoch in range(epochs):
     run_test()
     # run_max_test()
 
-model.train_rbm()
 
 
 # model.test()

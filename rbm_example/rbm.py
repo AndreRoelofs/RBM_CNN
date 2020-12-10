@@ -12,6 +12,8 @@ class RBM():
         self.weight_decay = weight_decay
         self.use_cuda = use_cuda
 
+        self.act = torch.nn.SELU()
+
         self.weights = torch.randn(num_visible, num_hidden) * 0.1
         torch.nn.init.normal_(self.weights, 0, 0.5)
 
@@ -33,18 +35,21 @@ class RBM():
 
     def sample_hidden(self, visible_probabilities):
         hidden_activations = torch.matmul(visible_probabilities, self.weights) + self.hidden_bias
-        hidden_probabilities = self._sigmoid(hidden_activations)
+        # hidden_probabilities = self._sigmoid(hidden_activations)
+        hidden_probabilities = self.act(hidden_activations)
         return hidden_probabilities
 
     def sample_visible(self, hidden_probabilities):
         visible_activations = torch.matmul(hidden_probabilities, self.weights.t()) + self.visible_bias
-        visible_probabilities = self._sigmoid(visible_activations)
+        # visible_probabilities = self._sigmoid(visible_activations)
+        visible_probabilities = self.act(visible_activations)
         return visible_probabilities
 
     def contrastive_divergence(self, input_data, update_weights=True):
         # Positive phase
         positive_hidden_probabilities = self.sample_hidden(input_data)
-        positive_hidden_activations = (positive_hidden_probabilities >= 0.9999).float()
+        threshold = (positive_hidden_probabilities.max() - positive_hidden_probabilities.min())/1.5
+        positive_hidden_activations = (positive_hidden_probabilities >= threshold).float()
         # positive_hidden_activations = (positive_hidden_probabilities >= self._random_probabilities(self.num_hidden)).float()
         positive_associations = torch.matmul(input_data.t(), positive_hidden_activations)
 
@@ -54,7 +59,8 @@ class RBM():
         for step in range(self.k):
             visible_probabilities = self.sample_visible(hidden_activations)
             hidden_probabilities = self.sample_hidden(visible_probabilities)
-            hidden_activations = (hidden_probabilities >= 0.9999).float()
+            threshold = (hidden_probabilities.max() - hidden_probabilities.min()) / 1.5
+            hidden_activations = (hidden_probabilities >= threshold).float()
             # hidden_activations = (hidden_probabilities >= self._random_probabilities(self.num_hidden)).float()
 
         negative_visible_probabilities = visible_probabilities
