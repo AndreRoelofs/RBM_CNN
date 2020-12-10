@@ -12,7 +12,8 @@ class RBM():
         self.weight_decay = weight_decay
         self.use_cuda = use_cuda
 
-        self.act = torch.nn.SELU()
+        # self.act = torch.nn.SELU()
+        self.act = torch.nn.Sigmoid()
 
         self.weights = torch.randn(num_visible, num_hidden) * 0.1
         torch.nn.init.normal_(self.weights, 0, 0.5)
@@ -48,9 +49,9 @@ class RBM():
     def contrastive_divergence(self, input_data, update_weights=True):
         # Positive phase
         positive_hidden_probabilities = self.sample_hidden(input_data)
-        threshold = (positive_hidden_probabilities.max() - positive_hidden_probabilities.min())/1.5
+        threshold = (positive_hidden_probabilities.max() - positive_hidden_probabilities.min())/1.2
         positive_hidden_activations = (positive_hidden_probabilities >= threshold).float()
-        # positive_hidden_activations = (positive_hidden_probabilities >= self._random_probabilities(self.num_hidden)).float()
+        # positive_hidden_activations = (positive_hidden_probabilities >= 0.9999).float()
         positive_associations = torch.matmul(input_data.t(), positive_hidden_activations)
 
         # Negative phase
@@ -59,9 +60,9 @@ class RBM():
         for step in range(self.k):
             visible_probabilities = self.sample_visible(hidden_activations)
             hidden_probabilities = self.sample_hidden(visible_probabilities)
-            threshold = (hidden_probabilities.max() - hidden_probabilities.min()) / 1.5
+            threshold = (hidden_probabilities.max() - hidden_probabilities.min()) / 1.2
             hidden_activations = (hidden_probabilities >= threshold).float()
-            # hidden_activations = (hidden_probabilities >= self._random_probabilities(self.num_hidden)).float()
+            # hidden_activations = (hidden_probabilities >= 0.9999).float()
 
         negative_visible_probabilities = visible_probabilities
         negative_hidden_probabilities = hidden_probabilities

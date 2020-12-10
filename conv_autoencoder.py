@@ -22,20 +22,20 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # %%
 batch_size = 100
-epochs = 2
-rbm_epochs = 2
-ae_epochs = 1
-rbm_epochs_single = 5
-target_digit = 9
+epochs = 1
+rbm_epochs = 1
+ae_epochs = 0
+rbm_epochs_single = 1
+target_digit = 1
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 8
+filters = 16
 # RBM_VISIBLE_UNITS = filters * 14**2
 size = 14
 RBM_VISIBLE_UNITS = filters * size**2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
-RBM_HIDDEN_UNITS = 100
+RBM_HIDDEN_UNITS = 200
 torch.manual_seed(0)
 np.random.seed(0)
 
@@ -95,7 +95,9 @@ class Encoder(nn.Module):
                        use_cuda=True)
 
         self.act = nn.SELU()
+        # self.act = nn.Sigmoid()
         # self.act = nn.ReLU()
+
 
     def forward(self, x):
         return self._forward_3(x)
@@ -194,12 +196,33 @@ def run_test():
 
     to_output = np.array(to_output, dtype=object)
     to_output = to_output[to_output[:, 1].argsort()]
-    # print(to_output[:, 0])
+
+    markers = ['o', '.', 'x', '+', 'v', '^', '<', '>', 's', 'd']
+
+    for i in [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+
+    ]:
+        # x = [(j + 1) ** 0.1 for j, e in enumerate(to_output) if int(e[0]) == i]
+        x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:1000]) if int(e[0]) == i]
+        plt.plot(x, np.random.uniform(-20, 20, len(x)), markers[i], label="{}".format(i))
+    plt.legend(numpoints=1)
+    plt.show()
 
     target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
 
     # print(target_digit_indices)
 
+    print("{} test: {}".format(len(target_digit_indices), target_digit_indices[-1]-len(target_digit_indices)))
     print("500 test: {}".format(target_digit_indices[500]-500))
     print("100 test: {}".format(target_digit_indices[100]-100))
 
@@ -224,12 +247,16 @@ def run_max_test():
 
     to_output = np.array(to_output, dtype=object)
     to_output = to_output[to_output[:, 1].argsort()]
+
+
+
     # print(to_output[:, 0])
 
     target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
 
     # print(target_digit_indices)
 
+    print("500 max test: {}".format(target_digit_indices[500]-500))
     print("500 max test: {}".format(target_digit_indices[500]-500))
     print("100 max test: {}".format(target_digit_indices[100]-100))
 
@@ -329,7 +356,7 @@ class AE(nn.Module):
 # %% Instantiate the model
 
 model = AE()
-
+run_test()
 for epoch in range(epochs):
     for rbm_epoch in range(rbm_epochs):
         model.train_rbm()
@@ -339,7 +366,7 @@ for epoch in range(epochs):
     # run_max_test()
 
 
-
+exit(0)
 # model.test()
 
 # %% Visualise data
