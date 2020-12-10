@@ -23,19 +23,19 @@ np.set_printoptions(threshold=sys.maxsize)
 # %%
 batch_size = 100
 epochs = 1
-rbm_epochs = 1
-ae_epochs = 0
+rbm_epochs = 2
+ae_epochs = 1
 rbm_epochs_single = 1
-target_digit = 1
+target_digit = 0
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 16
+filters = 8
 # RBM_VISIBLE_UNITS = filters * 14**2
 size = 14
 RBM_VISIBLE_UNITS = filters * size**2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
-RBM_HIDDEN_UNITS = 200
+RBM_HIDDEN_UNITS = 100
 torch.manual_seed(0)
 np.random.seed(0)
 
@@ -213,7 +213,7 @@ def run_test():
 
     ]:
         # x = [(j + 1) ** 0.1 for j, e in enumerate(to_output) if int(e[0]) == i]
-        x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:1000]) if int(e[0]) == i]
+        x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:100]) if int(e[0]) == i]
         plt.plot(x, np.random.uniform(-20, 20, len(x)), markers[i], label="{}".format(i))
     plt.legend(numpoints=1)
     plt.show()
@@ -366,7 +366,7 @@ for epoch in range(epochs):
     # run_max_test()
 
 
-exit(0)
+# exit(0)
 # model.test()
 
 # %% Visualise data
@@ -399,7 +399,7 @@ for data, target in model.test_loader:
     for i in range(used_images.shape[0]):
         label = output_images[i]
         images.append(label[0].cpu().detach().numpy())
-        energy = torch.mean(output_energies[i])
+        energy = torch.mean(output_energies[i]) ** -2
         labels.append(target[i].detach().numpy())
         energies.append(np.around(energy.cpu().detach().numpy(), 5))
 
