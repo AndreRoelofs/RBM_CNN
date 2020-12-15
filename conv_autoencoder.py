@@ -24,10 +24,10 @@ np.set_printoptions(threshold=sys.maxsize)
 # %%
 batch_size = 100
 epochs = 1
-rbm_epochs = 5
-ae_epochs = 2
+rbm_epochs = 10
+ae_epochs = 1
 rbm_epochs_single = 1
-target_digit = 7
+target_digit = 1
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
@@ -36,7 +36,7 @@ size = 14
 RBM_VISIBLE_UNITS = filters * size**2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
-RBM_HIDDEN_UNITS = 100
+RBM_HIDDEN_UNITS = 200
 torch.manual_seed(0)
 np.random.seed(0)
 
@@ -78,11 +78,11 @@ class Encoder(nn.Module):
         # self.conv2 = nn.Conv2d(3, 5, (3, 3), stride=1, padding=1)
         # self.conv3 = nn.Conv2d(5, 6, (3, 3), stride=1, padding=1)
 
-        # nn.init.normal_(self.conv1.weight, 0, variance)
+        nn.init.normal_(self.conv1.weight, 0, variance)
         # nn.init.normal_(self.conv2.weight, 0, variance)
         # nn.init.normal_(self.conv3.weight, 0, variance)
 
-        nn.init.xavier_normal_(self.conv1.weight, 2.0)
+        # nn.init.xavier_normal_(self.conv1.weight, 2.0)
         # nn.init.xavier_normal_(self.conv2.weight, 0.5)
         # nn.init.xavier_normal_(self.conv3.weight, 0.1)
 
@@ -96,7 +96,7 @@ class Encoder(nn.Module):
         #                use_cuda=True)
 
         self.rbm = RV_RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
-                       use_cuda=False)
+                       use_cuda=True)
 
         self.act = nn.SELU()
         # self.act = nn.Sigmoid()
@@ -217,11 +217,12 @@ def run_test():
 
     ]:
         # x = [(j + 1) ** 0.1 for j, e in enumerate(to_output) if int(e[0]) == i]
-        x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:100]) if int(e[0]) == i]
+        x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:500]) if int(e[0]) == i]
         plt.plot(x, np.random.uniform(-20, 20, len(x)), markers[i], label="{}".format(i))
     plt.legend(numpoints=1)
     plt.show()
 
+    # target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == 6 or int(e[0]) == 8 or int(e[0]) == 9]
     target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
 
     # print(target_digit_indices)
@@ -287,8 +288,8 @@ class Network(nn.Module):
 class AE(nn.Module):
     def __init__(self):
         super().__init__()
-        # self.device = torch.device("cuda")
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda")
+        # self.device = torch.device("cpu")
         self.model = Network()
         self.model.to(self.device)
 
@@ -300,7 +301,7 @@ class AE(nn.Module):
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
 
     def loss_function(self, recon_x, x):
         return F.mse_loss(x, recon_x)
