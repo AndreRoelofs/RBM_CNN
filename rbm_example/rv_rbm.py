@@ -6,22 +6,30 @@ from torch import nn
 class RV_RBM():
 
     def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
-                 use_cuda=True):
+                 use_cuda=True, use_relu=True):
         self.num_visible = num_visible
         self.num_hidden = num_hidden
         self.lr = learning_rate
         self.momentum_coefficient = momentum_coefficient
         self.weight_decay = weight_decay
         self.use_cuda = use_cuda
-        # self.act = nn.ReLU()
-        self.act = nn.SELU()
+
+        if use_relu:
+            self.act = nn.ReLU()
+            self.act_prob = nn.Sigmoid()
+            self.rand = self.random_relu_noise
+        else:
+            self.act = nn.SELU()
+            self.act_prob = nn.Tanh()
+            self.rand = self.random_selu_noise
 
         self.weights = torch.ones((self.num_visible, self.num_hidden), dtype=torch.float)
         # self.weights = torch.randn(num_visible, num_hidden) * 0.1
-        # nn.init.xavier_normal_(self.weights, 2.0)
-        nn.init.normal_(self.weights, 0, 0.07)
+        nn.init.xavier_normal_(self.weights, 2.0)
+        # nn.init.normal_(self.weights, 0, 0.5)
 
-        self.visible_bias = torch.zeros(num_visible)
+        self.visible_bias = torch.ones(num_visible)
+        # self.visible_bias = torch.zeros(num_visible)
         self.hidden_bias = torch.zeros(num_hidden)
 
         self.weights_momentum = torch.zeros(num_visible, num_hidden)
@@ -39,18 +47,14 @@ class RV_RBM():
 
     def sample_hidden(self, visible_activations):
         # Visible layer activation
-        hidden_probabilities = torch.tanh(torch.matmul(visible_activations, self.weights) + self.hidden_bias)
-        # hidden_probabilities = torch.sigmoid(torch.matmul(visible_activations, self.weights) + self.hidden_bias)
+        hidden_probabilities = self.act_prob(torch.matmul(visible_activations, self.weights) + self.hidden_bias)
         # Gibb's Sampling
-        hidden_activations = self.act(torch.sign(hidden_probabilities - self.random_selu_noise(hidden_probabilities.shape)))
-        # hidden_activations = self.act(torch.sign(hidden_probabilities - torch.rand(hidden_probabilities.shape).cuda()))
+        hidden_activations = self.act(torch.sign(hidden_probabilities - self.rand(hidden_probabilities.shape)))
         return hidden_activations
 
     def sample_visible(self, hidden_activations):
-        visible_probabilities = torch.tanh(torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias)
-        # visible_probabilities = torch.sigmoid(torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias)
-        # visible_activations = self.act(torch.sign(visible_probabilities - torch.rand(visible_probabilities.shape).cuda()))
-        visible_activations = self.act(torch.sign(visible_probabilities - self.random_selu_noise(visible_probabilities.shape)))
+        visible_probabilities = self.act_prob(torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias)
+        visible_activations = self.act(torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
         return visible_activations
 
     def contrastive_divergence(self, v0, update_weights=True):
@@ -58,14 +62,13 @@ class RV_RBM():
 
         h0 = self.sample_hidden(v0)
         v1 = self.sample_visible(h0)
-        # h1 = torch.tanh(torch.matmul(v1, self.weights) + self.hidden_bias)
-        h1 = torch.sigmoid(torch.matmul(v1, self.weights) + self.hidden_bias)
+        h1 = self.act_prob(torch.matmul(v1, self.weights) + self.hidden_bias)
 
         positive_grad = torch.matmul(v0.t(), h0)
         negative_grad = torch.matmul(v1.t(), h1)
 
         recon_error = v0 - v1
-        recon_error_sum = torch.mean(recon_error ** 2)
+        recon_error_sum = torch.mean(recon_error ** 2, dim=1)
         if update_weights:
             CD = (positive_grad - negative_grad)
 
@@ -91,7 +94,7 @@ class RV_RBM():
             # self.hidden_bias += self.lr * torch.mean(h0 - h1, dim=0)
 
         # return recon_error_sum
-        return recon_error
+        return recon_error_sum
 
     def free_energy(self, input_data):
         wx_b = torch.dot(input_data, self.weights) + self.hidden_bias
@@ -100,4 +103,8 @@ class RV_RBM():
         return -hidden_term - vbias_term
 
     def random_selu_noise(self, shape):
-        return -(-2 * torch.rand(shape) + 1).cuda()
+        return (-2 * torch.rand(shape) + 1).cuda()
+
+    def random_relu_noise(self, shape):
+        return torch.rand(shape).cuda()
+

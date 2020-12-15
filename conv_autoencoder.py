@@ -18,27 +18,28 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from siren_pytorch import Sine
 # from rbm_example.rbm_altered import RBM
 from rbm_example.rv_rbm import RV_RBM
-np.set_printoptions(threshold=sys.maxsize)
 
+np.set_printoptions(threshold=sys.maxsize)
 
 # %%
 batch_size = 100
 epochs = 1
-rbm_epochs = 10
+rbm_epochs = 2
 ae_epochs = 1
+use_relu = False
 rbm_epochs_single = 1
-target_digit = 1
+target_digit = 9
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
 # RBM_VISIBLE_UNITS = filters * 14**2
 size = 14
-RBM_VISIBLE_UNITS = filters * size**2
+RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
-RBM_HIDDEN_UNITS = 200
-torch.manual_seed(0)
-np.random.seed(0)
+RBM_HIDDEN_UNITS = 100
+# torch.manual_seed(0)
+# np.random.seed(0)
 
 # %% Load data
 train_data = MNIST('./data', train=True, download=True,
@@ -67,27 +68,10 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(16, 32, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(32, 64, (3, 3), stride=1, padding=1)
 
-        # self.conv1 = nn.Conv2d(1, 4, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(4, 8, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(8, 12, (3, 3), stride=1, padding=1)
-        #
-        # self.conv1 = nn.Conv2d(1, 3, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(3, 5, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.Conv2d(5, 6, (3, 3), stride=1, padding=1)
+        # nn.init.normal_(self.conv1.weight, 0, variance)
+        nn.init.xavier_normal_(self.conv1.weight, 2.0)
 
-        nn.init.normal_(self.conv1.weight, 0, variance)
-        # nn.init.normal_(self.conv2.weight, 0, variance)
-        # nn.init.normal_(self.conv3.weight, 0, variance)
-
-        # nn.init.xavier_normal_(self.conv1.weight, 2.0)
-        # nn.init.xavier_normal_(self.conv2.weight, 0.5)
-        # nn.init.xavier_normal_(self.conv3.weight, 0.1)
-
-        self.maxpool = nn.MaxPool2d((2, 2))
-        #
         # self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
         #                k=1,
         #                learning_rate=1e-2,
@@ -96,12 +80,16 @@ class Encoder(nn.Module):
         #                use_cuda=True)
 
         self.rbm = RV_RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
-                       use_cuda=True)
+                          learning_rate=1e-2,
+                          momentum_coefficient=0.1,
+                          weight_decay=0.0,
+                          use_cuda=True,
+                          use_relu=use_relu)
 
-        self.act = nn.SELU()
-        # self.act = nn.Sigmoid()
-        # self.act = nn.ReLU()
-
+        if use_relu:
+            self.act = nn.ReLU()
+        else:
+            self.act = nn.SELU()
 
     def forward(self, x):
         return self._forward_3(x)
@@ -143,42 +131,7 @@ class Encoder(nn.Module):
         return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
-
-# %% Define Decoder
-class Decoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        # self.conv1 = nn.ConvTranspose2d(6, 5, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(5, 3, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.ConvTranspose2d(3, 1, (3, 3), stride=1, padding=1)
-        #
-        # self.conv1 = nn.ConvTranspose2d(12, 8, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(8, 4, (3, 3), stride=1, padding=1)
-        # self.conv3 = nn.ConvTranspose2d(4, 1, (3, 3), stride=1, padding=1)
-
-        # self.conv1 = nn.ConvTranspose2d(64, 32, (3, 3), stride=1, padding=1)
-        # self.conv2 = nn.ConvTranspose2d(32, 16, (3, 3), stride=1, padding=1)
-        self.conv3 = nn.ConvTranspose2d(filters, 1, (3, 3), stride=1, padding=1)
-
-        # nn.init.zeros_(self.conv1.weight)
-        # nn.init.normal_(self.conv1.weight, 0, variance)
-        # nn.init.normal_(self.conv2.weight, 0, variance)
-        nn.init.normal_(self.conv3.weight, 0, variance)
-
-        self.upsample = nn.Upsample(scale_factor=(2, 2))
-        self.act = nn.SELU()
-        # self.act = nn.ReLU()
-
-    def forward(self, z):
-        # z = self.act(self.conv1(z))
-        # z = self.upsample(z)
-        # z = self.act(self.conv2(z))
-        # z = self.upsample(z)
-        z = torch.sigmoid(self.conv3(z))
-
-        return z
-
+# %%
 def run_test():
     to_output = []
 
@@ -188,7 +141,7 @@ def run_test():
         # rbm_input = model.model.encoder._forward_2(data)
         # rbm_input = model.model.encoder._forward_1(data)
         # rbm_input = model.model.encoder._forward_0(data).to(model.device)
-        output_energies = torch.sum(model.model.encoder.get_rbm(rbm_input), dim=1).cpu().detach()
+        output_energies = model.model.encoder.get_rbm(rbm_input).cpu().detach()
         target = target.cpu().detach()
         data = data.cpu().detach()
 
@@ -213,11 +166,12 @@ def run_test():
         6,
         7,
         8,
-        9
-
+        9,
+        # target_digit
     ]:
         # x = [(j + 1) ** 0.1 for j, e in enumerate(to_output) if int(e[0]) == i]
-        x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:500]) if int(e[0]) == i]
+        x = [e[1] for j, e in enumerate(to_output) if int(e[0]) == i]
+        # x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:100]) if int(e[0]) == i]
         plt.plot(x, np.random.uniform(-20, 20, len(x)), markers[i], label="{}".format(i))
     plt.legend(numpoints=1)
     plt.show()
@@ -227,9 +181,10 @@ def run_test():
 
     # print(target_digit_indices)
 
-    print("{} test: {}".format(len(target_digit_indices), target_digit_indices[-1]-len(target_digit_indices)))
-    print("500 test: {}".format(target_digit_indices[500]-500))
-    print("100 test: {}".format(target_digit_indices[100]-100))
+    print("{} test: {}".format(len(target_digit_indices), target_digit_indices[-1] - len(target_digit_indices)))
+    print("500 test: {}".format(target_digit_indices[500] - 500))
+    print("100 test: {}".format(target_digit_indices[100] - 100))
+
 
 def run_max_test():
     to_output = []
@@ -253,18 +208,15 @@ def run_max_test():
     to_output = np.array(to_output, dtype=object)
     to_output = to_output[to_output[:, 1].argsort()]
 
-
-
     # print(to_output[:, 0])
 
     target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
 
     # print(target_digit_indices)
 
-    print("500 max test: {}".format(target_digit_indices[500]-500))
-    print("500 max test: {}".format(target_digit_indices[500]-500))
-    print("100 max test: {}".format(target_digit_indices[100]-100))
-
+    print("500 max test: {}".format(target_digit_indices[500] - 500))
+    print("500 max test: {}".format(target_digit_indices[500] - 500))
+    print("100 max test: {}".format(target_digit_indices[100] - 100))
 
 
 # %% Create Autoencoder
@@ -273,13 +225,9 @@ class Network(nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = Encoder()
-        # self.decoder = Decoder()
 
     def encode(self, x):
         return self.encoder(x)
-
-    # def decode(self, z):
-    #     return self.decoder(z)
 
     def forward(self, x):
         return self.encode(x)
@@ -301,7 +249,7 @@ class AE(nn.Module):
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-15)
 
     def loss_function(self, recon_x, x):
         return F.mse_loss(x, recon_x)
@@ -370,8 +318,7 @@ for epoch in range(epochs):
     run_test()
     # run_max_test()
 
-
-# exit(0)
+exit(0)
 # model.test()
 
 # %% Visualise data
@@ -409,9 +356,9 @@ for data, target in model.test_loader:
         energies.append(np.around(energy.cpu().detach().numpy(), 5))
 
     if num_images * 2 <= len(images):
-        images = images[:num_images*2]
-        labels = labels[:num_images*2]
-        energies = energies[:num_images*2]
+        images = images[:num_images * 2]
+        labels = labels[:num_images * 2]
+        energies = energies[:num_images * 2]
         break
 
 fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
@@ -421,13 +368,7 @@ for i in range(num_images * 2):
     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
 plt.tight_layout()
 plt.show()
-#%% Print out experiment results
-
+# %% Print out experiment results
 
 
 run_test()
-
-
-
-
-
