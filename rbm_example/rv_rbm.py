@@ -1,0 +1,94 @@
+import torch
+from torch import nn
+
+
+# Real valued RBM using Rectified Linear Units
+class RV_RBM():
+
+    def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
+                 use_cuda=True):
+        self.num_visible = num_visible
+        self.num_hidden = num_hidden
+        self.lr = learning_rate
+        self.momentum_coefficient = momentum_coefficient
+        self.weight_decay = weight_decay
+        self.use_cuda = use_cuda
+        # self.act = nn.ReLU()
+        self.act = nn.SELU()
+
+        self.weights = torch.ones((self.num_visible, self.num_hidden), dtype=torch.float)
+        # self.weights = torch.randn(num_visible, num_hidden) * 0.1
+        # nn.init.xavier_normal_(self.weights, 2.0)
+        nn.init.normal_(self.weights, 0, 0.5)
+
+        self.visible_bias = torch.ones(num_visible) * 0.5
+        self.hidden_bias = torch.zeros(num_hidden)
+
+        self.weights_momentum = torch.zeros(num_visible, num_hidden)
+        self.visible_bias_momentum = torch.zeros(num_visible)
+        self.hidden_bias_momentum = torch.zeros(num_hidden)
+
+        if self.use_cuda:
+            self.weights = self.weights.cuda()
+            self.visible_bias = self.visible_bias.cuda()
+            self.hidden_bias = self.hidden_bias.cuda()
+
+    def sample_hidden(self, visible_activations):
+        # Visible layer activation
+        # hidden_probabilities = torch.tanh(torch.matmul(visible_activations, self.weights) + self.hidden_bias)
+        hidden_probabilities = torch.sigmoid(torch.matmul(visible_activations, self.weights) + self.hidden_bias)
+        # Gibb's Sampling
+        hidden_activations = self.act(torch.sign(hidden_probabilities - torch.rand(hidden_probabilities.shape)))
+        return hidden_activations
+
+    def sample_visible(self, hidden_activations):
+        # visible_probabilities = torch.tanh(torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias)
+        visible_probabilities = torch.sigmoid(torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias)
+        visible_activations = self.act(torch.sign(visible_probabilities - torch.rand(visible_probabilities.shape)))
+        return visible_activations
+
+    def contrastive_divergence(self, v0, update_weights=True):
+        batch_size = v0.shape[0]
+
+        h0 = self.sample_hidden(v0)
+        v1 = self.sample_visible(h0)
+        # h1 = torch.tanh(torch.matmul(v1, self.weights) + self.hidden_bias)
+        h1 = torch.sigmoid(torch.matmul(v1, self.weights) + self.hidden_bias)
+
+        positive_grad = torch.matmul(v0.t(), h0)
+        negative_grad = torch.matmul(v1.t(), h1)
+
+        recon_error = v0 - v1
+        recon_error_sum = torch.mean(recon_error ** 2)
+        if update_weights:
+            CD = (positive_grad - negative_grad)
+
+            self.weights_momentum *= self.momentum_coefficient
+            self.weights_momentum += CD
+
+            self.visible_bias_momentum *= self.momentum_coefficient
+            self.visible_bias_momentum += torch.sum(recon_error, dim=0)
+
+            self.hidden_bias_momentum *= self.momentum_coefficient
+            self.hidden_bias_momentum += torch.sum(h0 - h1, dim=0)
+
+            self.weights += self.weights_momentum * self.lr / batch_size
+            self.visible_bias += self.visible_bias_momentum * self.lr / batch_size
+            self.hidden_bias += self.hidden_bias_momentum * self.lr / batch_size
+
+            self.weights -= self.weights * self.weight_decay  # L2 weight decay
+
+            # CD = (positive_grad - negative_grad) / batch_size
+            #
+            # self.weights += self.lr * CD
+            # self.visible_bias += self.lr * torch.mean(recon_error, dim=0)
+            # self.hidden_bias += self.lr * torch.mean(h0 - h1, dim=0)
+
+        print(self.free_energy(input_data=v0))
+        return recon_error ** 2
+
+    def free_energy(self, input_data):
+        wx_b = torch.dot(input_data, self.weights) + self.hidden_bias
+        vbias_term = torch.dot(input_data, self.visible_bias)
+        hidden_term = torch.sum(torch.log(1 + torch.exp(wx_b)), dim=1)
+        return -hidden_term - vbias_term

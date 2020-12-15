@@ -16,17 +16,18 @@ import os
 import sys
 from torch.utils.data.sampler import SubsetRandomSampler
 from siren_pytorch import Sine
-from rbm_example.rbm import RBM
+# from rbm_example.rbm_altered import RBM
+from rbm_example.rv_rbm import RV_RBM
 np.set_printoptions(threshold=sys.maxsize)
 
 
 # %%
 batch_size = 100
 epochs = 1
-rbm_epochs = 2
-ae_epochs = 1
+rbm_epochs = 5
+ae_epochs = 2
 rbm_epochs_single = 1
-target_digit = 0
+target_digit = 7
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
@@ -86,13 +87,16 @@ class Encoder(nn.Module):
         # nn.init.xavier_normal_(self.conv3.weight, 0.1)
 
         self.maxpool = nn.MaxPool2d((2, 2))
+        #
+        # self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
+        #                k=1,
+        #                learning_rate=1e-2,
+        #                momentum_coefficient=0.0,
+        #                weight_decay=0.0,
+        #                use_cuda=True)
 
-        self.rbm = RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
-                       k=1,
-                       learning_rate=1e-2,
-                       momentum_coefficient=0.0,
-                       weight_decay=0.0,
-                       use_cuda=True)
+        self.rbm = RV_RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
+                       use_cuda=False)
 
         self.act = nn.SELU()
         # self.act = nn.Sigmoid()
@@ -283,8 +287,8 @@ class Network(nn.Module):
 class AE(nn.Module):
     def __init__(self):
         super().__init__()
-        self.device = torch.device("cuda")
-        # self.device = torch.device("cpu")
+        # self.device = torch.device("cuda")
+        self.device = torch.device("cpu")
         self.model = Network()
         self.model.to(self.device)
 
