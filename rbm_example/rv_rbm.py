@@ -2,8 +2,13 @@ import torch
 from torch import nn
 import numpy as np
 
+
 # Real valued RBM using Rectified Linear Units
 class RV_RBM():
+    lowest_energy = None
+    highest_energy = None
+    energy_threshold = None
+
     def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
                  use_cuda=True, use_relu=True):
         self.num_visible = num_visible
@@ -54,11 +59,13 @@ class RV_RBM():
 
     def sample_visible(self, hidden_activations):
         visible_probabilities = self.act_prob(torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias)
-        visible_activations = self.act(torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
+        visible_activations = self.act(
+            torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
         return visible_activations
 
     def contrastive_divergence(self, v0, update_weights=True):
         batch_size = v0.shape[0]
+
 
         h0 = self.sample_hidden(v0)
         v1 = self.sample_visible(h0)
@@ -87,7 +94,17 @@ class RV_RBM():
 
             self.weights = self.weights - (self.weights * self.weight_decay)  # L2 weight decay
 
-        # print(self.free_energy(v0))
+        energy = self.free_energy(v0)
+        energy_min = energy.min()
+        energy_max = energy.max()
+        if self.lowest_energy is None or self.lowest_energy > energy_min:
+            self.lowest_energy = energy_min
+            self.highest_energy = energy_max
+            self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
+            print("MIN: ", energy_min)
+            print("MAX: ", energy_max)
+            print(self.energy_threshold)
+
         return recon_error_sum
 
     def free_energy(self, input_data):

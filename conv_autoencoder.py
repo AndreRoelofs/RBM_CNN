@@ -29,8 +29,8 @@ if one_shot_classifier:
     train_batch_size = 1
 epochs = 1
 rbm_epochs = 1
-ae_epochs = 1
-use_relu = False
+ae_epochs = 0
+use_relu = True
 rbm_epochs_single = 1
 target_digit = 9
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
@@ -42,16 +42,16 @@ RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
 RBM_HIDDEN_UNITS = 100
-torch.manual_seed(0)
-np.random.seed(0)
+# torch.manual_seed(0)
+# np.random.seed(0)
 
 # %% Load data
-train_data = MNIST('./data', train=False, download=True,
+train_data = MNIST('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor()]))
 
 subset_indices = (torch.tensor(train_data.targets) == target_digit).nonzero().view(-1)
-# subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
+subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
 
 # mask = train_data.targets == target_digit
 # indices = torch.nonzero(mask)
@@ -128,8 +128,8 @@ class Encoder(nn.Module):
 
         self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
 
-        # nn.init.normal_(self.conv1.weight, 0, variance)
-        nn.init.xavier_normal_(self.conv1.weight, 2.0)
+        nn.init.normal_(self.conv1.weight, 0, variance)
+        # nn.init.xavier_normal_(self.conv1.weight, 2.0)
 
         if use_relu:
             self.act = nn.ReLU()
@@ -221,13 +221,15 @@ class AE(nn.Module):
             if counter % 100 == 0:
                 loss = self.loss_function(visible, rbm_input)
                 loss.backward(retain_graph=True)
+            # loss = self.loss_function(visible, rbm_input)
+            # loss.backward(retain_graph=True)
 
             if counter % 100 == 0:
                 print("Iteration: ", counter)
-                print("Error: ", rbm_error)
-
+                print("Error: ", torch.sum(rbm_error))
 
             counter += 1
+            # return
 
 
 # %% Instantiate the model
@@ -238,6 +240,8 @@ run_test()
 for epoch in range(epochs):
     model.joint_training()
     run_test()
+
+# exit(0)
 
 # %% Visualise data
 num_images = 10
