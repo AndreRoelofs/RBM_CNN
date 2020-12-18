@@ -2,14 +2,8 @@ import torch
 from torch import nn
 import numpy as np
 
-counter = 0
-total_counter = 0
-first_energy = None
-
 # Real valued RBM using Rectified Linear Units
 class RV_RBM():
-    is_set = False
-
     def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
                  use_cuda=True, use_relu=True):
         self.num_visible = num_visible
@@ -31,8 +25,9 @@ class RV_RBM():
         self.weights = torch.ones((self.num_visible, self.num_hidden), dtype=torch.float)
         # self.weights = torch.randn(num_visible, num_hidden) * 0.1
         # nn.init.xavier_normal_(self.weights, 2.0)
+        # nn.init.normal_(self.weights, 0, 0.007)
         nn.init.normal_(self.weights, 0, 0.007)
-
+        #
         self.visible_bias = torch.ones(num_visible)
         # self.visible_bias = torch.zeros(num_visible)
         self.hidden_bias = torch.zeros(num_hidden)
@@ -63,9 +58,6 @@ class RV_RBM():
         return visible_activations
 
     def contrastive_divergence(self, v0, update_weights=True):
-        global first_energy
-        global counter
-        global total_counter
         batch_size = v0.shape[0]
 
         h0 = self.sample_hidden(v0)
@@ -89,36 +81,13 @@ class RV_RBM():
             self.hidden_bias_momentum *= self.momentum_coefficient
             self.hidden_bias_momentum += torch.sum(h0 - h1, dim=0)
 
-            self.weights += self.weights_momentum * self.lr / batch_size
-            self.visible_bias += self.visible_bias_momentum * self.lr / batch_size
-            self.hidden_bias += self.hidden_bias_momentum * self.lr / batch_size
+            self.weights = self.weights + (self.weights_momentum * self.lr / batch_size)
+            self.visible_bias = self.visible_bias + (self.visible_bias_momentum * self.lr / batch_size)
+            self.hidden_bias = self.hidden_bias + (self.hidden_bias_momentum * self.lr / batch_size)
 
-            self.weights -= self.weights * self.weight_decay  # L2 weight decay
+            self.weights = self.weights - (self.weights * self.weight_decay)  # L2 weight decay
 
-            # CD = (positive_grad - negative_grad) / batch_size
-            #
-            # self.weights += self.lr * CD
-            # self.visible_bias += self.lr * torch.mean(recon_error, dim=0)
-            # self.hidden_bias += self.lr * torch.mean(h0 - h1, dim=0)
-            # print("Energy: ", torch.mean(self.free_energy(v0)))
-            # print("Recon : ", torch.mean(recon_error_sum))
-
-        energy = self.free_energy(v0)
-        if self.is_set:
-            print("Energy:  ", energy.mean())
-            for e in energy:
-                if e > first_energy:
-                    counter += 1
-                total_counter += 1
-            print("Counter: ", counter)
-            print("Total Counter: ", total_counter)
-
-        else:
-            first_energy = energy.mean()
-            print("First energy: ", first_energy)
-
-        # self.free_energy(v0)
-        test = 0
+        # print(self.free_energy(v0))
         return recon_error_sum
 
     def free_energy(self, input_data):
