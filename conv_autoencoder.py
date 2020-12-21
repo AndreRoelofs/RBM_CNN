@@ -277,7 +277,7 @@ class Classifier(nn.Module):
 
     def forward(self, x):
         x = F.selu(self.fc1(x))
-        return F.sigmoid(self.fc2(x))
+        return F.log_softmax(self.fc2(x), dim=0)
 
 # %% Instantiate the model
 
@@ -334,11 +334,11 @@ for batch_idx, (data, target) in enumerate(train_loader):
 new_dataset = np.array(new_dataset)
 # train_loader = torch.utils.data.DataLoader(new_dataset, batch_size=100, shuffle=False)
 
-optimizer = torch.optim.SGD(classifier.parameters(), lr=1e-5, momentum=0.9)
+optimizer = torch.optim.SGD(classifier.parameters(), lr=1e-2, momentum=0.0)
 # create a loss function
-criterion = nn.BCELoss()
+criterion = nn.NLLLoss()
 
-for epoch in range(10):
+for epoch in range(1):
     for i in range(new_dataset.shape[0]):
         data, target = new_dataset[i]
         data = torch.Tensor(data)
@@ -351,8 +351,8 @@ for epoch in range(10):
         loss.backward()
         optimizer.step()
 
-        if batch_idx % 100 == 0:
-            print("Batch idx ", batch_idx)
+        # if i % 100 == 0:
+        #     print("Batch idx ", i)
 
 
 # exit(0)
@@ -396,7 +396,6 @@ for batch_idx, (data, target) in enumerate(test_loader):
     if counter % 100 == 0:
         print("Testing iteration: ", counter)
 
-    break
     # if counter >= 100:
     #     break
 # new_dataset = np.array(new_dataset)
@@ -414,7 +413,8 @@ for i in range(new_dataset.shape[0]):
     out = classifier(data)
     loss = criterion(out, target)
     pred = out.data.max(0)[1]
-    correct += pred.eq(target.data).sum()
+    target_pred = target.data.max(0)[1]
+    correct += pred.eq(target_pred).sum()
 # for batch_idx, (data, target) in enumerate(test_loader):
 #     data, target = Variable(data), Variable(target)
 #     out = classifier(data)
