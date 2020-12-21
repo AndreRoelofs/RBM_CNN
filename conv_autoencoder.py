@@ -21,7 +21,7 @@ from rbm_example.rv_rbm import RV_RBM
 np.set_printoptions(threshold=sys.maxsize)
 
 # %%
-train_batch_size = 10
+train_batch_size = 1
 test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
@@ -51,6 +51,8 @@ train_data = MNIST('./data', train=True, download=True,
 
 subset_indices = (torch.tensor(train_data.targets) == target_digit).nonzero().view(-1)
 subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
+
+subset_indices = subset_indices[:1000]
 
 # mask = train_data.targets == target_digit
 # indices = torch.nonzero(mask)
@@ -127,8 +129,8 @@ class Encoder(nn.Module):
 
         self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
 
-        nn.init.normal_(self.conv1.weight, 0, variance)
-        # nn.init.xavier_normal_(self.conv1.weight, 2.0)
+        # nn.init.normal_(self.conv1.weight, 0, variance)
+        nn.init.xavier_normal_(self.conv1.weight, 2.0)
 
         if use_relu:
             self.act = nn.ReLU()
@@ -172,39 +174,69 @@ class Network(nn.Module):
         return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
-class AE(nn.Module):
+class WDN(nn.Module):
     def __init__(self):
         super().__init__()
         self.device = torch.device("cuda")
         # self.device = torch.device("cpu")
-        self.model = Network()
-        self.model.to(self.device)
+
+        self.models = []
+        # self.create_new_model()
 
         self.log_interval = 100
 
         self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
                                                         sampler=SubsetRandomSampler(subset_indices))
-        # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False)
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-10)
+
+    def create_new_model(self):
+        network = Network()
+        self.models.append(network)
+        network.to(self.device)
+
+        return network
 
     def loss_function(self, recon_x, x):
         return F.mse_loss(x, recon_x)
         # return F.binary_cross_entropy(recon_x, x, reduction='sum')
 
     def joint_training(self):
-        self.model.train()
         # torch.autograd.set_detect_anomaly(True)
         counter = 0
         for batch_idx, (data, _) in enumerate(self.train_loader):
             # Assume we have batch size of 1
             data = data.to(self.device)
 
+            a_n_models = len(self.models)
+            print("n_models", a_n_models)
+
+            familiar = False
+            for m in self.models:
+                # Encode the image
+                rbm_input = m.encode(data)
+                # Resize and flatten input for RBM
+                rbm_input = resize(rbm_input, [size, size])
+                flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
+
+                # Compare data with existing models
+                if m.rbm.is_familiar(flat_rbm_input):
+                    familiar = True
+                    break
+
+            if familiar:
+                continue
+
+            # If data is unfamiliar, create a new network
+            network = self.create_new_model()
+            self.model = network
+            self.model.train()
+
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-10)
+
             # Encode the image
             rbm_input = self.model.encode(data)
-
             # Resize and flatten input for RBM
             rbm_input = resize(rbm_input, [size, size])
             flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
@@ -217,30 +249,28 @@ class AE(nn.Module):
             visible = self.model.rbm.sample_visible(hidden).reshape((data.shape[0], filters, size, size))
 
             # Train Encoder
-            if counter % 100 == 0:
-                loss = self.loss_function(visible, rbm_input)
-                loss.backward(retain_graph=True)
-            # loss = self.loss_function(visible, rbm_input)
-            # loss.backward(retain_graph=True)
+            loss = self.loss_function(visible, rbm_input)
+            loss.backward(retain_graph=True)
+
+            self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
             if counter % 100 == 0:
                 print("Iteration: ", counter)
                 print("Error: ", torch.sum(rbm_error))
 
             counter += 1
-            return
 
 
 # %% Instantiate the model
 
-model = AE()
-run_test()
+model = WDN()
+# run_test()
 
 for epoch in range(epochs):
     model.joint_training()
     run_test()
 
-# exit(0)
+exit(0)
 
 # %% Visualise data
 num_images = 10

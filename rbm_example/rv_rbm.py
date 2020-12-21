@@ -31,7 +31,7 @@ class RV_RBM():
         # self.weights = torch.randn(num_visible, num_hidden) * 0.1
         # nn.init.xavier_normal_(self.weights, 2.0)
         # nn.init.normal_(self.weights, 0, 0.007)
-        nn.init.normal_(self.weights, 0, 0.007)
+        nn.init.normal_(self.weights, 0, 0.07)
         #
         self.visible_bias = torch.ones(num_visible)
         # self.visible_bias = torch.zeros(num_visible)
@@ -63,6 +63,15 @@ class RV_RBM():
             torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
         return visible_activations
 
+    def is_familiar(self, v0):
+        if self.energy_threshold is None:
+            return False
+        energy = self.free_energy(v0)
+
+        if energy > self.energy_threshold:
+            return False
+        return True
+
     def contrastive_divergence(self, v0, update_weights=True):
         batch_size = v0.shape[0]
 
@@ -73,7 +82,7 @@ class RV_RBM():
 
             positive_grad = torch.matmul(v0.t(), h0)
             negative_grad = torch.matmul(v1.t(), h1)
-
+            # TODO: use recon_error_sum for weights delta?
             recon_error = v0 - v1
             recon_error_sum = torch.mean(recon_error ** 2, dim=1)
             if update_weights:
@@ -94,18 +103,18 @@ class RV_RBM():
 
                 self.weights = self.weights - (self.weights * self.weight_decay)  # L2 weight decay
 
-            energy = self.free_energy(v0)
-            energy_min = energy.min()
-            energy_max = energy.max()
-            if self.lowest_energy is None or self.lowest_energy > energy_min:
-                self.lowest_energy = energy_min
-                self.highest_energy = energy_max
-                self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
-                print("MIN: ", energy_min)
-                print("MAX: ", energy_max)
-                print(self.energy_threshold)
-
         return recon_error_sum
+
+    def calculate_energy_threshold(self, v0):
+        energy = self.free_energy(v0)
+        energy_min = energy.min()
+        energy_max = energy.max()
+        self.lowest_energy = energy_min
+        self.highest_energy = energy_max
+        self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
+        print("MIN: ", energy_min)
+        print("MAX: ", energy_max)
+        print(self.energy_threshold)
 
     def free_energy(self, input_data):
         np_input_data = input_data.cpu().detach().numpy()
