@@ -68,7 +68,7 @@ class RV_RBM():
     def is_familiar(self, v0, provide_value=True):
         if self.energy_threshold is None:
             return False
-        energy = self.free_energy(v0).max()
+        energy = self.free_energy(v0)
 
         # if energy < self.energy_threshold:
         #     return True
@@ -79,7 +79,7 @@ class RV_RBM():
         if provide_value:
             return abs(self.energy_threshold - energy)
         else:
-            return self.energy_threshold < energy
+            return self.energy_threshold < energy.max()
 
 
     def contrastive_divergence(self, v0, update_weights=True):

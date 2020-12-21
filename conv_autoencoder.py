@@ -216,6 +216,7 @@ class WDN(nn.Module):
             data = data.to(self.device)
 
             a_n_models = len(self.models)
+            self.n_models = a_n_models
             counter += 1
             if counter % 25 == 0:
                 print("Iteration: ", counter)
@@ -276,7 +277,7 @@ class Classifier(nn.Module):
 
     def forward(self, x):
         x = F.selu(self.fc1(x))
-        return F.log_softmax(self.fc2(x))
+        return F.sigmoid(self.fc2(x))
 
 # %% Instantiate the model
 
@@ -289,17 +290,17 @@ for epoch in range(epochs):
 
 
 # %% Convert the training set to the unsupervised latent vector
-print("Doing logistic training")
-train_loader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=False)
+classifier = Classifier(len(model.models))
+print("Doing training")
+classifier_training_batch_size = 1000
+train_loader = torch.utils.data.DataLoader(train_data, batch_size=classifier_training_batch_size, shuffle=False)
 counter = 0
 new_dataset = []
 training_features = []
 training_labels = []
 for batch_idx, (data, target) in enumerate(train_loader):
     data = data.to(model.device)
-
     latent_vector = []
-
     familiar = False
     for m in model.models:
         # Encode the image
@@ -309,45 +310,59 @@ for batch_idx, (data, target) in enumerate(train_loader):
         flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
         # Compare data with existing models
-        latent_vector.append(m.rbm.is_familiar(flat_rbm_input))
+        latent_vector.append(m.rbm.is_familiar(flat_rbm_input).cpu().detach().numpy())
         # if m.rbm.is_familiar(flat_rbm_input):
         #     latent_vector.append(1)
         # else:
         #     latent_vector.append(0)
 
-    t = target.cpu().detach().numpy()[0]
-    training_features.append(latent_vector)
-    # training_labels.append(1 if t == target_digit else 0)
-    training_labels.append(t)
+    latent_vector = np.array(latent_vector)
+    target_labels = target.cpu().detach().numpy()
+    for i in range(classifier_training_batch_size):
+        test_target = np.zeros(10)
+        test_target[target_labels[i]] = 1
+        new_dataset.append([latent_vector[:, i], test_target])
 
-    # latent_vector.append(t)
-    # new_dataset.append(latent_vector)
+
+    # for i in range(len(latent_vector)):
+    # new_dataset.append([latent_vector, target_labels[i]])
+
     counter += 1
     if counter % 100 == 0:
         print("Training iteration: ", counter)
-    # if counter >= 100:
-    #     break
-# new_dataset = np.array(new_dataset)
 
-training_features = np.array(training_features)
-training_features = preprocessing.scale(training_features)
-training_labels = np.array(training_labels)
+new_dataset = np.array(new_dataset)
+# train_loader = torch.utils.data.DataLoader(new_dataset, batch_size=100, shuffle=False)
 
-clf = LogisticRegression()
-clf.fit(training_features, training_labels)
-# predictions = clf.predict(training_features)
-# print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
+optimizer = torch.optim.SGD(classifier.parameters(), lr=1e-5, momentum=0.9)
+# create a loss function
+criterion = nn.BCELoss()
+
+for epoch in range(10):
+    for i in range(new_dataset.shape[0]):
+        data, target = new_dataset[i]
+        data = torch.Tensor(data)
+        target = torch.tensor(target).float()
+    # for batch_idx, (data, target) in enumerate(train_loader):
+        data, target = Variable(data), Variable(target)
+        optimizer.zero_grad()
+        out = classifier(data)
+        loss = criterion(out, target)
+        loss.backward()
+        optimizer.step()
+
+        if batch_idx % 100 == 0:
+            print("Batch idx ", batch_idx)
 
 
 # exit(0)
 
 #%%
 print("Doing testing")
-test_loader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=False)
+test_batch_size = 100
+test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
 counter = 0
 new_dataset = []
-test_features = []
-test_labels = []
 for batch_idx, (data, target) in enumerate(test_loader):
     data = data.to(model.device)
 
@@ -362,34 +377,57 @@ for batch_idx, (data, target) in enumerate(test_loader):
         flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
         # Compare data with existing models
-        latent_vector.append(m.rbm.is_familiar(flat_rbm_input))
+        latent_vector.append(m.rbm.is_familiar(flat_rbm_input).cpu().detach().numpy())
         # if m.rbm.is_familiar(flat_rbm_input):
         #     latent_vector.append(1)
         # else:
         #     latent_vector.append(0)
 
-    t = target.cpu().detach().numpy()[0]
-    test_features.append(latent_vector)
-    # training_labels.append(1 if t == target_digit else 0)
-    test_labels.append(t)
+    latent_vector = np.array(latent_vector)
+    target_labels = target.cpu().detach().numpy()
+    for i in range(test_batch_size):
+        test_target = np.zeros(10)
+        test_target[target_labels[i]] = 1
+        new_dataset.append([latent_vector[:, i], test_target])
 
     # latent_vector.append(t)
     # new_dataset.append(latent_vector)
     counter += 1
     if counter % 100 == 0:
         print("Testing iteration: ", counter)
+
+    break
     # if counter >= 100:
     #     break
 # new_dataset = np.array(new_dataset)
 
-test_features = np.array(test_features)
-test_features = preprocessing.scale(test_features)
-test_labels = np.array(test_labels)
+new_dataset = np.array(new_dataset)
+# test_loader = torch.utils.data.DataLoader(new_dataset, batch_size=10, shuffle=False)
+test_loss = 0
+correct = 0
+for i in range(new_dataset.shape[0]):
+    data, target = new_dataset[i]
+    data = torch.Tensor(data)
+    target = torch.tensor(target).float()
+    # for batch_idx, (data, target) in enumerate(train_loader):
+    data, target = Variable(data), Variable(target)
+    out = classifier(data)
+    loss = criterion(out, target)
+    pred = out.data.max(0)[1]
+    correct += pred.eq(target.data).sum()
+# for batch_idx, (data, target) in enumerate(test_loader):
+#     data, target = Variable(data), Variable(target)
+#     out = classifier(data)
+#     test_loss = criterion(out, target)
+#
+#     pred = out.data.max(1)[1]
+#     correct += pred.eq(target.data).sum()
 
-predictions = clf.predict(test_features)
 
-print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
-
+test_loss /= len(test_loader.dataset)
+print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        test_loss, correct, len(test_loader.dataset),
+        100. * correct / len(test_loader.dataset)))
 
 exit(0)
 
