@@ -30,8 +30,9 @@ class RV_RBM():
         self.weights = torch.ones((self.num_visible, self.num_hidden), dtype=torch.float)
         # self.weights = torch.randn(num_visible, num_hidden) * 0.1
         # nn.init.xavier_normal_(self.weights, 2.0)
+        nn.init.xavier_normal_(self.weights, 25.0)
         # nn.init.normal_(self.weights, 0, 0.007)
-        nn.init.normal_(self.weights, 0, 0.07)
+        # nn.init.normal_(self.weights, 0, 0.07)
         #
         self.visible_bias = torch.ones(num_visible)
         # self.visible_bias = torch.zeros(num_visible)
@@ -66,16 +67,18 @@ class RV_RBM():
     def is_familiar(self, v0):
         if self.energy_threshold is None:
             return False
-        energy = self.free_energy(v0)
+        energy = self.free_energy(v0).mean()
 
-        if energy > self.energy_threshold:
-            return False
-        return True
+        # if energy < self.energy_threshold:
+        #     return True
+        # return False
+        #
+        return torch.sigmoid(self.energy_threshold - energy)
 
     def contrastive_divergence(self, v0, update_weights=True):
         batch_size = v0.shape[0]
 
-        for i in range(10):
+        for i in range(1):
             h0 = self.sample_hidden(v0)
             v1 = self.sample_visible(h0)
             h1 = self.act_prob(torch.matmul(v1, self.weights) + self.hidden_bias)
@@ -112,9 +115,9 @@ class RV_RBM():
         self.lowest_energy = energy_min
         self.highest_energy = energy_max
         self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
-        print("MIN: ", energy_min)
-        print("MAX: ", energy_max)
-        print(self.energy_threshold)
+        # print("MIN: ", energy_min)
+        # print("MAX: ", energy_max)
+        # print(self.energy_threshold)
 
     def free_energy(self, input_data):
         np_input_data = input_data.cpu().detach().numpy()
@@ -132,7 +135,7 @@ class RV_RBM():
         return torch.Tensor(-hidden_term - vbias_term)
 
     def random_selu_noise(self, shape):
-        return -(-2 * torch.rand(shape) + 1).cuda()
+        return (-2 * torch.rand(shape) + 1).cuda()
 
     def random_relu_noise(self, shape):
         return torch.rand(shape).cuda()
