@@ -32,7 +32,7 @@ rbm_epochs = 1
 ae_epochs = 0
 use_relu = True
 rbm_epochs_single = 1
-target_digit = 9
+target_digit = 0
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
@@ -42,8 +42,8 @@ RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
 RBM_HIDDEN_UNITS = 100
-# torch.manual_seed(0)
-# np.random.seed(0)
+torch.manual_seed(0)
+np.random.seed(0)
 
 # %% Load data
 train_data = MNIST('./data', train=True, download=True,
@@ -92,17 +92,17 @@ def run_test():
     markers = ['o', '.', 'x', '+', 'v', '^', '<', '>', 's', 'd']
 
     for i in [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        # target_digit
+        # 0,
+        # 1,
+        # 2,
+        # 3,
+        # 4,
+        # 5,
+        # 6,
+        # 7,
+        # 8,
+        # 9,
+        target_digit
     ]:
         x = [e[1] for j, e in enumerate(to_output) if int(e[0]) == i]
         # x = [e[1] for j, e in enumerate(to_output) if int(e[0]) == i]
@@ -229,7 +229,7 @@ class AE(nn.Module):
                 print("Error: ", torch.sum(rbm_error))
 
             counter += 1
-            # return
+            return
 
 
 # %% Instantiate the model

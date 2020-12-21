@@ -66,44 +66,44 @@ class RV_RBM():
     def contrastive_divergence(self, v0, update_weights=True):
         batch_size = v0.shape[0]
 
+        for i in range(10):
+            h0 = self.sample_hidden(v0)
+            v1 = self.sample_visible(h0)
+            h1 = self.act_prob(torch.matmul(v1, self.weights) + self.hidden_bias)
 
-        h0 = self.sample_hidden(v0)
-        v1 = self.sample_visible(h0)
-        h1 = self.act_prob(torch.matmul(v1, self.weights) + self.hidden_bias)
+            positive_grad = torch.matmul(v0.t(), h0)
+            negative_grad = torch.matmul(v1.t(), h1)
 
-        positive_grad = torch.matmul(v0.t(), h0)
-        negative_grad = torch.matmul(v1.t(), h1)
+            recon_error = v0 - v1
+            recon_error_sum = torch.mean(recon_error ** 2, dim=1)
+            if update_weights:
+                CD = (positive_grad - negative_grad)
 
-        recon_error = v0 - v1
-        recon_error_sum = torch.mean(recon_error ** 2, dim=1)
-        if update_weights:
-            CD = (positive_grad - negative_grad)
+                self.weights_momentum *= self.momentum_coefficient
+                self.weights_momentum += CD
 
-            self.weights_momentum *= self.momentum_coefficient
-            self.weights_momentum += CD
+                self.visible_bias_momentum *= self.momentum_coefficient
+                self.visible_bias_momentum += torch.sum(recon_error, dim=0)
 
-            self.visible_bias_momentum *= self.momentum_coefficient
-            self.visible_bias_momentum += torch.sum(recon_error, dim=0)
+                self.hidden_bias_momentum *= self.momentum_coefficient
+                self.hidden_bias_momentum += torch.sum(h0 - h1, dim=0)
 
-            self.hidden_bias_momentum *= self.momentum_coefficient
-            self.hidden_bias_momentum += torch.sum(h0 - h1, dim=0)
+                self.weights = self.weights + (self.weights_momentum * self.lr / batch_size)
+                self.visible_bias = self.visible_bias + (self.visible_bias_momentum * self.lr / batch_size)
+                self.hidden_bias = self.hidden_bias + (self.hidden_bias_momentum * self.lr / batch_size)
 
-            self.weights = self.weights + (self.weights_momentum * self.lr / batch_size)
-            self.visible_bias = self.visible_bias + (self.visible_bias_momentum * self.lr / batch_size)
-            self.hidden_bias = self.hidden_bias + (self.hidden_bias_momentum * self.lr / batch_size)
+                self.weights = self.weights - (self.weights * self.weight_decay)  # L2 weight decay
 
-            self.weights = self.weights - (self.weights * self.weight_decay)  # L2 weight decay
-
-        energy = self.free_energy(v0)
-        energy_min = energy.min()
-        energy_max = energy.max()
-        if self.lowest_energy is None or self.lowest_energy > energy_min:
-            self.lowest_energy = energy_min
-            self.highest_energy = energy_max
-            self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
-            print("MIN: ", energy_min)
-            print("MAX: ", energy_max)
-            print(self.energy_threshold)
+            energy = self.free_energy(v0)
+            energy_min = energy.min()
+            energy_max = energy.max()
+            if self.lowest_energy is None or self.lowest_energy > energy_min:
+                self.lowest_energy = energy_min
+                self.highest_energy = energy_max
+                self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
+                print("MIN: ", energy_min)
+                print("MAX: ", energy_max)
+                print(self.energy_threshold)
 
         return recon_error_sum
 
