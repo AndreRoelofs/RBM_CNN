@@ -27,14 +27,15 @@ class RV_RBM():
             self.act_prob = nn.Tanh()
             self.rand = self.random_selu_noise
 
-        self.weights = torch.ones((self.num_visible, self.num_hidden), dtype=torch.float)
+        self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
         # self.weights = torch.randn(num_visible, num_hidden) * 0.1
         # nn.init.xavier_normal_(self.weights, 2.0)
-        nn.init.xavier_normal_(self.weights, 25.0)
-        # nn.init.normal_(self.weights, 0, 0.007)
+        # nn.init.xavier_normal_(self.weights, 25.0)
+        # nn.init.xavier_normal_(self.weights, 25.0)
+        nn.init.xavier_normal_(self.weights, 0.007)
         # nn.init.normal_(self.weights, 0, 0.07)
         #
-        self.visible_bias = torch.ones(num_visible)
+        self.visible_bias = torch.zeros(num_visible)
         # self.visible_bias = torch.zeros(num_visible)
         self.hidden_bias = torch.zeros(num_hidden)
 
@@ -64,16 +65,22 @@ class RV_RBM():
             torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
         return visible_activations
 
-    def is_familiar(self, v0):
+    def is_familiar(self, v0, provide_value=True):
         if self.energy_threshold is None:
             return False
-        energy = self.free_energy(v0).mean()
+        energy = self.free_energy(v0).max()
 
         # if energy < self.energy_threshold:
         #     return True
         # return False
         #
-        return torch.sigmoid(self.energy_threshold - energy)
+        # print(self.energy_threshold - energy)
+        # return self.energy_threshold - energy
+        if provide_value:
+            return abs(self.energy_threshold - energy)
+        else:
+            return self.energy_threshold < energy
+
 
     def contrastive_divergence(self, v0, update_weights=True):
         batch_size = v0.shape[0]
@@ -114,7 +121,8 @@ class RV_RBM():
         energy_max = energy.max()
         self.lowest_energy = energy_min
         self.highest_energy = energy_max
-        self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
+        # self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
+        self.energy_threshold = energy_max
         # print("MIN: ", energy_min)
         # print("MAX: ", energy_max)
         # print(self.energy_threshold)

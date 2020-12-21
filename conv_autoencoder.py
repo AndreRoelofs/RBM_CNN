@@ -8,6 +8,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
+from sklearn import preprocessing
 from torchvision import transforms
 from torchvision.utils import save_image
 from torchvision.transforms.functional import resize
@@ -22,12 +23,12 @@ from rbm_example.rv_rbm import RV_RBM
 np.set_printoptions(threshold=sys.maxsize)
 
 # %%
-train_batch_size = 100
+train_batch_size = 10
 test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
     train_batch_size = 1
-epochs = 10
+epochs = 1
 rbm_epochs = 1
 ae_epochs = 0
 use_relu = False
@@ -35,15 +36,15 @@ rbm_epochs_single = 1
 target_digit = 5
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 1
+filters = 8
 # RBM_VISIBLE_UNITS = filters * 14**2
 size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
 RBM_HIDDEN_UNITS = 5
-# torch.manual_seed(0)
-# np.random.seed(0)
+torch.manual_seed(0)
+np.random.seed(0)
 
 # %% Load data
 train_data = MNIST('./data', train=False, download=True,
@@ -54,7 +55,7 @@ subset_indices = (
     (torch.tensor(train_data.targets) == target_digit)
     # + (torch.tensor(train_data.targets) == 8)
 ).nonzero().view(-1)
-subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
+# subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
 
 
 # mask = train_data.targets == target_digit
@@ -132,10 +133,10 @@ class Encoder(nn.Module):
 
         self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
 
-        # nn.init.normal_(self.conv1.weight, 0, variance)
-        nn.init.normal_(self.conv1.weight, 0, 0.0007)
+        # nn.init.normal_(self.conv1.weight, 0, 40)
+        # nn.init.normal_(self.conv1.weight, 0, 0.0007)
         # nn.init.xavier_normal_(self.conv1.weight, 0.007)
-        # nn.init.xavier_normal_(self.conv1.weight, 2.0)
+        nn.init.xavier_normal_(self.conv1.weight, 20.0)
 
         if use_relu:
             self.act = nn.ReLU()
@@ -154,7 +155,7 @@ class Network(nn.Module):
         super().__init__()
         self.encoder = Encoder()
         self.rbm = RV_RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
-                          learning_rate=1e-2,
+                          learning_rate=1e-20,
                           momentum_coefficient=0.0,
                           weight_decay=0.00,
                           use_cuda=True,
@@ -190,9 +191,9 @@ class WDN(nn.Module):
 
         self.log_interval = 100
 
-        self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
-                                                        sampler=SubsetRandomSampler(subset_indices))
-        # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
+        # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
+        #                                                 sampler=SubsetRandomSampler(subset_indices))
+        self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
 
@@ -215,17 +216,16 @@ class WDN(nn.Module):
             data = data.to(self.device)
 
             a_n_models = len(self.models)
-
-            if counter % 100 == 0:
+            counter += 1
+            if counter % 25 == 0:
                 print("Iteration: ", counter)
                 print("n_models", a_n_models)
 
             # if counter >= 100:
             #     break
 
-            counter += 1
             n_familiar = 0
-            familiar_threshold = 1
+            familiar_threshold = 10
             for m in self.models:
                 # Encode the image
                 rbm_input = m.encode(data)
@@ -234,7 +234,7 @@ class WDN(nn.Module):
                 flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
                 # Compare data with existing models
-                if m.rbm.is_familiar(flat_rbm_input) > 0.9:
+                if m.rbm.is_familiar(flat_rbm_input, provide_value=False):
                     n_familiar += 1
 
             if n_familiar >= familiar_threshold:
@@ -247,14 +247,15 @@ class WDN(nn.Module):
 
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-15)
 
-            # Encode the image
-            rbm_input = self.model.encode(data)
-            # Resize and flatten input for RBM
-            rbm_input = resize(rbm_input, [size, size])
-            flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
+            for i in range(2):
+                # Encode the image
+                rbm_input = self.model.encode(data)
+                # Resize and flatten input for RBM
+                rbm_input = resize(rbm_input, [size, size])
+                flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
-            # Train RBM
-            rbm_error = self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
+                # Train RBM
+                rbm_error = self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
 
             # Sample RBM
             hidden = self.model.rbm.sample_hidden(flat_rbm_input)
@@ -266,7 +267,16 @@ class WDN(nn.Module):
 
             self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
+class Classifier(nn.Module):
+    def __init__(self, input_size):
+        super().__init__()
 
+        self.fc1 = nn.Linear(input_size, 100)
+        self.fc2 = nn.Linear(100, 10)
+
+    def forward(self, x):
+        x = F.selu(self.fc1(x))
+        return F.log_softmax(self.fc2(x))
 
 # %% Instantiate the model
 
@@ -279,7 +289,8 @@ for epoch in range(epochs):
 
 
 # %% Convert the training set to the unsupervised latent vector
-train_loader = torch.utils.data.DataLoader(train_data, batch_size=1, shuffle=False)
+print("Doing logistic training")
+train_loader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=False)
 counter = 0
 new_dataset = []
 training_features = []
@@ -312,18 +323,72 @@ for batch_idx, (data, target) in enumerate(train_loader):
     # latent_vector.append(t)
     # new_dataset.append(latent_vector)
     counter += 1
-    if counter >= 100:
-        break
+    if counter % 100 == 0:
+        print("Training iteration: ", counter)
+    # if counter >= 100:
+    #     break
 # new_dataset = np.array(new_dataset)
 
 training_features = np.array(training_features)
+training_features = preprocessing.scale(training_features)
 training_labels = np.array(training_labels)
 
 clf = LogisticRegression()
 clf.fit(training_features, training_labels)
-predictions = clf.predict(training_features)
+# predictions = clf.predict(training_features)
+# print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
 
-print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
+
+# exit(0)
+
+#%%
+print("Doing testing")
+test_loader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=False)
+counter = 0
+new_dataset = []
+test_features = []
+test_labels = []
+for batch_idx, (data, target) in enumerate(test_loader):
+    data = data.to(model.device)
+
+    latent_vector = []
+
+    familiar = False
+    for m in model.models:
+        # Encode the image
+        rbm_input = m.encode(data)
+        # Resize and flatten input for RBM
+        rbm_input = resize(rbm_input, [size, size])
+        flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
+
+        # Compare data with existing models
+        latent_vector.append(m.rbm.is_familiar(flat_rbm_input))
+        # if m.rbm.is_familiar(flat_rbm_input):
+        #     latent_vector.append(1)
+        # else:
+        #     latent_vector.append(0)
+
+    t = target.cpu().detach().numpy()[0]
+    test_features.append(latent_vector)
+    # training_labels.append(1 if t == target_digit else 0)
+    test_labels.append(t)
+
+    # latent_vector.append(t)
+    # new_dataset.append(latent_vector)
+    counter += 1
+    if counter % 100 == 0:
+        print("Testing iteration: ", counter)
+    # if counter >= 100:
+    #     break
+# new_dataset = np.array(new_dataset)
+
+test_features = np.array(test_features)
+test_features = preprocessing.scale(test_features)
+test_labels = np.array(test_labels)
+
+predictions = clf.predict(test_features)
+
+print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
 
 
 exit(0)
