@@ -5,7 +5,9 @@ import torchvision.datasets
 import torchvision.models
 import torchvision.transforms
 
+# from rbm_example.rbm_altered import RBM
 from rbm_example.rbm import RBM
+from rbm_example.rv_rbm import RV_RBM
 
 
 ########## CONFIGURATION ##########
@@ -17,7 +19,7 @@ EPOCHS = 10
 
 DATA_FOLDER = '../data'
 
-CUDA = torch.cuda.is_available()
+CUDA = True
 CUDA_DEVICE = 0
 
 if CUDA:
@@ -37,7 +39,8 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE)
 ########## TRAINING RBM ##########
 print('Training RBM...')
 
-rbm = RBM(VISIBLE_UNITS, HIDDEN_UNITS, CD_K, use_cuda=CUDA)
+# rbm = RBM(VISIBLE_UNITS, HIDDEN_UNITS, CD_K, use_cuda=CUDA)
+rbm = RV_RBM(VISIBLE_UNITS, HIDDEN_UNITS, use_cuda=CUDA, use_relu=False)
 
 for epoch in range(EPOCHS):
     epoch_error = 0.0
@@ -50,9 +53,9 @@ for epoch in range(EPOCHS):
 
         batch_error = rbm.contrastive_divergence(batch)
 
-        epoch_error += batch_error
-
+        epoch_error += torch.sum(batch_error)
     print('Epoch Error (epoch=%d): %.4f' % (epoch, epoch_error))
+    # print('Energy {}'.format(rbm.free_energy(batch[0])))
 
 
 ########## EXTRACT FEATURES ##########
