@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import os
 import sys
 from torch.utils.data.sampler import SubsetRandomSampler
-from siren_pytorch import Sine
 # from rbm_example.rbm_altered import RBM
 from rbm_example.rv_rbm import RV_RBM
 
