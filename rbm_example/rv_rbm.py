@@ -32,7 +32,7 @@ class RV_RBM():
         # nn.init.xavier_normal_(self.weights, 2.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
-        nn.init.xavier_normal_(self.weights, 0.000007)
+        nn.init.xavier_normal_(self.weights, 0.007)
         # nn.init.normal_(self.weights, 0, 0.07)
         #
         self.visible_bias = torch.zeros(num_visible)
@@ -77,7 +77,7 @@ class RV_RBM():
         # print(self.energy_threshold - energy)
         # return self.energy_threshold - energy
         if provide_value:
-            return self.energy_threshold - energy
+            return self.energy_threshold - energy, self.energy_threshold >= energy.min()
         else:
             # return self.energy_threshold > energy.max()
             return self.energy_threshold >= energy.min()
@@ -93,7 +93,6 @@ class RV_RBM():
 
             positive_grad = torch.matmul(v0.t(), h0)
             negative_grad = torch.matmul(v1.t(), h1)
-            # TODO: use recon_error_sum for weights delta?
             recon_error = v0 - v1
             recon_error_sum = torch.mean(recon_error ** 2, dim=1)
             if update_weights:
