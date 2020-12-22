@@ -6,6 +6,7 @@ from torch import nn
 import numpy as np
 from torch.nn import functional as F
 from torch.autograd import Variable
+from sklearn import svm
 from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
@@ -29,7 +30,7 @@ test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
     train_batch_size = 1
-epochs = 2
+epochs = 10
 rbm_epochs = 1
 ae_epochs = 0
 use_relu = False
@@ -37,13 +38,13 @@ rbm_epochs_single = 1
 target_digit = 0
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 8
+filters = 16
 # RBM_VISIBLE_UNITS = filters * 14**2
-size = 14
+size = 16
 RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
-RBM_HIDDEN_UNITS = 5
+RBM_HIDDEN_UNITS = 10
 torch.manual_seed(0)
 np.random.seed(0)
 
@@ -52,16 +53,16 @@ transform = transforms.Compose(
     [transforms.ToTensor(),
      # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
      # transforms.Normalize(0.5, 0.5),
-     transforms.RandomResizedCrop((14,14)),
+     transforms.RandomResizedCrop((14, 14)),
      transforms.RandomAffine(15, translate=(0, 1), scale=(0.7, 1.0)),
      transforms.RandomVerticalFlip(),
      transforms.RandomHorizontalFlip(),
      ])
 # train_data = MNIST('./data', train=True, download=True,
 #                    transform=transform)
-train_data = MNIST('./data', train=True, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor()]))
+train_data = CIFAR10('./data', train=True, download=True,
+                     transform=transforms.Compose([
+                         transforms.ToTensor()]))
 
 subset_indices = (
     (torch.tensor(train_data.targets) == target_digit)
@@ -80,7 +81,7 @@ subset_indices = (
 # indices = torch.nonzero(target[mask])
 # target = target[indices]
 
-test_data = MNIST('./data', train=False, transform=transforms.Compose([
+test_data = CIFAR10('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor()]))
 
 
@@ -143,7 +144,7 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(3, filters, (3, 3), stride=1, padding=1)
 
         nn.init.normal_(self.conv1.weight, 0, 0.07)
         # nn.init.normal_(self.conv1.weight, 0, 0.0007)
@@ -192,6 +193,16 @@ class Network(nn.Module):
         return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
+def get_n_params(model):
+    pp = 0
+    for p in list(model.parameters()):
+        nn = 1
+        for s in list(p.size()):
+            nn = nn * s
+        pp += nn
+    return pp
+
+#%%
 class WDN(nn.Module):
     def __init__(self):
         super().__init__()
@@ -239,7 +250,7 @@ class WDN(nn.Module):
             #     break
 
             n_familiar = 0
-            familiar_threshold = 140
+            familiar_threshold = 800
             for m in self.models:
                 # Encode the image
                 rbm_input = m.encode(data)
@@ -287,7 +298,7 @@ class WDN(nn.Module):
 
 model = WDN()
 # run_test()
-
+#%%
 for epoch in range(epochs):
     print("Epoch: ", epoch)
     model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
@@ -325,7 +336,7 @@ for batch_idx, (data, target) in enumerate(train_loader):
         # test_target = np.zeros(10)
         # test_target[target_labels[i]] = 1
         training_features.append(latent_vector[:, i])
-        training_labels.append(target_labels[i] == target_digit)
+        training_labels.append(target_labels[i])
 
     # for i in range(len(latent_vector)):
     # new_dataset.append([latent_vector, target_labels[i]])
@@ -335,16 +346,32 @@ for batch_idx, (data, target) in enumerate(train_loader):
         print("Training iteration: ", counter)
 
 training_features = np.array(training_features)
-training_features = preprocessing.scale(training_features)
+training_features_norm = preprocessing.scale(training_features)
 training_labels = np.array(training_labels)
 
-#%%
+# %%
 
-clf = MLPClassifier(hidden_layer_sizes=(500,), activation='relu', solver='adam', batch_size=100)
+# clf = MLPClassifier(hidden_layer_sizes=(100,), activation='relu', solver='adam', batch_size=100, max_iter=1)
 # clf = LogisticRegression()
-clf.fit(training_features, training_labels)
+# clf.fit(training_features_norm[:10], training_labels[:10])
 # predictions = clf.predict(training_features)
 # print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
+# clf = svm.SVC()
+# clf.fit(training_features_norm, training_labels)
+# print("saving training labels")
+# with open('training_labels.npy', 'wb') as f:
+#     np.save(f, training_labels)
+#
+# print("saving training features")
+# with open('training_features.npy', 'wb') as f:
+#     np.save(f, training_features)
+#
+# print("saving training features norm")
+# with open('training_features_norm.npy', 'wb') as f:
+#     np.save(f, training_features_norm)
+
+#%%
+5+5
 
 
 # %%
@@ -393,16 +420,16 @@ for batch_idx, (data, target) in enumerate(test_loader):
 # new_dataset = np.array(new_dataset)
 
 test_features = np.array(test_features)
-test_features = preprocessing.scale(test_features)
+test_features_norm = preprocessing.scale(test_features)
 test_labels = np.array(test_labels)
-#%%
-predictions = clf.predict(test_features)
+# %%
+predictions = clf.predict(test_features_norm)
 
-print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+# print('Result: %d/%d' % (sum(predictions[:10] == test_labels[:10]), test_labels[:10].shape[0]))
+print('Result: %d/%d' % (sum(predictions[:10] == test_labels[:10]), 10))
 
-# exit(0)
-#
-# # %% Visualise data
+
+# %% Visualise data
 # num_images = 10
 #
 # num_row = 3
