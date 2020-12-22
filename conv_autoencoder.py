@@ -37,7 +37,7 @@ size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
 MIN_FAMILIARITY_THRESHOLD = 5
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
-target_digit = 5
+# target_digit = 5
 RBM_HIDDEN_UNITS = 5
 torch.manual_seed(0)
 np.random.seed(0)
@@ -50,7 +50,7 @@ train_data = MNIST('./data', train=False, download=True,
 test_data = MNIST('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor()]))
 
-subset_indices = (torch.tensor(train_data.targets) == target_digit).nonzero().view(-1)
+subset_indices = (torch.tensor(train_data.targets) != -1).nonzero().view(-1)[:500]
 
 
 # %% Define encoder
@@ -87,7 +87,7 @@ class Network(nn.Module):
             weight_decay=0.00,
             use_cuda=True,
             use_relu=use_relu)
-        self.children = []
+        self.child_networks = []
         self.level = level
 
     def encode(self, x):
@@ -155,10 +155,10 @@ class WDN(nn.Module):
         self.models = []
         self.log_interval = 100
         self.levels = [
-            {'e_w': 10.0, 'r_w': 0.07, 'v_b': 1.0},
+            {'e_w': 10.0, 'r_w': 0.07, 'v_b': 0.1},
             # {'e_w': 8.0, 'r_w': 0.07, 'v_b': 0.9},
             # {'e_w': 6.0, 'r_w': 0.07, 'v_b': 0.7},
-            {'e_w': 4.0, 'r_w': 0.07, 'v_b': 0.5},
+            {'e_w': 30.0, 'r_w': 0.07, 'v_b': 1.0},
         ]
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
@@ -202,18 +202,22 @@ class WDN(nn.Module):
     def joint_training(self, MIN_FAMILIARITY_THRESHOLD):
         # torch.autograd.set_detect_anomaly(True)
         counter = 0
-        perfect_counter = 0
         for batch_idx, (data, _) in enumerate(self.train_loader):
             # Assume we have batch size of 1
             data = data.to(self.device)
 
             n_models = len(self.models)
-
             counter += 1
             if counter % 50 == 0:
                 print("Iteration: ", counter)
                 print("n_models", n_models)
-                print("perfect counter", perfect_counter)
+                n_child_models = 0
+                for m in self.models:
+                    child_counter = len(m.child_networks)
+                    n_child_models += child_counter
+                print("n_child_models", n_child_models)
+
+
 
             n_familiar = 0
             for m in self.models:
@@ -231,36 +235,42 @@ class WDN(nn.Module):
                 if familiarity == 2:
                     # If empty, add child of higher level
                     children_fam_counter = 0
-                    children_familiarity_threshold = 1
-                    if len(m.children) == 0:
+                    children_familiarity_threshold = 2
+                    if len(m.child_networks) == 0:
                         # Create child of higher level
                         child = self.create_new_model(m.level + 1)
-                        m.children.append(child)
+                        m.child_networks.append(child)
                         # Train child
                         self.train_network(child, data)
                     else:
-                        for m_child in m.children:
-                            children_fam_counter += m_child.rbm.get_familiarity(flat_rbm_input)
+                        for m_child in m.child_networks:
+                            children_fam_counter += min(m_child.rbm.get_familiarity(flat_rbm_input), 1)
                             if children_fam_counter >= children_familiarity_threshold:
                                 break
                         if children_fam_counter < children_familiarity_threshold:
                             # Create child of higher level
                             child = self.create_new_model(m.level + 1)
-                            m.children.append(child)
+                            m.child_networks.append(child)
                             # Train child
                             self.train_network(child, data)
-                    n_familiar += children_fam_counter + 1
+                    n_familiar += 1
                     continue
                 if familiarity == 1:
                     n_familiar += 1
+                    for m_child in m.child_networks:
+                        if m_child.rbm.get_familiarity(flat_rbm_input):
+                            n_familiar += 1
+                            break
                 if n_familiar >= MIN_FAMILIARITY_THRESHOLD:
                     break
             if n_familiar >= MIN_FAMILIARITY_THRESHOLD:
                 # break
                 continue
 
+
             # If data is unfamiliar, create a new network
             network = self.create_new_model(level=0)
+            self.models.append(network)
             self.model = network
             self.model.train()
 
@@ -299,8 +309,9 @@ for epoch in range(epochs):
 
 # %% Convert the training set to the unsupervised latent vector
 print("Converting images to latent vectors")
-classifier_training_batch_size = 1000
-train_loader = torch.utils.data.DataLoader(train_data, batch_size=classifier_training_batch_size, shuffle=False)
+classifier_training_batch_size = 1
+train_loader = torch.utils.data.DataLoader(train_data, batch_size=classifier_training_batch_size, shuffle=False,
+                                           sampler=SubsetRandomSampler(subset_indices))
 counter = 0
 training_features = []
 training_labels = []
@@ -316,14 +327,27 @@ for batch_idx, (data, target) in enumerate(train_loader):
         flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
         # Compare data with existing models
-        values, is_familiar = m.rbm.is_familiar(flat_rbm_input)
-
-        subset_indices = (is_familiar == 0).nonzero().view(-1)
-        values[subset_indices] = 0
-
+        values, is_familiar = m.rbm.get_energy_error(flat_rbm_input)
         values = values.cpu().detach().numpy()
 
         latent_vector.append(values)
+
+        for m_child in m.child_networks:
+            if is_familiar == 0:
+                latent_vector.append([0])
+                continue
+            # Encode the image
+            rbm_input = m_child.encode(data)
+            # Resize and flatten input for RBM
+            rbm_input = resize(rbm_input, [size, size])
+            flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
+            # Compare data with existing models
+            values, is_familiar = m_child.rbm.get_energy_error(flat_rbm_input)
+            values = values.cpu().detach().numpy()
+
+            latent_vector.append(values)
+
+
 
     latent_vector = np.array(latent_vector)
     target_labels = target.cpu().detach().numpy()
@@ -342,7 +366,7 @@ training_features = np.array(training_features)
 training_features_norm = preprocessing.scale(training_features)
 training_labels = np.array(training_labels, dtype=float)
 # %%
-train_dataset = UnsupervisedVectorDataset(training_features, training_labels)
+train_dataset = UnsupervisedVectorDataset(training_features_norm, training_labels)
 
 # %% Training classifier
 print("Training classifier")
@@ -350,9 +374,9 @@ clf = Classifier(training_features_norm.shape[1])
 # criterion = nn.NLLLoss()
 # criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3)
-train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=True)
+train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=True)
 clf.train()
-for epoch in range(10):
+for epoch in range(30):
     for batch_idx, (data, target) in enumerate(train_dataset_loader):
         data = data.to(clf.device)
         target = target.to(clf.device)
@@ -372,12 +396,13 @@ for epoch in range(10):
 
 # %%
 print("Converting test images to latent vectors")
-test_batch_size = 1000
-test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
+test_batch_size = 1
+test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False,
+                                          sampler=SubsetRandomSampler(subset_indices))
 counter = 0
 test_features = []
 test_labels = []
-for batch_idx, (data, target) in enumerate(test_loader):
+for batch_idx, (data, target) in enumerate(train_dataset_loader):
     data = data.to(model.device)
 
     latent_vector = []
@@ -391,14 +416,25 @@ for batch_idx, (data, target) in enumerate(test_loader):
         flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
         # Compare data with existing models
-        values, is_familiar = m.rbm.is_familiar(flat_rbm_input)
-
-        subset_indices = (is_familiar == 0).nonzero().view(-1)
-        values[subset_indices] = 0
-
+        values, is_familiar = m.rbm.get_energy_error(flat_rbm_input)
         values = values.cpu().detach().numpy()
 
         latent_vector.append(values)
+
+        for m_child in m.child_networks:
+            if is_familiar == 0:
+                latent_vector.append([0])
+                continue
+            # Encode the image
+            rbm_input = m_child.encode(data)
+            # Resize and flatten input for RBM
+            rbm_input = resize(rbm_input, [size, size])
+            flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
+            # Compare data with existing models
+            values, is_familiar = m_child.rbm.get_energy_error(flat_rbm_input)
+            values = values.cpu().detach().numpy()
+
+            latent_vector.append(values)
 
     latent_vector = np.array(latent_vector)
     target_labels = target.cpu().detach().numpy()
@@ -429,21 +465,25 @@ test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, 
 test_loss = 0
 correct = 0
 clf.eval()
-for batch_idx, (data, target) in enumerate(test_dataset_loader):
+for batch_idx, (data, target) in enumerate(train_dataset_loader):
     data = data.to(clf.device)
     target = target.to(clf.device)
     out = clf(data)
     test_loss += clf.loss_function(out, target.long()).item()
     # test_loss += clf.loss_function(out, target).item()
     pred = out.data.max(1)[1]
+    print(pred)
+    print(target.data)
+    print("__________")
+
     # target_pred = target.data.max(1)[1]
     # correct += pred.eq(target_pred).sum()
     correct += pred.eq(target.data).sum()
 
-test_loss /= len(test_dataset_loader.dataset)
+test_loss /= len(train_dataset_loader.dataset)
 print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-    test_loss, correct, len(test_dataset_loader.dataset),
-    100. * correct / len(test_dataset_loader.dataset)))
+    test_loss, correct, len(train_dataset_loader.dataset),
+    100. * correct / len(train_dataset_loader.dataset)))
 
 # predictions = clf.predict(test_features_norm)
 

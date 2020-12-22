@@ -61,6 +61,9 @@ class RV_RBM():
     def get_familiarity(self, v0):
         energy = self.free_energy(v0)
 
+        return self._get_familiarity(energy)
+
+    def _get_familiarity(self, energy):
         if energy < self.target_energy:
             return 2
 
@@ -68,17 +71,9 @@ class RV_RBM():
             return 1
         return 0
 
-    def is_familiar(self, v0, provide_value=True):
-        exit(0)
-        if self.energy_threshold is None:
-            return False
+    def get_energy_error(self, v0):
         energy = self.free_energy(v0)
-
-        if provide_value:
-            return self.energy_threshold - energy, self.energy_threshold >= energy.min()
-        else:
-            return self.energy_threshold >= energy.min()
-
+        return self.example_energy - energy, self._get_familiarity(energy)
 
     def contrastive_divergence(self, v0, update_weights=True):
         batch_size = v0.shape[0]
@@ -119,14 +114,14 @@ class RV_RBM():
         self.example_energy = self.free_energy(v0)
         self.target_energy = self.free_energy(visible)
 
-        if self.target_energy > self.example_energy:
-            print("Durring energy calculation we reproduced higher energy")
-            print("Example energy: ", self.example_energy)
-            print("Wished energy: ", self.target_energy)
+        # if self.target_energy > self.example_energy:
+        #     print("Durring energy calculation we reproduced higher energy")
+        #     print("Example energy: ", self.example_energy)
+        #     print("Wished energy: ", self.target_energy)
 
 
     def free_energy(self, input_data):
-        np_input_data = input_data.cpu().detach().numpy()
+        np_input_data = np.array(input_data.cpu().detach().numpy())
         np_weights = self.weights.cpu().detach().numpy()
         np_hidden_bias = self.hidden_bias.cpu().detach().numpy()
         np_visible_bias = self.visible_bias.cpu().detach().numpy()
