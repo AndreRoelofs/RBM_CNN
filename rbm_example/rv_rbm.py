@@ -77,7 +77,7 @@ class RV_RBM():
         # print(self.energy_threshold - energy)
         # return self.energy_threshold - energy
         if provide_value:
-            return abs(self.energy_threshold - energy)
+            return self.energy_threshold - energy
         else:
             # return self.energy_threshold > energy.max()
             return self.energy_threshold >= energy.min()

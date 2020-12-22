@@ -30,7 +30,7 @@ test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
     train_batch_size = 1
-epochs = 1
+epochs = 2
 rbm_epochs = 1
 ae_epochs = 0
 use_relu = False
@@ -42,7 +42,7 @@ filters = 8
 # RBM_VISIBLE_UNITS = filters * 14**2
 size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
-MAX_THRESHOLD = 50
+MAX_THRESHOLD = 150
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
 RBM_HIDDEN_UNITS = 5
@@ -200,8 +200,8 @@ class Classifier(nn.Module):
         super().__init__()
         self.device = torch.device("cuda")
 
-        self.fc1 = nn.Linear(n_features, 500)
-        self.fc2 = nn.Linear(500, 10)
+        self.fc1 = nn.Linear(n_features, 1500)
+        self.fc2 = nn.Linear(1500, 10)
 
         self.act = nn.SELU()
 
@@ -380,11 +380,11 @@ training_features = np.array(training_features)
 training_features_norm = preprocessing.scale(training_features)
 training_labels = np.array(training_labels, dtype=float)
 
+
 # %% Training classifier
 print("Training classifier")
 train_dataset = UnsupervisedVectorDataset(training_features_norm, training_labels)
 train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
-
 clf = Classifier(training_features_norm.shape[1])
 # criterion = nn.NLLLoss()
 # criterion = nn.CrossEntropyLoss()
