@@ -3,6 +3,7 @@
 #The "calculation" is correct, but also not sure if the inplace selu derivative functions as intended.
 #Should be easy to fix if it doesn't. Need to test.
 from sklearn.neural_network.multilayer_perceptron import(ACTIVATIONS, DERIVATIVES, MLPClassifier)
+import numpy as np
 import math
 
 def selu(X):
@@ -15,7 +16,9 @@ def selu(X):
         alpha = 1.6732632423543772848170429916717
         scale = 1.0507009873554804934193349852946
         # np.clip(X, 0.01, np.finfo(X.dtype).max, out=X)
-        return scale * X if X > 0 else scale * alpha * (math.exp(X)-1)
+        X[X>0] *= scale
+        X[X<=0] = np.exp(X[X<=0]) * scale * alpha - scale * alpha
+        return X
 
 def inplace_selu_derivative(Z, delta):
         """Apply the derivative of the scaled exponential linear unit function.
@@ -32,8 +35,11 @@ def inplace_selu_derivative(Z, delta):
 
         alpha = 1.6732632423543772848170429916717
         scale = 1.0507009873554804934193349852946
-
-        delta = scale * (Z>0) if Z > 0 else scale * alpha * math.exp(Z)
+        temp_Z = Z.copy()
+        Z[Z>0] *= Z
+        Z[Z<=0] = scale * alpha * np.exp(Z[Z<=0])
+        delta = Z.copy()
+        Z = temp_Z.copy()
 
 ACTIVATIONS['selu'] = selu
 DERIVATIVES['selu'] = inplace_selu_derivative
