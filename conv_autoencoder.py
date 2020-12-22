@@ -20,6 +20,7 @@ import sys
 from torch.utils.data.sampler import SubsetRandomSampler
 # from rbm_example.rbm_altered import RBM
 from rbm_example.rv_rbm import RV_RBM
+import rbm_example.custom_activations
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -339,8 +340,7 @@ training_features = preprocessing.scale(training_features)
 training_labels = np.array(training_labels)
 
 #%%
-
-clf = MLPClassifier(hidden_layer_sizes=(500,), activation='relu', solver='adam', batch_size=100)
+clf = MLPClassifier(hidden_layer_sizes=(500,), activation='selu', solver='adam', batch_size=100)
 # clf = LogisticRegression()
 clf.fit(training_features, training_labels)
 # predictions = clf.predict(training_features)
