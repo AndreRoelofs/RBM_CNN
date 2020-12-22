@@ -5,11 +5,10 @@ import numpy as np
 
 # Real valued RBM using Rectified Linear Units
 class RV_RBM():
-    lowest_energy = None
-    highest_energy = None
-    energy_threshold = None
+    example_energy = None
+    target_energy = None
 
-    def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
+    def __init__(self, num_visible, num_hidden, layer_weight, v_b, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
                  use_cuda=True, use_relu=True):
         self.num_visible = num_visible
         self.num_hidden = num_hidden
@@ -28,15 +27,9 @@ class RV_RBM():
             self.rand = self.random_selu_noise
 
         self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
-        # self.weights = torch.randn(num_visible, num_hidden) * 0.1
-        # nn.init.xavier_normal_(self.weights, 2.0)
-        # nn.init.xavier_normal_(self.weights, 25.0)
-        # nn.init.xavier_normal_(self.weights, 25.0)
-        nn.init.xavier_normal_(self.weights, 0.007)
-        # nn.init.normal_(self.weights, 0, 0.07)
-        #
-        self.visible_bias = torch.zeros(num_visible)
-        # self.visible_bias = torch.zeros(num_visible)
+        nn.init.xavier_normal_(self.weights, layer_weight)
+
+        self.visible_bias = torch.zeros(num_visible) + v_b
         self.hidden_bias = torch.ones(num_hidden)
 
         self.weights_momentum = torch.zeros(num_visible, num_hidden)
@@ -65,21 +58,25 @@ class RV_RBM():
             torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
         return visible_activations
 
+    def get_familiarity(self, v0):
+        energy = self.free_energy(v0)
+
+        if energy < self.target_energy:
+            return 2
+
+        if energy < self.example_energy:
+            return 1
+        return 0
+
     def is_familiar(self, v0, provide_value=True):
+        exit(0)
         if self.energy_threshold is None:
             return False
         energy = self.free_energy(v0)
 
-        # if energy < self.energy_threshold:
-        #     return True
-        # return False
-        #
-        # print(self.energy_threshold - energy)
-        # return self.energy_threshold - energy
         if provide_value:
             return self.energy_threshold - energy, self.energy_threshold >= energy.min()
         else:
-            # return self.energy_threshold > energy.max()
             return self.energy_threshold >= energy.min()
 
 
@@ -115,17 +112,18 @@ class RV_RBM():
 
         return recon_error_sum
 
-    def calculate_energy_threshold(self, v0):
-        energy = self.free_energy(v0)
-        energy_min = energy.min()
-        energy_max = energy.max()
-        self.lowest_energy = energy_min
-        self.highest_energy = energy_max
-        # self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
-        self.energy_threshold = energy_min
-        # print("MIN: ", energy_min)
-        # print("MAX: ", energy_max)
-        # print(self.energy_threshold)
+    def calculate_energy(self, v0):
+        hidden = self.sample_hidden(v0)
+        visible = self.sample_visible(hidden)
+
+        self.example_energy = self.free_energy(v0)
+        self.target_energy = self.free_energy(visible)
+
+        if self.target_energy > self.example_energy:
+            print("Durring energy calculation we reproduced higher energy")
+            print("Example energy: ", self.example_energy)
+            print("Wished energy: ", self.target_energy)
+
 
     def free_energy(self, input_data):
         np_input_data = input_data.cpu().detach().numpy()
