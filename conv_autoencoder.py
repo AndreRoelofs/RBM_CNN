@@ -2,7 +2,7 @@
 
 import torch
 import torchvision
-from torch import nn
+from torch import nn, optim
 import numpy as np
 from torch.nn import functional as F
 from torch.autograd import Variable
@@ -19,6 +19,7 @@ import os
 import sys
 from torch.utils.data.sampler import SubsetRandomSampler
 # from rbm_example.rbm_altered import RBM
+from rbm_example import custom_classifiers
 from rbm_example.rv_rbm import RV_RBM
 import rbm_example.custom_activations
 
@@ -296,6 +297,11 @@ for epoch in range(epochs):
     model.joint_training()
     # run_test()
 
+# properly save the damn model
+PATH = './model.pth'
+torch.save(model.state_dict(), PATH)
+model.load_state_dict(torch.load(PATH))
+
 # %% Convert the training set to the unsupervised latent vector
 print("Doing training")
 classifier_training_batch_size = 1000
@@ -341,11 +347,31 @@ training_features = preprocessing.scale(training_features)
 training_labels = np.array(training_labels)
 
 #%%
-clf = MLPClassifier(hidden_layer_sizes=(500,), activation='selu', solver='adam', batch_size=100)
+# clf = MLPClassifier(hidden_layer_sizes=(500,), activation='selu', solver='adam', batch_size=100)
+clf = custom_classifiers.ClassifierV1()
 # clf = LogisticRegression()
-clf.fit(training_features, training_labels)
+# clf.fit(training_features, training_labels)
 # predictions = clf.predict(training_features)
 # print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
+optimizer = optim.Adam(clf.parameters(), lr=0.001)
+
+for epoch in range(epochs):
+    running_loss = 0.0
+    inputs = training_features
+    labels = training_labels
+    for i in range(len(labels)):
+        # get the inputs; data is a list of [inputs, labels]
+
+        inp = Variable(torch.from_numpy(inputs[i,:]))
+        lab = labels[i]
+
+        # zero the parameter gradients
+        optimizer.zero_grad()
+
+        # forward + backward + optimize
+        outputs = clf(inp)
+        optimizer.step()
+
 
 
 # %%
@@ -397,7 +423,20 @@ test_features = np.array(test_features)
 test_features = preprocessing.scale(test_features)
 test_labels = np.array(test_labels)
 #%%
-predictions = clf.predict(test_features)
+# predictions = clf.predict(test_features)
+correct = 0
+total = 0
+
+with torch.no_grad():
+    inputs = torch.from_numpy(test_features)
+    labels = torch.from_numpy(test_labels)
+    outputs = clf(inputs)
+    _, predictions = torch.max(outputs.data, 1)
+    total += labels.size(0)
+    correct += (predictions == labels).sum().item()
+
+print('Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct / total))
 
 print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
 
