@@ -79,7 +79,8 @@ class RV_RBM():
         if provide_value:
             return abs(self.energy_threshold - energy)
         else:
-            return self.energy_threshold > energy.max()
+            # return self.energy_threshold > energy.max()
+            return self.energy_threshold >= energy.min()
 
 
     def contrastive_divergence(self, v0, update_weights=True):
@@ -122,7 +123,7 @@ class RV_RBM():
         self.lowest_energy = energy_min
         self.highest_energy = energy_max
         # self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
-        self.energy_threshold = energy_max
+        self.energy_threshold = energy_min
         # print("MIN: ", energy_min)
         # print("MAX: ", energy_max)
         # print(self.energy_threshold)

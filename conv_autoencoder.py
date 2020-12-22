@@ -29,7 +29,7 @@ test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
     train_batch_size = 1
-epochs = 1
+epochs = 3
 rbm_epochs = 1
 ae_epochs = 0
 use_relu = False
