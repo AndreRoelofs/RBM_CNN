@@ -8,6 +8,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
+from sklearn.neural_network import MLPClassifier
 from sklearn import preprocessing
 from torchvision import transforms
 from torchvision.utils import save_image
@@ -33,12 +34,12 @@ rbm_epochs = 1
 ae_epochs = 0
 use_relu = False
 rbm_epochs_single = 1
-target_digit = 5
+target_digit = 0
 # RBM_VISIBLE_UNITS = 128 * 7 * 7
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
 # RBM_VISIBLE_UNITS = filters * 14**2
-size = 14
+size = 16
 RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
@@ -133,10 +134,10 @@ class Encoder(nn.Module):
 
         self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
 
-        # nn.init.normal_(self.conv1.weight, 0, 40)
+        nn.init.normal_(self.conv1.weight, 0, 0.07)
         # nn.init.normal_(self.conv1.weight, 0, 0.0007)
         # nn.init.xavier_normal_(self.conv1.weight, 0.007)
-        nn.init.xavier_normal_(self.conv1.weight, 20.0)
+        # nn.init.xavier_normal_(self.conv1.weight, 20.0)
 
         if use_relu:
             self.act = nn.ReLU()
@@ -193,7 +194,7 @@ class WDN(nn.Module):
 
         # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
         #                                                 sampler=SubsetRandomSampler(subset_indices))
-        self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
+        self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
 
@@ -216,16 +217,19 @@ class WDN(nn.Module):
             data = data.to(self.device)
 
             a_n_models = len(self.models)
+
             counter += 1
             if counter % 25 == 0:
                 print("Iteration: ", counter)
                 print("n_models", a_n_models)
-
+            # if a_n_models >= 40:
+            #     break
+            #
             # if counter >= 100:
             #     break
 
             n_familiar = 0
-            familiar_threshold = 10
+            familiar_threshold = 70
             for m in self.models:
                 # Encode the image
                 rbm_input = m.encode(data)
@@ -236,9 +240,11 @@ class WDN(nn.Module):
                 # Compare data with existing models
                 if m.rbm.is_familiar(flat_rbm_input, provide_value=False):
                     n_familiar += 1
-
+                if n_familiar >= familiar_threshold:
+                    break
             if n_familiar >= familiar_threshold:
                 continue
+
 
             # If data is unfamiliar, create a new network
             network = self.create_new_model()
@@ -267,16 +273,6 @@ class WDN(nn.Module):
 
             self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
-class Classifier(nn.Module):
-    def __init__(self, input_size):
-        super().__init__()
-
-        self.fc1 = nn.Linear(input_size, 100)
-        self.fc2 = nn.Linear(100, 10)
-
-    def forward(self, x):
-        x = F.selu(self.fc1(x))
-        return F.log_softmax(self.fc2(x))
 
 # %% Instantiate the model
 
@@ -284,13 +280,14 @@ model = WDN()
 # run_test()
 
 for epoch in range(epochs):
+    print("Epoch: ", epoch)
     model.joint_training()
     # run_test()
 
 
 # %% Convert the training set to the unsupervised latent vector
-print("Doing logistic training")
-classifier_training_batch_size = 1000
+print("Doing training")
+classifier_training_batch_size = 10000
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=classifier_training_batch_size, shuffle=False)
 counter = 0
 training_features = []
@@ -319,7 +316,7 @@ for batch_idx, (data, target) in enumerate(train_loader):
         # test_target = np.zeros(10)
         # test_target[target_labels[i]] = 1
         training_features.append(latent_vector[:, i])
-        training_labels.append(target_labels[i])
+        training_labels.append(target_labels[i] == target_digit)
 
 
     # for i in range(len(latent_vector)):
@@ -333,17 +330,17 @@ training_features = np.array(training_features)
 training_features = preprocessing.scale(training_features)
 training_labels = np.array(training_labels)
 
-clf = LogisticRegression()
+clf = MLPClassifier(hidden_layer_sizes=(300,), activation='relu', solver='lbfgs', batch_size=100)
+# clf = LogisticRegression()
 clf.fit(training_features, training_labels)
 # predictions = clf.predict(training_features)
 # print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
 
 
-# exit(0)
 
 #%%
 print("Doing testing")
-test_batch_size = 100
+test_batch_size = 1000
 test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
 counter = 0
 test_features = []
@@ -374,7 +371,7 @@ for batch_idx, (data, target) in enumerate(test_loader):
         # test_target = np.zeros(10)
         # test_target[target_labels[i]] = 1
         test_features.append(latent_vector[:, i])
-        test_labels.append(target_labels[i])
+        test_labels.append(target_labels[i] == target_digit)
 
     # latent_vector.append(t)
     # new_dataset.append(latent_vector)

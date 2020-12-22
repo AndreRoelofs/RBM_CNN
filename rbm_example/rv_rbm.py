@@ -37,7 +37,7 @@ class RV_RBM():
         #
         self.visible_bias = torch.zeros(num_visible)
         # self.visible_bias = torch.zeros(num_visible)
-        self.hidden_bias = torch.zeros(num_hidden)
+        self.hidden_bias = torch.ones(num_hidden)
 
         self.weights_momentum = torch.zeros(num_visible, num_hidden)
         self.visible_bias_momentum = torch.zeros(num_visible)
@@ -79,7 +79,7 @@ class RV_RBM():
         if provide_value:
             return abs(self.energy_threshold - energy)
         else:
-            return self.energy_threshold < energy.max()
+            return self.energy_threshold > energy.max()
 
 
     def contrastive_divergence(self, v0, update_weights=True):
