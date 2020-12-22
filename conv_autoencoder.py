@@ -6,7 +6,7 @@ from torch import nn
 import numpy as np
 from torch.nn import functional as F
 from torch.autograd import Variable
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn import preprocessing
@@ -25,7 +25,7 @@ import rbm_example.custom_activations
 np.set_printoptions(threshold=sys.maxsize)
 
 # %%
-train_batch_size = 1000
+train_batch_size = 10
 test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
@@ -54,14 +54,14 @@ transform = transforms.Compose(
     [transforms.ToTensor(),
      # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
      # transforms.Normalize(0.5, 0.5),
-     transforms.RandomResizedCrop((14,14)),
+     transforms.RandomResizedCrop((14, 14)),
      transforms.RandomAffine(15, translate=(0, 1), scale=(0.7, 1.0)),
      transforms.RandomVerticalFlip(),
      transforms.RandomHorizontalFlip(),
      ])
 # train_data = MNIST('./data', train=True, download=True,
 #                    transform=transform)
-train_data = MNIST('./data', train=True, download=True,
+train_data = MNIST('./data', train=False, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor()]))
 
@@ -147,10 +147,10 @@ class Encoder(nn.Module):
 
         self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
 
-        nn.init.normal_(self.conv1.weight, 0, 0.07)
+        # nn.init.normal_(self.conv1.weight, 0, 0.07)
         # nn.init.normal_(self.conv1.weight, 0, 0.0007)
         # nn.init.xavier_normal_(self.conv1.weight, 0.007)
-        # nn.init.xavier_normal_(self.conv1.weight, 20.0)
+        nn.init.xavier_normal_(self.conv1.weight, 20.0)
 
         if use_relu:
             self.act = nn.ReLU()
@@ -193,6 +193,50 @@ class Network(nn.Module):
         flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
         return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
+
+# %%
+class Classifier(nn.Module):
+    def __init__(self, n_features):
+        super().__init__()
+        self.device = torch.device("cuda")
+
+        self.fc1 = nn.Linear(n_features, 500)
+        self.fc2 = nn.Linear(500, 10)
+
+        self.act = nn.SELU()
+
+        self.to(self.device)
+
+    def forward(self, x):
+        x = self.act(self.fc1(x))
+        return F.log_softmax(self.fc2(x), dim=1)
+
+    def loss_function(self, x, y):
+        return F.nll_loss(x, y)
+        # return F.mse_loss(x, y)
+
+
+# %%
+
+class UnsupervisedVectorDataset(Dataset):
+    def __init__(self, features, labels):
+        # self.features = torch.from_numpy(features, dtype=torch.long)
+        # self.labels = torch.from_numpy(labels, dtype=torch.long)
+
+        self.features = torch.tensor(features, dtype=torch.float)
+        self.labels = torch.tensor(labels, dtype=torch.float)
+
+    def __len__(self):
+        return self.features.shape[0]
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        return [self.features[idx], self.labels[idx]]
+
+
+# %%
 
 class WDN(nn.Module):
     def __init__(self):
@@ -292,7 +336,9 @@ model = WDN()
 
 for epoch in range(epochs):
     print("Epoch: ", epoch)
-    model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
+    # model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
+    model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
+                                                     sampler=SubsetRandomSampler(subset_indices))
     model.joint_training()
     # run_test()
 
@@ -303,10 +349,10 @@ train_loader = torch.utils.data.DataLoader(train_data, batch_size=classifier_tra
 counter = 0
 training_features = []
 training_labels = []
+new_dataset = []
 for batch_idx, (data, target) in enumerate(train_loader):
     data = data.to(model.device)
     latent_vector = []
-    familiar = False
     for m in model.models:
         # Encode the image
         rbm_input = m.encode(data)
@@ -316,36 +362,50 @@ for batch_idx, (data, target) in enumerate(train_loader):
 
         # Compare data with existing models
         latent_vector.append(m.rbm.is_familiar(flat_rbm_input).cpu().detach().numpy())
-        # if m.rbm.is_familiar(flat_rbm_input):
-        #     latent_vector.append(1)
-        # else:
-        #     latent_vector.append(0)
 
     latent_vector = np.array(latent_vector)
     target_labels = target.cpu().detach().numpy()
     for i in range(classifier_training_batch_size):
-        # test_target = np.zeros(10)
-        # test_target[target_labels[i]] = 1
+        # test_target = np.zeros(10, dtype=float)
+        # test_target[target_labels[i]] = 1.0
         training_features.append(latent_vector[:, i])
-        training_labels.append(target_labels[i] == target_digit)
-
-    # for i in range(len(latent_vector)):
-    # new_dataset.append([latent_vector, target_labels[i]])
+        training_labels.append(target_labels[i])
+        # training_labels.append(test_target)
 
     counter += 1
     if counter % 100 == 0:
         print("Training iteration: ", counter)
-
+# new_dataset = np.array(new_dataset, dtype=float)
 training_features = np.array(training_features)
-training_features = preprocessing.scale(training_features)
-training_labels = np.array(training_labels)
+training_features_norm = preprocessing.scale(training_features)
+training_labels = np.array(training_labels, dtype=float)
 
-#%%
-clf = MLPClassifier(hidden_layer_sizes=(500,), activation='selu', solver='adam', batch_size=100)
-# clf = LogisticRegression()
-clf.fit(training_features, training_labels)
-# predictions = clf.predict(training_features)
-# print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
+# %% Training classifier
+train_dataset = UnsupervisedVectorDataset(training_features_norm, training_labels)
+train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
+
+clf = Classifier(training_features_norm.shape[1])
+# criterion = nn.NLLLoss()
+# criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3)
+for epoch in range(5):
+    for batch_idx, (data, target) in enumerate(train_dataset_loader):
+        data = data.to(clf.device)
+        target = target.to(clf.device)
+
+        optimizer.zero_grad()
+        out = clf(data)
+
+        loss = clf.loss_function(out, target.long())
+        # loss = criterion(out, target)
+        loss.backward()
+        optimizer.step()
+
+        if batch_idx % 50 == 0:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_idx * len(data), len(train_dataset_loader.dataset),
+                       100.0 * batch_idx / len(train_dataset_loader), loss.item()))
+
 
 
 # %%
@@ -378,10 +438,11 @@ for batch_idx, (data, target) in enumerate(test_loader):
     latent_vector = np.array(latent_vector)
     target_labels = target.cpu().detach().numpy()
     for i in range(test_batch_size):
-        # test_target = np.zeros(10)
+        # test_target = np.zeros(10, dtype=float)
         # test_target[target_labels[i]] = 1
         test_features.append(latent_vector[:, i])
-        test_labels.append(target_labels[i] == target_digit)
+        test_labels.append(target_labels[i])
+        # test_labels.append(test_target)
 
     # latent_vector.append(t)
     # new_dataset.append(latent_vector)
@@ -394,59 +455,32 @@ for batch_idx, (data, target) in enumerate(test_loader):
 # new_dataset = np.array(new_dataset)
 
 test_features = np.array(test_features)
-test_features = preprocessing.scale(test_features)
+test_features_norm = preprocessing.scale(test_features)
 test_labels = np.array(test_labels)
-#%%
-predictions = clf.predict(test_features)
+# %%
 
-print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
+test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
+test_loss = 0
+correct = 0
+for batch_idx, (data, target) in enumerate(test_dataset_loader):
+    data = data.to(clf.device)
+    target = target.to(clf.device)
 
-# exit(0)
-#
-# # %% Visualise data
-# num_images = 10
-#
-# num_row = 3
-# num_col = num_images
-#
-# images = []
-# labels = []
-# energies = []
-#
-# # for data, target in model.train_loader:
-# for data, target in model.test_loader:
-#     used_images = data[:num_images, :, :, :]
-#     used_images = used_images.to(model.device)
-#     output = model.model.encode(used_images)
-#     output_images = output
-#     rbm_input = model.model.encode(used_images)
-#     rbm_input_x = resize(rbm_input, [size, size])
-#     flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
-#     output_energies = model.model.rbm.free_energy(flat_rbm_input)
-#
-#     # for i in range(used_images.shape[0]):
-#     #     image = used_images[i]
-#     #     images.append(image[0].cpu().detach().numpy())
-#     #     energy = torch.sum(output_energies[i])
-#     #     labels.append(0)
-#
-#     for i in range(used_images.shape[0]):
-#         label = output_images[i]
-#         images.append(label[0].cpu().detach().numpy())
-#         energy = output_energies[i]
-#         labels.append(target[i].detach().numpy())
-#         energies.append(np.around(energy.cpu().detach().numpy(), 3))
-#
-#     if num_images * num_row <= len(images):
-#         images = images[:num_images * num_row]
-#         labels = labels[:num_images * num_row]
-#         energies = energies[:num_images * num_row]
-#         break
-#
-# fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
-# for i in range(num_images * num_row):
-#     ax = axes[i // num_col, i % num_col]
-#     ax.imshow(images[i], cmap='gray')
-#     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
-# plt.tight_layout()
-# plt.show()
+    optimizer.zero_grad()
+    out = clf(data)
+    test_loss += clf.loss_function(out, target.long()).item()
+    pred = out.data.max(1)[1]
+    # target_pred = target.data.max(1)[1]
+    # correct += pred.eq(target_pred).sum()
+    correct += pred.eq(target.data).sum()
+
+
+test_loss /= len(test_dataset_loader.dataset)
+print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        test_loss, correct, len(test_dataset_loader.dataset),
+        100. * correct / len(test_dataset_loader.dataset)))
+
+# predictions = clf.predict(test_features_norm)
+
+# print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
