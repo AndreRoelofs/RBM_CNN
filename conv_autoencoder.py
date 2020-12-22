@@ -29,7 +29,7 @@ test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
     train_batch_size = 1
-epochs = 3
+epochs = 2
 rbm_epochs = 1
 ae_epochs = 0
 use_relu = False
@@ -39,7 +39,7 @@ target_digit = 0
 # RBM_VISIBLE_UNITS = 64 * 14 * 14
 filters = 8
 # RBM_VISIBLE_UNITS = filters * 14**2
-size = 16
+size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
@@ -48,9 +48,20 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 # %% Load data
+transform = transforms.Compose(
+    [transforms.ToTensor(),
+     # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+     # transforms.Normalize(0.5, 0.5),
+     transforms.RandomResizedCrop((14,14)),
+     transforms.RandomAffine(15, translate=(0, 1), scale=(0.7, 1.0)),
+     transforms.RandomVerticalFlip(),
+     transforms.RandomHorizontalFlip(),
+     ])
+# train_data = MNIST('./data', train=True, download=True,
+#                    transform=transform)
 train_data = MNIST('./data', train=True, download=True,
-                     transform=transforms.Compose([
-                         transforms.ToTensor()]))
+                   transform=transforms.Compose([
+                       transforms.ToTensor()]))
 
 subset_indices = (
     (torch.tensor(train_data.targets) == target_digit)
@@ -194,7 +205,6 @@ class WDN(nn.Module):
 
         # self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
         #                                                 sampler=SubsetRandomSampler(subset_indices))
-        self.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
 
         self.test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
 
@@ -229,7 +239,7 @@ class WDN(nn.Module):
             #     break
 
             n_familiar = 0
-            familiar_threshold = 70
+            familiar_threshold = 140
             for m in self.models:
                 # Encode the image
                 rbm_input = m.encode(data)
@@ -244,7 +254,6 @@ class WDN(nn.Module):
                     break
             if n_familiar >= familiar_threshold:
                 continue
-
 
             # If data is unfamiliar, create a new network
             network = self.create_new_model()
@@ -281,13 +290,13 @@ model = WDN()
 
 for epoch in range(epochs):
     print("Epoch: ", epoch)
+    model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
     model.joint_training()
     # run_test()
 
-
 # %% Convert the training set to the unsupervised latent vector
 print("Doing training")
-classifier_training_batch_size = 10000
+classifier_training_batch_size = 1000
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=classifier_training_batch_size, shuffle=False)
 counter = 0
 training_features = []
@@ -318,7 +327,6 @@ for batch_idx, (data, target) in enumerate(train_loader):
         training_features.append(latent_vector[:, i])
         training_labels.append(target_labels[i] == target_digit)
 
-
     # for i in range(len(latent_vector)):
     # new_dataset.append([latent_vector, target_labels[i]])
 
@@ -330,15 +338,16 @@ training_features = np.array(training_features)
 training_features = preprocessing.scale(training_features)
 training_labels = np.array(training_labels)
 
-clf = MLPClassifier(hidden_layer_sizes=(300,), activation='relu', solver='lbfgs', batch_size=100)
+#%%
+
+clf = MLPClassifier(hidden_layer_sizes=(500,), activation='relu', solver='adam', batch_size=100)
 # clf = LogisticRegression()
 clf.fit(training_features, training_labels)
 # predictions = clf.predict(training_features)
 # print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
 
 
-
-#%%
+# %%
 print("Doing testing")
 test_batch_size = 1000
 test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
@@ -386,58 +395,57 @@ for batch_idx, (data, target) in enumerate(test_loader):
 test_features = np.array(test_features)
 test_features = preprocessing.scale(test_features)
 test_labels = np.array(test_labels)
-
+#%%
 predictions = clf.predict(test_features)
 
 print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
 
-
-exit(0)
-
-# %% Visualise data
-num_images = 10
-
-num_row = 3
-num_col = num_images
-
-images = []
-labels = []
-energies = []
-
-# for data, target in model.train_loader:
-for data, target in model.test_loader:
-    used_images = data[:num_images, :, :, :]
-    used_images = used_images.to(model.device)
-    output = model.model.encode(used_images)
-    output_images = output
-    rbm_input = model.model.encode(used_images)
-    rbm_input_x = resize(rbm_input, [size, size])
-    flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
-    output_energies = model.model.rbm.free_energy(flat_rbm_input)
-
-    # for i in range(used_images.shape[0]):
-    #     image = used_images[i]
-    #     images.append(image[0].cpu().detach().numpy())
-    #     energy = torch.sum(output_energies[i])
-    #     labels.append(0)
-
-    for i in range(used_images.shape[0]):
-        label = output_images[i]
-        images.append(label[0].cpu().detach().numpy())
-        energy = output_energies[i]
-        labels.append(target[i].detach().numpy())
-        energies.append(np.around(energy.cpu().detach().numpy(), 3))
-
-    if num_images * num_row <= len(images):
-        images = images[:num_images * num_row]
-        labels = labels[:num_images * num_row]
-        energies = energies[:num_images * num_row]
-        break
-
-fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
-for i in range(num_images * num_row):
-    ax = axes[i // num_col, i % num_col]
-    ax.imshow(images[i], cmap='gray')
-    ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
-plt.tight_layout()
-plt.show()
+# exit(0)
+#
+# # %% Visualise data
+# num_images = 10
+#
+# num_row = 3
+# num_col = num_images
+#
+# images = []
+# labels = []
+# energies = []
+#
+# # for data, target in model.train_loader:
+# for data, target in model.test_loader:
+#     used_images = data[:num_images, :, :, :]
+#     used_images = used_images.to(model.device)
+#     output = model.model.encode(used_images)
+#     output_images = output
+#     rbm_input = model.model.encode(used_images)
+#     rbm_input_x = resize(rbm_input, [size, size])
+#     flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
+#     output_energies = model.model.rbm.free_energy(flat_rbm_input)
+#
+#     # for i in range(used_images.shape[0]):
+#     #     image = used_images[i]
+#     #     images.append(image[0].cpu().detach().numpy())
+#     #     energy = torch.sum(output_energies[i])
+#     #     labels.append(0)
+#
+#     for i in range(used_images.shape[0]):
+#         label = output_images[i]
+#         images.append(label[0].cpu().detach().numpy())
+#         energy = output_energies[i]
+#         labels.append(target[i].detach().numpy())
+#         energies.append(np.around(energy.cpu().detach().numpy(), 3))
+#
+#     if num_images * num_row <= len(images):
+#         images = images[:num_images * num_row]
+#         labels = labels[:num_images * num_row]
+#         energies = energies[:num_images * num_row]
+#         break
+#
+# fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
+# for i in range(num_images * num_row):
+#     ax = axes[i // num_col, i % num_col]
+#     ax.imshow(images[i], cmap='gray')
+#     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
+# plt.tight_layout()
+# plt.show()
