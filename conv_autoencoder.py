@@ -25,12 +25,12 @@ import rbm_example.custom_activations
 np.set_printoptions(threshold=sys.maxsize)
 
 # %%
-train_batch_size = 10
+train_batch_size = 1000
 test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
     train_batch_size = 1
-epochs = 2
+epochs = 1
 rbm_epochs = 1
 ae_epochs = 0
 use_relu = False
@@ -42,6 +42,7 @@ filters = 8
 # RBM_VISIBLE_UNITS = filters * 14**2
 size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
+MAX_THRESHOLD = 1
 # RBM_VISIBLE_UNITS = 1 * 28 * 28
 variance = 0.07
 RBM_HIDDEN_UNITS = 5
@@ -240,7 +241,7 @@ class WDN(nn.Module):
             #     break
 
             n_familiar = 0
-            familiar_threshold = 140
+            familiar_threshold = MAX_THRESHOLD
             for m in self.models:
                 # Encode the image
                 rbm_input = m.encode(data)
