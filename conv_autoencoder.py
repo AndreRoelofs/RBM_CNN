@@ -30,115 +30,24 @@ test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
     train_batch_size = 1
-epochs = 1
-rbm_epochs = 1
-ae_epochs = 0
+epochs = 2
 use_relu = False
-rbm_epochs_single = 1
-# target_digit = 0
-# RBM_VISIBLE_UNITS = 128 * 7 * 7
-# RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 8
-# RBM_VISIBLE_UNITS = filters * 14**2
+filters = 1
 size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
-MIN_FAMILIARITY_THRESHOLD = 10
-# RBM_VISIBLE_UNITS = 1 * 28 * 28
+MIN_FAMILIARITY_THRESHOLD = 50
 variance = 0.07
 RBM_HIDDEN_UNITS = 5
 torch.manual_seed(0)
 np.random.seed(0)
 
 # %% Load data
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-     # transforms.Normalize(0.5, 0.5),
-     transforms.RandomResizedCrop((14, 14)),
-     transforms.RandomAffine(15, translate=(0, 1), scale=(0.7, 1.0)),
-     transforms.RandomVerticalFlip(),
-     transforms.RandomHorizontalFlip(),
-     ])
-# train_data = MNIST('./data', train=True, download=True,
-#                    transform=transform)
-train_data = MNIST('./data', train=True, download=True,
+train_data = MNIST('./data', train=False, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor()]))
 
-# subset_indices = (
-#     (torch.tensor(train_data.targets) == target_digit)
-#     # + (torch.tensor(train_data.targets) == 8)
-# ).nonzero().view(-1)
-# subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
-
-
-# mask = train_data.targets == target_digit
-# indices = torch.nonzero(mask)
-#
-# train_data.data = train_data.data[indices]
-# train_data.targets = train_data.targets[indices]
-
-# mask = target == target_digit
-# indices = torch.nonzero(target[mask])
-# target = target[indices]
-
 test_data = MNIST('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor()]))
-
-
-# %%
-def run_test():
-    to_output = []
-
-    for data, target in model.test_loader:
-        data = data.to(model.device)
-        rbm_input = model.model.encode(data)
-        rbm_input_x = resize(rbm_input, [size, size])
-        flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
-        output_energies = model.model.rbm.free_energy(flat_rbm_input)
-        target = target.cpu().detach()
-        data = data.cpu().detach()
-
-        for i in range(data.shape[0]):
-            t = target[i]
-            energy = output_energies[i]
-
-            to_output.append([t.numpy(), torch.mean(energy).numpy(), data[i].numpy()])
-
-    to_output = np.array(to_output, dtype=object)
-    to_output = to_output[to_output[:, 1].argsort()]
-
-    markers = ['o', '.', 'x', '+', 'v', '^', '<', '>', 's', 'd']
-
-    for i in [
-        0,
-        # 1,
-        # 2,
-        # 3,
-        # 4,
-        # 5,
-        # 6,
-        # 7,
-        # 8,
-        # 9,
-        # target_digit
-    ]:
-        x = [e[1] for j, e in enumerate(to_output) if int(e[0]) == i]
-        # x = [e[1] for j, e in enumerate(to_output) if int(e[0]) == i]
-        # x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:500]) if int(e[0]) == i]
-        plt.plot(x, np.random.uniform(-20, 20, len(x)), markers[i], label="{}".format(i))
-    plt.legend(numpoints=1)
-    plt.show()
-
-    # target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == 6 or int(e[0]) == 8 or int(e[0]) == 9]
-    # target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
-
-    # print(target_digit_indices)
-
-    # print("{} test: {}".format(len(target_digit_indices), target_digit_indices[-1] - len(target_digit_indices)))
-    # print("500 test: {}".format(target_digit_indices[500] - 500))
-    # print("100 test: {}".format(target_digit_indices[100] - 100))
-
 
 # %% Define encoder
 class Encoder(nn.Module):
@@ -151,6 +60,7 @@ class Encoder(nn.Module):
         # nn.init.normal_(self.conv1.weight, 0, 0.0007)
         # nn.init.xavier_normal_(self.conv1.weight, 0.007)
         nn.init.xavier_normal_(self.conv1.weight, 20.0)
+        # nn.init.xavier_normal_(self.conv1.weight, 0.007)
 
         if use_relu:
             self.act = nn.ReLU()
@@ -177,21 +87,6 @@ class Network(nn.Module):
 
     def encode(self, x):
         return self.encoder(x)
-
-    def train_rbm(self, x, update_weights=True):
-        x = resize(x, [size, size])
-        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
-
-        error = 0
-
-        for i in range(rbm_epochs_single):
-            error += self.rbm.contrastive_divergence(flat_x, update_weights=update_weights)
-        return error
-
-    def get_rbm(self, x):
-        x = resize(x, [size, size])
-        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
-        return self.rbm.contrastive_divergence(flat_x, update_weights=False)
 
 
 # %%
@@ -299,6 +194,7 @@ class WDN(nn.Module):
                 print("n_models", a_n_models)
 
             n_familiar = 0
+            model_counter = 0
             for m in self.models:
                 # Encode the image
                 rbm_input = m.encode(data)
@@ -309,8 +205,9 @@ class WDN(nn.Module):
                 # Compare data with existing models
                 if m.rbm.is_familiar(flat_rbm_input, provide_value=False):
                     n_familiar += 1
-                if n_familiar >= MIN_FAMILIARITY_THRESHOLD:
+                if n_familiar >= MIN_FAMILIARITY_THRESHOLD or n_familiar + (a_n_models - model_counter) < MIN_FAMILIARITY_THRESHOLD:
                     break
+                model_counter += 1
             if n_familiar >= MIN_FAMILIARITY_THRESHOLD:
                 # break
                 continue
@@ -348,10 +245,15 @@ class WDN(nn.Module):
 model = WDN()
 
 #%% Train the model
-for epoch in range(epochs):
-    print("Epoch: ", epoch)
-    model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
-    model.joint_training(MIN_FAMILIARITY_THRESHOLD)
+for i in range(10):
+    print("Training digit: ", i)
+    subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
+    subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
+    for epoch in range(epochs):
+        print("Epoch: ", epoch)
+        model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
+                                                         sampler=SubsetRandomSampler(subset_indices))
+        model.joint_training(MIN_FAMILIARITY_THRESHOLD)
 
 # %% Convert the training set to the unsupervised latent vector
 print("Converting images to latent vectors")
@@ -374,8 +276,8 @@ for batch_idx, (data, target) in enumerate(train_loader):
         # Compare data with existing models
         values, is_familiar = m.rbm.is_familiar(flat_rbm_input)
 
-        subset_indices = (is_familiar == 0).nonzero().view(-1)
-        values[subset_indices] = 0
+        # subset_indices = (is_familiar == 0).nonzero().view(-1)
+        # values[subset_indices] = -20
 
         values = values.cpu().detach().numpy()
 
@@ -404,10 +306,10 @@ print("Training classifier")
 clf = Classifier(training_features_norm.shape[1])
 # criterion = nn.NLLLoss()
 # criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3)
-train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=True)
+optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
+train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
 clf.train()
-for epoch in range(5):
+for epoch in range(10):
     for batch_idx, (data, target) in enumerate(train_dataset_loader):
         data = data.to(clf.device)
         target = target.to(clf.device)
@@ -450,8 +352,8 @@ for batch_idx, (data, target) in enumerate(test_loader):
         # Compare data with existing models
         values, is_familiar = m.rbm.is_familiar(flat_rbm_input)
 
-        subset_indices = (is_familiar == 0).nonzero().view(-1)
-        values[subset_indices] = 0
+        # subset_indices = (is_familiar == 0).nonzero().view(-1)
+        # values[subset_indices] = 0
 
         values = values.cpu().detach().numpy()
 

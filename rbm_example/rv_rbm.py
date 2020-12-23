@@ -32,12 +32,13 @@ class RV_RBM():
         # nn.init.xavier_normal_(self.weights, 2.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
-        nn.init.xavier_normal_(self.weights, 0.007)
+        nn.init.xavier_normal_(self.weights, 0.07)
         # nn.init.normal_(self.weights, 0, 0.07)
         #
         self.visible_bias = torch.zeros(num_visible)
-        # self.visible_bias = torch.zeros(num_visible)
-        self.hidden_bias = torch.ones(num_hidden)
+        # self.visible_bias = torch.ones(num_visible)
+        # self.hidden_bias = torch.ones(num_hidden)
+        self.hidden_bias = torch.zeros(num_hidden)
 
         self.weights_momentum = torch.zeros(num_visible, num_hidden)
         self.visible_bias_momentum = torch.zeros(num_visible)
