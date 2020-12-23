@@ -32,7 +32,7 @@ class RV_RBM():
         # nn.init.xavier_normal_(self.weights, 2.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
-        nn.init.xavier_normal_(self.weights, 0.07)
+        nn.init.xavier_normal_(self.weights, 0.7)
         # nn.init.normal_(self.weights, 0, 0.07)
         #
         self.visible_bias = torch.zeros(num_visible)
@@ -45,6 +45,7 @@ class RV_RBM():
         self.hidden_bias_momentum = torch.zeros(num_hidden)
 
         if self.use_cuda:
+            self.device = torch.device("cuda")
             self.weights = self.weights.cuda()
             self.visible_bias = self.visible_bias.cuda()
             self.hidden_bias = self.hidden_bias.cuda()
@@ -69,6 +70,7 @@ class RV_RBM():
     def is_familiar(self, v0, provide_value=True):
         if self.energy_threshold is None:
             return False
+        # TODO: check free energy calculations is correct (its written dumb)
         energy = self.free_energy(v0)
 
         # if energy < self.energy_threshold:
@@ -78,7 +80,10 @@ class RV_RBM():
         # print(self.energy_threshold - energy)
         # return self.energy_threshold - energy
         if provide_value:
-            return self.energy_threshold - energy, self.energy_threshold >= energy.min()
+            if self.highest_energy > energy:
+                return abs(self.lowest_energy - energy)
+            else:
+                return torch.tensor(-1).to(self.device)
         else:
             # return self.energy_threshold > energy.max()
             return self.energy_threshold >= energy.min()
