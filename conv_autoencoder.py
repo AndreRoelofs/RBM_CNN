@@ -33,6 +33,7 @@ if one_shot_classifier:
 epochs = 1
 use_relu = True
 filters = 1
+channels = 1
 size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
 MIN_FAMILIARITY_THRESHOLD = 10
@@ -58,7 +59,7 @@ train_data = MNIST('./data', train=True, download=True,
                      transform=transforms.Compose([
                          transforms.ToTensor(),
                          transforms.CenterCrop(size),
-                         GaussianNoise(0., 1.)
+                         GaussianNoise(0., 0.25)
                      ]))
 
 # train_data.data = train_data.data[:10000]
@@ -67,6 +68,7 @@ train_data = MNIST('./data', train=True, download=True,
 test_data = MNIST('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor(),
     transforms.CenterCrop(size),
+    GaussianNoise(0., 0.1)
 ]))
 
 
@@ -75,7 +77,7 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(channels, filters, (3, 3), stride=1, padding=1)
 
         # nn.init.normal_(self.conv1.weight, 5.0, 1.0)
         # nn.init.normal_(self.conv1.weight, 0, 0.0007)
