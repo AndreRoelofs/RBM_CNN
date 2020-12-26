@@ -58,6 +58,7 @@ train_data = MNIST('./data', train=True, download=True,
                      transform=transforms.Compose([
                          transforms.ToTensor(),
                          transforms.CenterCrop(size),
+                         GaussianNoise(0., 1.)
                      ]))
 
 # train_data.data = train_data.data[:10000]
@@ -66,7 +67,6 @@ train_data = MNIST('./data', train=True, download=True,
 test_data = MNIST('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor(),
     transforms.CenterCrop(size),
-    GaussianNoise(0., 1.)
 ]))
 
 
