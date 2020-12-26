@@ -41,6 +41,18 @@ RBM_HIDDEN_UNITS = 1
 torch.manual_seed(0)
 np.random.seed(0)
 
+
+class GaussianNoise(object):
+    def __init__(self, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+
+    def __call__(self, tensor):
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
 # %% Load data
 train_data = MNIST('./data', train=True, download=True,
                      transform=transforms.Compose([
@@ -54,6 +66,7 @@ train_data = MNIST('./data', train=True, download=True,
 test_data = MNIST('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor(),
     transforms.CenterCrop(size),
+    GaussianNoise(0., 1.)
 ]))
 
 
