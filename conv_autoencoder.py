@@ -25,11 +25,11 @@ import rbm_example.custom_activations
 np.set_printoptions(threshold=sys.maxsize)
 
 # %%
-train_batch_size = 10
+node_train_batch_size = 10
 test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
-    train_batch_size = 1
+    node_train_batch_size = 1
 epochs = 1
 use_relu = True
 filters = 1
@@ -62,9 +62,6 @@ train_data = MNIST('./data', train=True, download=True,
                          GaussianNoise(0., 0.25)
                      ]))
 
-# train_data.data = train_data.data[:10000]
-# train_data.targets = train_data.targets[:10000]
-
 test_data = MNIST('./data', train=False, transform=transforms.Compose([
     transforms.ToTensor(),
     transforms.CenterCrop(size),
@@ -79,10 +76,6 @@ class Encoder(nn.Module):
 
         self.conv1 = nn.Conv2d(channels, filters, (3, 3), stride=1, padding=1)
 
-        # nn.init.normal_(self.conv1.weight, 5.0, 1.0)
-        # nn.init.normal_(self.conv1.weight, 0, 0.0007)
-        # nn.init.xavier_normal_(self.conv1.weight, 0.007)
-        # nn.init.xavier_normal_(self.conv1.weight, 5.0)
         nn.init.xavier_normal_(self.conv1.weight, 1.0)
 
         if use_relu:
@@ -233,7 +226,7 @@ class WDN(nn.Module):
 
                 # Compare data with existing models
                 familiarity = m.rbm.is_familiar(flat_rbm_input, provide_value=False)
-                if familiarity > train_batch_size / 2:
+                if familiarity > node_train_batch_size / 2:
                     n_familiar += 1
                 if n_familiar >= MIN_FAMILIARITY_THRESHOLD or n_familiar + (
                         a_n_models - model_counter) < MIN_FAMILIARITY_THRESHOLD:
@@ -258,7 +251,7 @@ class WDN(nn.Module):
                 flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
                 familiarity = self.model.rbm.is_familiar(flat_rbm_input, provide_value=False)
-                if familiarity == train_batch_size:
+                if familiarity == node_train_batch_size:
                     self.model.rbm.calculate_energy_threshold(flat_rbm_input)
                     break
                 # Train RBM
@@ -282,7 +275,7 @@ for i in range(10):
     for epoch in range(epochs):
         print("Epoch: ", epoch)
         subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
-        model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=False,
+        model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=node_train_batch_size, shuffle=False,
                                                          sampler=SubsetRandomSampler(subset_indices))
         model.joint_training(MIN_FAMILIARITY_THRESHOLD)
 
