@@ -28,7 +28,7 @@ class RV_RBM():
             self.rand = self.random_selu_noise
 
         self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
-        nn.init.xavier_normal_(self.weights, 2.7)
+        nn.init.xavier_normal_(self.weights, 0.7)
 
         self.visible_bias = torch.zeros(num_visible)
         # self.visible_bias = torch.ones(num_visible)
@@ -73,7 +73,7 @@ class RV_RBM():
 
         if provide_value:
             # return torch.where(self.energy_threshold >= energy, 1, 0)
-            return self.energy_threshold - energy
+            return self.energy_threshold - energy, torch.where(self.energy_threshold >= energy, 1, 0)
         else:
             return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
 
@@ -114,46 +114,17 @@ class RV_RBM():
         self.lowest_energy = min(energy.min(), self.lowest_energy)
         self.highest_energy = max(energy.max(), self.highest_energy)
         self.energy_threshold = (self.highest_energy + self.lowest_energy) / 2
-        # self.energy_threshold = self.highest_energy
-        # print("MIN: ", energy_min)
-        # print("MAX: ", energy_max)
-        # print(self.energy_threshold)
 
     def free_energy(self, input_data):
         wx_b = torch.mm(input_data, self.weights) + self.hidden_bias
         vbias_term = torch.sum(input_data * self.visible_bias, axis=1)
-        # hidden_term = torch.logsumexp(wx_b, axis=1)
-        # hidden_term = torch.sum(torch.log(1 + torch.logsumexp(wx_b, axis=0)), axis=0)
-        # hidden_term = torch.sum(torch.log(1 + torch.exp(wx_b)), axis=1)
-        hidden_term = torch.sum(torch.log(1 + torch.exp(torch.clamp(wx_b, 1e-1, 1e+1))), axis=1)
+        hidden_term = torch.sum(torch.log(1 + torch.exp(torch.clamp(wx_b, -88, 88))), axis=1)
 
         energy = -hidden_term - vbias_term
-
-        # if torch.isinf(energy).any():
-        #     test = 0
         return energy
-        # self.test(input_data[0])
-        # np_input_data = input_data.cpu().detach().numpy()
-        # np_weights = self.weights.cpu().detach().numpy()
-        # np_hidden_bias = self.hidden_bias.cpu().detach().numpy()
-        # np_visible_bias = self.visible_bias.cpu().detach().numpy()
-
-        #
-        # wx_b = np.dot(np_input_data, np_weights) + np_hidden_bias
-        # vbias_term = np.dot(np_input_data, np_visible_bias)
-        # hidden_term = np.sum(np.log(1 + np.exp(wx_b)), axis=1)
-        #
-        # # wx_b = torch.mm(input_data, self.weights) + self.hidden_bias
-        # # vbias_term = torch.mm(input_data, self.visible_bias)
-        # # hidden_term = torch.sum(torch.log(1 + torch.exp(wx_b)), dim=1)
-        # return torch.Tensor(-hidden_term - vbias_term)
 
     def random_selu_noise(self, shape):
-        noise = (-2 * torch.rand(shape) + 1).cuda()
-        # noise = torch.where(noise < 0.0, torch.tensor(-0.0, dtype=torch.float).cuda(), noise)
-        # noise = torch.where(noise >= 0.0, torch.tensor(0.0, dtype=torch.float).cuda(), noise)
-
-        return noise
+        return (-2 * torch.rand(shape) + 1).cuda()
 
     def random_relu_noise(self, shape):
         return torch.rand(shape).cuda()

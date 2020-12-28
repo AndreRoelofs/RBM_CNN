@@ -136,11 +136,11 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        train_data.data = train_data.data[:1000]
-        train_data.targets = train_data.targets[:1000]
+        train_data.data = train_data.data[:10]
+        train_data.targets = train_data.targets[:10]
 
-        test_data.data = test_data.data[:1000]
-        test_data.targets = test_data.targets[:1000]
+        test_data.data = test_data.data[:10]
+        test_data.targets = test_data.targets[:10]
 
 
 
@@ -186,21 +186,22 @@ if __name__ == "__main__":
                                                              sampler=SubsetRandomSampler(subset_indices))
             model.joint_training()
 
-    # train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
-    # test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
+    print("Converting train images to latent vectors")
+    train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
+    test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
     #
-    # train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
-    # train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
+    train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
+    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
     #
-    # test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
-    # test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
+    test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
+    test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
     #
-    # print("Training classifier")
-    # clf = SVC()
-    # clf.fit(train_features_norm, train_labels)
-    # predictions = clf.predict(test_features_norm)
-    # print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
-    #
+    print("Training classifier")
+    clf = SVC()
+    clf.fit(train_features_norm, train_labels)
+    predictions = clf.predict(test_features_norm)
+    print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+
     # wrong_indices = np.where(predictions != test_labels)[0]
     #
     # for i in wrong_indices:

@@ -63,13 +63,13 @@ class WDN(nn.Module):
         ]
         return regions
 
-    def is_familiar(self, network, data):
+    def is_familiar(self, network, data, provide_value=False):
         # Encode the image
         rbm_input = network.encode(data)
         # Flatten input for RBM
         flat_rbm_input = rbm_input.view(len(rbm_input), self.levels[network.level]['rbm_visible_units'] ** 2)
         # Compare data with existing models
-        return network.rbm.is_familiar(flat_rbm_input, provide_value=False)
+        return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
 
     def train_new_network(self, data, level):
         network = self.create_new_model(level)
@@ -110,7 +110,7 @@ class WDN(nn.Module):
             a_n_models = len(self.models)
 
             counter += 1
-            if counter % 5 == 0:
+            if counter % 1 == 0:
                 print("Iteration: ", counter)
                 print("n_models", a_n_models)
                 n_second_level_children = 0
@@ -156,7 +156,50 @@ class WDN(nn.Module):
                                 second_level_child.child_networks.append(third_level_child)
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
+            if counter % 1 == 0:
+                print("Iteration: ", counter)
+                print("n_models", a_n_models)
+                n_second_level_children = 0
+                n_third_level_children = 0
+
+                for m in self.models:
+                    n_second_level_children += len(m.child_networks)
+                    for m_child in m.child_networks:
+                        n_third_level_children += len(m_child.child_networks)
+
+                print("n_second_models", n_second_level_children)
+                print("n_third_models", n_third_level_children)
             if n_familiar >= self.model_settings['min_familiarity_threshold']:
                 continue
             network = self.train_new_network(data, level=0)
             self.models.append(network)
+            second_level_regions = self.generate_second_level_regions(data)
+            for second_level_region in second_level_regions:
+                second_level_child = self.train_new_network(second_level_region, level=1)
+                network.child_networks.append(second_level_child)
+                third_level_regions = self.generate_third_level_regions(second_level_region)
+                for third_level_region in third_level_regions:
+                    third_level_child = self.train_new_network(third_level_region, level=2)
+                    second_level_child.child_networks.append(third_level_child)
+            if counter % 1 == 0:
+                print("Iteration: ", counter)
+                print("n_models", a_n_models)
+                n_second_level_children = 0
+                n_third_level_children = 0
+
+                for m in self.models:
+                    n_second_level_children += len(m.child_networks)
+                    for m_child in m.child_networks:
+                        n_third_level_children += len(m_child.child_networks)
+
+                print("n_second_models", n_second_level_children)
+                print("n_third_models", n_third_level_children)
+
+
+
+
+
+
+
+
+
