@@ -3,7 +3,7 @@ from torch import nn
 from one_layered_wdn.node import Node
 from one_layered_wdn.helpers import *
 from torch.nn import functional as F
-from torchvision.transforms.functional import resize, center_crop, gaussian_blur
+from torchvision.transforms.functional import resize, crop
 import matplotlib.pyplot as plt
 
 
@@ -27,7 +27,6 @@ class WDN(nn.Module):
             rbm_learning_rate=self.model_settings['rbm_learning_rate'],
             use_relu=self.model_settings['rbm_activation'] == RELU_ACTIVATION
         )
-        self.models.append(network)
         network.to(self.device)
 
         return network
@@ -38,70 +37,71 @@ class WDN(nn.Module):
     def loss_function(self, recon_x, x):
         return F.mse_loss(x, recon_x)
 
+    def generate_second_level_regions(self, data):
+        regions = [
+            crop(data, 0, 0, 7, 7),
+            crop(data, 0, 7, 7, 7),
+            crop(data, 7, 0, 7, 7),
+            crop(data, 7, 7, 7, 7),
+        ]
+        return regions
+
+    def generate_third_level_regions(self, data):
+        regions = [
+            crop(data, 0, 0, 4, 4),
+            crop(data, 0, 4, 4, 4),
+            crop(data, 4, 0, 4, 4),
+            crop(data, 4, 4, 4, 4),
+        ]
+        return regions
+
+    def is_familiar(self, network, data):
+        # Encode the image
+        rbm_input = network.encode(data)
+        # Flatten input for RBM
+        flat_rbm_input = rbm_input.view(len(rbm_input), self.model_settings['rbm_visible_units'])
+        # Compare data with existing models
+        return network.rbm.is_familiar(flat_rbm_input, provide_value=False)
+
+    def train_new_network(self, data):
+
+
     def joint_training(self):
-        # torch.autograd.set_detect_anomaly(True)
-        counter = 0
         for batch_idx, (data, _) in enumerate(self.train_loader):
             # Assume we have batch size of 1
             data = data.to(self.device)
 
-            a_n_models = len(self.models)
-
-            counter += 1
-            if counter % 25 == 0:
-                print("Iteration: ", counter)
-                print("n_models", a_n_models)
-
             n_familiar = 0
             model_counter = 0
             for m in self.models:
-                # Encode the image
-                rbm_input = m.encode(data)
-                # Flatten input for RBM
-                flat_rbm_input = rbm_input.view(len(rbm_input), self.model_settings['rbm_visible_units'])
+                familiar = self.is_familiar(m, data)
 
-                # Compare data with existing models
-                familiar = m.rbm.is_familiar(flat_rbm_input, provide_value=False)
-                n_familiar += familiar
-                # if familiar >= self.model_settings['min_familiarity_threshold']:
-                #     n_familiar += 1
-                if n_familiar >= self.model_settings['min_familiarity_threshold'] or n_familiar + (
-                        a_n_models - model_counter) < self.model_settings['min_familiarity_threshold']:
-                    break
-                model_counter += 1
-            if n_familiar >= self.model_settings['min_familiarity_threshold']:
-                # break
-                continue
+                if familiar == 1:
+                    second_level_regions = self.generate_second_level_regions(data)
+                    for second_level_region in second_level_regions:
+                        for m_second_level in m.child_networks:
+                            second_level_familiar = self.is_familiar(m_second_level, second_level_region)
 
-            # If data is unfamiliar, create a new network
-            network = self.create_new_model()
-            self.model = network
-            self.model.train()
+                            if second_level_familiar == 1:
+                                third_level_regions = self.generate_third_level_regions(second_level_region)
+                                third_level_familiarity = 0
+                                for third_level_region in third_level_regions:
+                                    third_level_familiar = 0
+                                    for m_third_level in m_second_level.child_networks:
+                                        third_level_familiar = self.is_familiar(m_third_level, third_level_region)
+                                        third_level_familiarity += third_level_familiar
 
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_settings['encoder_learning_rate'])
+                                        if third_level_familiar == 1:
+                                            break
+                                    if not third_level_familiar:
 
-            for i in range(50):
-                # Encode the image
-                rbm_input = self.model.encode(data)
-                # Flatten input for RBM
-                flat_rbm_input = rbm_input.view(len(rbm_input), self.model_settings['rbm_visible_units'])
 
-                familiarity = self.model.rbm.is_familiar(flat_rbm_input, provide_value=False)
-                if familiarity == data.shape[0]:
-                    self.model.rbm.calculate_energy_threshold(flat_rbm_input)
-                    break
 
-                # Train RBM
-                self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
 
-                # Train encoder
-                hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-                visible = self.model.rbm.sample_visible(hidden).reshape((
-                    data.shape[0],
-                    self.model_settings['encoder_channels'],
-                    self.model_settings['image_input_size'],
-                    self.model_settings['image_input_size']
-                ))
-                loss = self.loss_function(visible, rbm_input)
-                loss.backward(retain_graph=True)
-                self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+
+
+
+
+
+
+

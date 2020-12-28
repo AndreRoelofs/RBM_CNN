@@ -23,6 +23,7 @@ class Node(nn.Module):
             use_cuda=True,
             use_relu=use_relu,
         )
+        self.child_networks = []
 
     def encode(self, x):
         return self.encoder(x)
