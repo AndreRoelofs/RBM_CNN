@@ -122,7 +122,9 @@ class RV_RBM():
     def free_energy(self, input_data):
         wx_b = torch.mm(input_data, self.weights) + self.hidden_bias
         vbias_term = torch.sum(input_data * self.visible_bias, axis=1)
-        hidden_term = torch.logsumexp(wx_b, axis=1)
+        hidden_term = torch.sum(torch.log(1 + torch.exp(torch.clamp(wx_b, -88, 88))), axis=1)
+
+        # hidden_term = torch.logsumexp(wx_b, axis=1)
         # hidden_term = torch.sum(torch.log(1 + torch.exp(wx_b)), axis=1)
 
         energy = -hidden_term - vbias_term
