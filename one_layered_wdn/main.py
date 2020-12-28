@@ -175,7 +175,7 @@ if __name__ == "__main__":
 
     model = WDN(node_settings)
 
-    for j in range(1):
+    for j in range(2):
         print("Epoch: ", j)
         # for i in range(10):
         for i in [1]:
@@ -210,7 +210,7 @@ if __name__ == "__main__":
         plt.imshow(img, cmap='gray')
         plt.show()
 
-
+    #
     # clf = FullyConnectedClassifier(train_features_norm.shape[1])
     # optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
     #

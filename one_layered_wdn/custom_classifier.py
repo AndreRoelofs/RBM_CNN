@@ -8,22 +8,33 @@ class FullyConnectedClassifier(nn.Module):
         super().__init__()
         self.device = torch.device("cuda")
 
-        self.fc1 = nn.Linear(n_features, 50)
-        # self.fc2 = nn.Linear(400, 200)
-        # self.fc3 = nn.Linear(200, 100)
-        self.fc4 = nn.Linear(50, 2)
+        self.fc1 = nn.Linear(n_features, 400)
+        self.fc2 = nn.Linear(400, 200)
+        self.fc3 = nn.Linear(200, 100)
+        self.fc4 = nn.Linear(100, 2)
 
-        self.fc1_bn = nn.BatchNorm1d(50)
-        # self.fc2_bn = nn.BatchNorm1d(200)
-        # self.fc3_bn = nn.BatchNorm1d(100)
-        self.fc4_bn = nn.BatchNorm1d(2)
+        self.fc1_bn = nn.BatchNorm1d(400)
+        self.fc2_bn = nn.BatchNorm1d(200)
+        self.fc3_bn = nn.BatchNorm1d(100)
 
         self.act = nn.SELU()
         self.to(self.device)
 
     def forward(self, x):
-        x = self.fc1_bn(self.fc1(x))
+        # x = self.fc1_bn(self.fc1(x))
+        # x = self.act(x)
+        # x = self.fc2_bn(self.fc2(x))
+        # x = self.act(x)
+        # x = self.fc3_bn(self.fc3(x))
+        # x = self.act(x)
+
+        x = self.fc1(x)
         x = self.act(x)
+        x = self.fc2(x)
+        x = self.act(x)
+        x = self.fc3(x)
+        x = self.act(x)
+
         x = self.fc4(x)
 
 

@@ -28,8 +28,8 @@ class RV_RBM():
             self.rand = self.random_selu_noise
 
         self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
-        nn.init.xavier_normal_(self.weights, 10.0)
-        # nn.init.xavier_normal_(self.weights, 0.07)
+        # nn.init.xavier_normal_(self.weights, 10.0)
+        nn.init.xavier_normal_(self.weights, 0.07)
 
         self.visible_bias = torch.zeros(num_visible)
         # self.visible_bias = torch.ones(num_visible)

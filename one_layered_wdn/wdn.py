@@ -64,11 +64,15 @@ class WDN(nn.Module):
         ]
         return regions
 
-    def is_familiar(self, network, data, provide_value=False):
+    def is_familiar(self, network, data, provide_value=False, provideInput=False):
         # Encode the image
         rbm_input = network.encode(data)
         # Flatten input for RBM
         flat_rbm_input = rbm_input.view(len(rbm_input), self.levels[network.level]['rbm_visible_units'] ** 2)
+
+        if provideInput:
+            return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value), rbm_input
+
         # Compare data with existing models
         return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
 
@@ -87,22 +91,19 @@ class WDN(nn.Module):
 
             # Train RBM
             self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
-        for i in range(1):
             # Encode the image
-            rbm_input = self.model.encode(data)
-            # Flatten input for RBM
-            flat_rbm_input = rbm_input.view(len(rbm_input), self.levels[level]['rbm_visible_units'] ** 2)
-            # Train encoder
-            hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-            visible = self.model.rbm.sample_visible(hidden).reshape((
-                data.shape[0],
-                self.model_settings['encoder_channels'],
-                self.levels[level]['rbm_visible_units'],
-                self.levels[level]['rbm_visible_units']
-            ))
-            loss = self.loss_function(visible, rbm_input)
-            loss.backward(retain_graph=True)
-            self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+
+        # Train encoder
+        hidden = self.model.rbm.sample_hidden(flat_rbm_input)
+        visible = self.model.rbm.sample_visible(hidden).reshape((
+            data.shape[0],
+            self.model_settings['encoder_channels'],
+            self.levels[level]['rbm_visible_units'],
+            self.levels[level]['rbm_visible_units']
+        ))
+        loss = self.loss_function(visible, rbm_input)
+        loss.backward(retain_graph=True)
+        self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
         return network
 
@@ -133,16 +134,16 @@ class WDN(nn.Module):
 
             n_familiar = 0
             for m in self.models:
-                familiar = self.is_familiar(m, data)
+                familiar, first_level_input = self.is_familiar(m, data, provideInput=True)
                 if familiar == 1:
                     n_familiar += 1
-                    second_level_regions = self.generate_second_level_regions(data)
+                    second_level_regions = self.generate_second_level_regions(first_level_input)
                     for second_level_region in second_level_regions:
                         second_level_familiar = 0
                         for m_second_level in m.child_networks:
-                            second_level_familiar = self.is_familiar(m_second_level, second_level_region)
+                            second_level_familiar, second_level_input = self.is_familiar(m_second_level, second_level_region, provideInput=True)
                             if second_level_familiar == 1:
-                                third_level_regions = self.generate_third_level_regions(second_level_region)
+                                third_level_regions = self.generate_third_level_regions(second_level_input)
 
                                 for third_level_region in third_level_regions:
                                     third_level_familiar = 0

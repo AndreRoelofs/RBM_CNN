@@ -73,7 +73,7 @@ SELU_ACTIVATION = "SELU"
 #     return features, features_norm, labels
 
 def convert_images_to_latent_vector(images, model):
-    classifier_training_batch_size = 1000
+    classifier_training_batch_size = 100
     data_loader = torch.utils.data.DataLoader(images, batch_size=classifier_training_batch_size, shuffle=False)
     counter = 0
     features = []
