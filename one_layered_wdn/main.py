@@ -1,9 +1,11 @@
 import numpy as np
 import torch
+from sklearn.svm import SVC, LinearSVC
 from torchvision import transforms
 from torchvision.datasets import MNIST, CIFAR10, FashionMNIST
 from torch.utils.data.sampler import SubsetRandomSampler
 import configparser
+import matplotlib.pyplot as plt
 from one_layered_wdn.helpers import *
 from one_layered_wdn.custom_transforms import CropBlackPixelsAndResize
 from one_layered_wdn.wdn import WDN
@@ -90,8 +92,8 @@ def load_data():
     global train_data
     global test_data
     general_settings = config['GENERAL']
+    tolerance = 0.5
     if general_settings['Dataset'] == MNIST_DATASET:
-        tolerance = 0.5
         train_data = MNIST(data_path, train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
@@ -109,10 +111,12 @@ def load_data():
         train_data = FashionMNIST(data_path, train=True, download=True,
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
+                                      CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
                                   ]))
 
         test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
+            CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
         ]))
     if general_settings['Dataset'] == CIFAR10_DATASET:
         train_data = CIFAR10(data_path, train=True, download=True,
@@ -170,31 +174,45 @@ if __name__ == "__main__":
 
     model = WDN(node_settings)
 
-    for i in range(10):
-        print("Training digit: ", i)
-        subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
-        subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
-        model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=node_train_batch_size,
-                                                         shuffle=False,
-                                                         sampler=SubsetRandomSampler(subset_indices))
-        model.joint_training()
+    for j in range(1):
+        print("Epoch: ", j)
+        # for i in range(10):
+        for i in [1]:
+            print("Training digit: ", i)
+            subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
+            subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
+            model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=node_train_batch_size,
+                                                             shuffle=False,
+                                                             sampler=SubsetRandomSampler(subset_indices))
+            model.joint_training()
 
     train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
     test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
 
-    train_dataset = UnsupervisedVectorDataset(train_features, train_labels)
-    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=True)
+    train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
+    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
 
-    test_dataset = UnsupervisedVectorDataset(test_features, test_labels)
+    test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
     test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
 
     print("Training classifier")
-    clf = FullyConnectedClassifier(train_features_norm.shape[1])
-    # optimizer = torch.optim.SGD(clf.parameters(), lr=1e-3)
-    optimizer = torch.optim.RMSprop(clf.parameters(), lr=0.0005)
-    # optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
+    clf = SVC()
+    clf.fit(train_features_norm, train_labels)
+    predictions = clf.predict(test_features_norm)
+    print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
 
-    train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader)
+    wrong_indices = np.where(predictions != test_labels)[0]
+
+    for i in wrong_indices:
+        img = test_data.data[i].cpu().detach().numpy()
+        plt.imshow(img, cmap='gray')
+        plt.show()
+
+
+    # clf = FullyConnectedClassifier(train_features_norm.shape[1])
+    # optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
+    #
+    # train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader)
 
 
 

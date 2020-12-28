@@ -28,13 +28,8 @@ class RV_RBM():
             self.rand = self.random_selu_noise
 
         self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
-        # self.weights = torch.randn(num_visible, num_hidden) * 0.1
-        # nn.init.xavier_normal_(self.weights, 2.0)
-        # nn.init.xavier_normal_(self.weights, 25.0)
-        # nn.init.xavier_normal_(self.weights, 25.0)
-        nn.init.xavier_normal_(self.weights, 0.07)
-        # nn.init.normal_(self.weights, 0, 0.07)
-        #
+        nn.init.xavier_normal_(self.weights, 2.7)
+
         self.visible_bias = torch.zeros(num_visible)
         # self.visible_bias = torch.ones(num_visible)
         # self.hidden_bias = torch.ones(num_hidden)
@@ -77,6 +72,7 @@ class RV_RBM():
             exit(1)
 
         if provide_value:
+            # return torch.where(self.energy_threshold >= energy, 1, 0)
             return self.energy_threshold - energy
         else:
             return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
@@ -117,8 +113,8 @@ class RV_RBM():
         energy = self.free_energy(v0)
         self.lowest_energy = min(energy.min(), self.lowest_energy)
         self.highest_energy = max(energy.max(), self.highest_energy)
-        # self.energy_threshold = (self.highest_energy + self.lowest_energy) / 2
-        self.energy_threshold = self.highest_energy
+        self.energy_threshold = (self.highest_energy + self.lowest_energy) / 2
+        # self.energy_threshold = self.highest_energy
         # print("MIN: ", energy_min)
         # print("MAX: ", energy_max)
         # print(self.energy_threshold)

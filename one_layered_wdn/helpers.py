@@ -4,7 +4,7 @@ import numpy as np
 from sklearn import preprocessing
 
 MNIST_DATASET = "MNIST"
-FASHIONMNIST_DATASET = "Fashion MNIST"
+FASHIONMNIST_DATASET = "Fashion_MNIST"
 CIFAR10_DATASET = "CIFAR-10"
 
 RELU_ACTIVATION = "RELU"
@@ -33,12 +33,12 @@ def convert_images_to_latent_vector(images, model):
         latent_vector = np.array(latent_vector)
         target_labels = target.cpu().detach().numpy()
         for i in range(classifier_training_batch_size):
-            test_target = np.zeros(10, dtype=float)
-            test_target[target_labels[i]] = 1.0
+            # test_target = np.zeros(10, dtype=float)
+            # test_target[target_labels[i]] = 1.0
             # training_features.append(latent_vector[:, i])
             features.append(latent_vector[:, i])
-            # training_labels.append(target_labels[i])
-            labels.append(test_target)
+            labels.append(target_labels[i] == 1)
+            # labels.append(test_target == 1)
 
         counter += 1
         if counter % 100 == 0:

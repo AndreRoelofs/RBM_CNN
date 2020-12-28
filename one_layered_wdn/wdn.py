@@ -4,6 +4,7 @@ from one_layered_wdn.node import Node
 from one_layered_wdn.helpers import *
 from torch.nn import functional as F
 from torchvision.transforms.functional import resize, center_crop, gaussian_blur
+import matplotlib.pyplot as plt
 
 
 class WDN(nn.Module):
@@ -61,8 +62,9 @@ class WDN(nn.Module):
 
                 # Compare data with existing models
                 familiar = m.rbm.is_familiar(flat_rbm_input, provide_value=False)
-                if familiar >= self.model_settings['min_familiarity_threshold']:
-                    n_familiar += 1
+                n_familiar += familiar
+                # if familiar >= self.model_settings['min_familiarity_threshold']:
+                #     n_familiar += 1
                 if n_familiar >= self.model_settings['min_familiarity_threshold'] or n_familiar + (
                         a_n_models - model_counter) < self.model_settings['min_familiarity_threshold']:
                     break
@@ -84,8 +86,6 @@ class WDN(nn.Module):
                 # Flatten input for RBM
                 flat_rbm_input = rbm_input.view(len(rbm_input), self.model_settings['rbm_visible_units'])
 
-
-
                 familiarity = self.model.rbm.is_familiar(flat_rbm_input, provide_value=False)
                 if familiarity == data.shape[0]:
                     self.model.rbm.calculate_energy_threshold(flat_rbm_input)
@@ -95,14 +95,13 @@ class WDN(nn.Module):
                 self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
 
                 # Train encoder
-                if i % 5 == 0:
-                    hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-                    visible = self.model.rbm.sample_visible(hidden).reshape((
-                        data.shape[0],
-                        self.model_settings['encoder_channels'],
-                        self.model_settings['image_input_size'],
-                        self.model_settings['image_input_size']
-                    ))
-                    loss = self.loss_function(visible, rbm_input)
-                    loss.backward(retain_graph=True)
-                    self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+                hidden = self.model.rbm.sample_hidden(flat_rbm_input)
+                visible = self.model.rbm.sample_visible(hidden).reshape((
+                    data.shape[0],
+                    self.model_settings['encoder_channels'],
+                    self.model_settings['image_input_size'],
+                    self.model_settings['image_input_size']
+                ))
+                loss = self.loss_function(visible, rbm_input)
+                loss.backward(retain_graph=True)
+                self.model.rbm.calculate_energy_threshold(flat_rbm_input)
