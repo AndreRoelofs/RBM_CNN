@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from one_layered_wdn.helpers import *
 from one_layered_wdn.custom_transforms import CropBlackPixelsAndResize
 from one_layered_wdn.wdn import WDN
+from sklearn import preprocessing
 from one_layered_wdn.custom_dataset import UnsupervisedVectorDataset
 from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier
 
@@ -136,11 +137,11 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        train_data.data = train_data.data[:10]
-        train_data.targets = train_data.targets[:10]
+        train_data.data = train_data.data[:1000]
+        train_data.targets = train_data.targets[:1000]
 
-        test_data.data = test_data.data[:10]
-        test_data.targets = test_data.targets[:10]
+        test_data.data = test_data.data[:100]
+        test_data.targets = test_data.targets[:100]
 
 
 
@@ -202,12 +203,12 @@ if __name__ == "__main__":
     predictions = clf.predict(test_features_norm)
     print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
 
-    # wrong_indices = np.where(predictions != test_labels)[0]
-    #
-    # for i in wrong_indices:
-    #     img = test_data.data[i].cpu().detach().numpy()
-    #     plt.imshow(img, cmap='gray')
-    #     plt.show()
+    wrong_indices = np.where(predictions != test_labels)[0]
+
+    for i in wrong_indices:
+        img = test_data.data[i].cpu().detach().numpy()
+        plt.imshow(img, cmap='gray')
+        plt.show()
 
 
     # clf = FullyConnectedClassifier(train_features_norm.shape[1])

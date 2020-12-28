@@ -19,7 +19,7 @@ class WDN(nn.Module):
         self.levels = [
             {'rbm_visible_units': 14, 'rbm_learning_rate': 1e-20},
             {'rbm_visible_units': 7, 'rbm_learning_rate': 1e-20},
-            {'rbm_visible_units': 4, 'rbm_learning_rate': 1e-20},
+            {'rbm_visible_units': 3, 'rbm_learning_rate': 1e-20},
         ]
 
         self.log_interval = 100
@@ -46,6 +46,7 @@ class WDN(nn.Module):
         return F.mse_loss(x, recon_x)
 
     def generate_second_level_regions(self, data):
+        # size = 14
         regions = [
             crop(data, 0, 0, 7, 7),
             crop(data, 0, 7, 7, 7),
@@ -56,10 +57,10 @@ class WDN(nn.Module):
 
     def generate_third_level_regions(self, data):
         regions = [
-            crop(data, 0, 0, 4, 4),
-            crop(data, 0, 3, 4, 4),
-            crop(data, 3, 0, 4, 4),
-            crop(data, 3, 3, 4, 4),
+            crop(data, 0, 0, 3, 3),
+            crop(data, 0, 4, 3, 3),
+            crop(data, 4, 0, 3, 3),
+            crop(data, 4, 4, 3, 3),
         ]
         return regions
 
@@ -78,7 +79,7 @@ class WDN(nn.Module):
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_settings['encoder_learning_rate'])
 
-        for i in range(2):
+        for i in range(1):
             # Encode the image
             rbm_input = self.model.encode(data)
             # Flatten input for RBM
@@ -86,17 +87,22 @@ class WDN(nn.Module):
 
             # Train RBM
             self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
-        # Train encoder
-        hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-        visible = self.model.rbm.sample_visible(hidden).reshape((
-            data.shape[0],
-            self.model_settings['encoder_channels'],
-            self.levels[level]['rbm_visible_units'],
-            self.levels[level]['rbm_visible_units']
-        ))
-        loss = self.loss_function(visible, rbm_input)
-        loss.backward(retain_graph=True)
-        self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+        for i in range(1):
+            # Encode the image
+            rbm_input = self.model.encode(data)
+            # Flatten input for RBM
+            flat_rbm_input = rbm_input.view(len(rbm_input), self.levels[level]['rbm_visible_units'] ** 2)
+            # Train encoder
+            hidden = self.model.rbm.sample_hidden(flat_rbm_input)
+            visible = self.model.rbm.sample_visible(hidden).reshape((
+                data.shape[0],
+                self.model_settings['encoder_channels'],
+                self.levels[level]['rbm_visible_units'],
+                self.levels[level]['rbm_visible_units']
+            ))
+            loss = self.loss_function(visible, rbm_input)
+            loss.backward(retain_graph=True)
+            self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
         return network
 
@@ -110,7 +116,8 @@ class WDN(nn.Module):
             a_n_models = len(self.models)
 
             counter += 1
-            if counter % 1 == 0:
+            if counter % 50 == 0:
+                print("______________")
                 print("Iteration: ", counter)
                 print("n_models", a_n_models)
                 n_second_level_children = 0
@@ -147,6 +154,7 @@ class WDN(nn.Module):
                                     if third_level_familiar == 0:
                                         third_level_child = self.train_new_network(third_level_region, level=2)
                                         m_second_level.child_networks.append(third_level_child)
+                                break
                         if second_level_familiar == 0:
                             second_level_child = self.train_new_network(second_level_region, level=1)
                             m.child_networks.append(second_level_child)
@@ -156,19 +164,6 @@ class WDN(nn.Module):
                                 second_level_child.child_networks.append(third_level_child)
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
-            if counter % 1 == 0:
-                print("Iteration: ", counter)
-                print("n_models", a_n_models)
-                n_second_level_children = 0
-                n_third_level_children = 0
-
-                for m in self.models:
-                    n_second_level_children += len(m.child_networks)
-                    for m_child in m.child_networks:
-                        n_third_level_children += len(m_child.child_networks)
-
-                print("n_second_models", n_second_level_children)
-                print("n_third_models", n_third_level_children)
             if n_familiar >= self.model_settings['min_familiarity_threshold']:
                 continue
             network = self.train_new_network(data, level=0)
@@ -181,19 +176,7 @@ class WDN(nn.Module):
                 for third_level_region in third_level_regions:
                     third_level_child = self.train_new_network(third_level_region, level=2)
                     second_level_child.child_networks.append(third_level_child)
-            if counter % 1 == 0:
-                print("Iteration: ", counter)
-                print("n_models", a_n_models)
-                n_second_level_children = 0
-                n_third_level_children = 0
 
-                for m in self.models:
-                    n_second_level_children += len(m.child_networks)
-                    for m_child in m.child_networks:
-                        n_third_level_children += len(m_child.child_networks)
-
-                print("n_second_models", n_second_level_children)
-                print("n_third_models", n_third_level_children)
 
 
 
