@@ -186,27 +186,27 @@ if __name__ == "__main__":
                                                              sampler=SubsetRandomSampler(subset_indices))
             model.joint_training()
 
-    train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
-    test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
-
-    train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
-    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
-
-    test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
-    test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
-
-    print("Training classifier")
-    clf = SVC()
-    clf.fit(train_features_norm, train_labels)
-    predictions = clf.predict(test_features_norm)
-    print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
-
-    wrong_indices = np.where(predictions != test_labels)[0]
-
-    for i in wrong_indices:
-        img = test_data.data[i].cpu().detach().numpy()
-        plt.imshow(img, cmap='gray')
-        plt.show()
+    # train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
+    # test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
+    #
+    # train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
+    # train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
+    #
+    # test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
+    # test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
+    #
+    # print("Training classifier")
+    # clf = SVC()
+    # clf.fit(train_features_norm, train_labels)
+    # predictions = clf.predict(test_features_norm)
+    # print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+    #
+    # wrong_indices = np.where(predictions != test_labels)[0]
+    #
+    # for i in wrong_indices:
+    #     img = test_data.data[i].cpu().detach().numpy()
+    #     plt.imshow(img, cmap='gray')
+    #     plt.show()
 
 
     # clf = FullyConnectedClassifier(train_features_norm.shape[1])

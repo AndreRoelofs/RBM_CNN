@@ -11,6 +11,7 @@ class Node(nn.Module):
                  rbm_hidden_units,
                  rbm_learning_rate,
                  use_relu=False,
+                 level=0,
                  ):
         super().__init__()
         self.encoder = Encoder(image_channels, encoder_channels, use_relu)
@@ -24,6 +25,7 @@ class Node(nn.Module):
             use_relu=use_relu,
         )
         self.child_networks = []
+        self.level = level
 
     def encode(self, x):
         return self.encoder(x)
