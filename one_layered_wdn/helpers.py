@@ -82,15 +82,15 @@ def convert_images_to_latent_vector(images, model):
         data = data.to(model.device)
         latent_vector = []
         for m in model.models:
-            values, _ = model.is_familiar(m, data, provide_value=True)
-            values = values.cpu().detach().numpy()
-            latent_vector.append(values)
+            # values, _ = model.is_familiar(m, data, provide_value=True)
+            # values = values.cpu().detach().numpy()
+            # latent_vector.append(values)
             second_level_regions = model.generate_second_level_regions(data)
             for second_level_region in second_level_regions:
                 for m_second_level in m.child_networks:
-                    values, _ = model.is_familiar(m_second_level, second_level_region, provide_value=True)
-                    values = values.cpu().detach().numpy()
-                    latent_vector.append(values)
+                    # values, _ = model.is_familiar(m_second_level, second_level_region, provide_value=True)
+                    # values = values.cpu().detach().numpy()
+                    # latent_vector.append(values)
                     third_level_regions = model.generate_third_level_regions(second_level_region)
                     for third_level_region in third_level_regions:
                         for m_third_level in m_second_level.child_networks:
@@ -102,11 +102,11 @@ def convert_images_to_latent_vector(images, model):
         target_labels = target.cpu().detach().numpy()
         for i in range(classifier_training_batch_size):
             features.append(latent_vector[:, i])
-            labels.append(target_labels[i] == 1)
-            # labels.append(target_labels[i])
+            # labels.append(target_labels[i] == 5)
+            labels.append(target_labels[i])
         counter += 1
         if counter % 100 == 0:
-            print("Training iteration: ", counter)
+            print("Latent conversion iteration: ", counter)
     # new_dataset = np.array(new_dataset, dtype=float)
     features = np.array(features)
 

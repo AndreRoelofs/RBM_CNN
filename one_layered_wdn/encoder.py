@@ -9,8 +9,8 @@ class Encoder(nn.Module):
 
         self.conv1 = nn.Conv2d(channels, filters, (3, 3), stride=1, padding=1)
 
-        # nn.init.xavier_normal_(self.conv1.weight, 20.0)
-        nn.init.xavier_normal_(self.conv1.weight, 0.07)
+        nn.init.xavier_normal_(self.conv1.weight, 20.0)
+        # nn.init.xavier_normal_(self.conv1.weight, 0.07)
 
         if use_relu:
             self.act = nn.ReLU()

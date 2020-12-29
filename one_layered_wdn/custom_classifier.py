@@ -11,7 +11,7 @@ class FullyConnectedClassifier(nn.Module):
         self.fc1 = nn.Linear(n_features, 400)
         self.fc2 = nn.Linear(400, 200)
         self.fc3 = nn.Linear(200, 100)
-        self.fc4 = nn.Linear(100, 2)
+        self.fc4 = nn.Linear(100, 10)
 
         self.fc1_bn = nn.BatchNorm1d(400)
         self.fc2_bn = nn.BatchNorm1d(200)
@@ -36,7 +36,6 @@ class FullyConnectedClassifier(nn.Module):
         x = self.act(x)
 
         x = self.fc4(x)
-
 
         return F.log_softmax(x, dim=1)
 
