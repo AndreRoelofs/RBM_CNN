@@ -19,8 +19,8 @@ class Net(nn.Module):
     def __init__(self, n_feature, n_class):
         super(Net, self).__init__()
         self.fc = nn.Linear(n_feature, n_class)
-        torch.nn.init.kaiming_uniform(self.fc.weight)
-        torch.nn.init.constant(self.fc.bias, 0.1)
+        torch.nn.init.kaiming_uniform_(self.fc.weight)
+        torch.nn.init.constant_(self.fc.bias, 0.1)
 
     def forward(self, x):
         output = self.fc(x)
@@ -75,27 +75,28 @@ def train(epoch, model, optimizer, loss, trn_loader):
         pred = output.data.max(1, keepdim=True)[1]
         training_f1 += f1_score(target.data.cpu().numpy(), pred.cpu().numpy(), labels=np.arange(10).tolist(),
                                 average='macro')
-    # if epoch % 100 == 0:
-    #     print('Epoch: {}'.format(epoch))
-    #     print('Training set avg loss: {:.4f}'.format(training_loss / len(trn_loader)))
-    #     print('Training set avg micro-f1: {:.4f}'.format(training_f1 / len(trn_loader)))
+    if (epoch + 1) % 100 == 0:
+        print('Epoch: {}'.format(epoch))
+        print('Training set avg loss: {:.4f}'.format(training_loss / len(trn_loader)))
+        print('Training set avg micro-f1: {:.4f}'.format(training_f1 / len(trn_loader)))
 
 
 def test(epoch, model, tst_loader, y_test_list):
     model.eval()
     test_loss = 0
     preds = list()
-    for data, target in tst_loader:
-        data, target = data.cuda(), target.cuda()
-        data, target = Variable(data, volatile=True), Variable(target)
-        output = model(data)
-        test_loss += F.nll_loss(output, target.long(), size_average=False).item()  # sum up batch loss
-        pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
-        preds += pred.cpu().numpy().tolist()
+    with torch.no_grad():
+        for data, target in tst_loader:
+            data, target = data.cuda(), target.cuda()
+            data, target = Variable(data), Variable(target)
+            output = model(data)
+            test_loss += F.nll_loss(output, target.long(), size_average=False).item()  # sum up batch loss
+            pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
+            preds += pred.cpu().numpy().tolist()
     test_loss /= len(tst_loader.dataset)
     conf_mat = confusion_matrix(y_test_list, preds)
-    precision, recall, f1, sup = precision_recall_fscore_support(y_test_list, preds, average='macro')
-    if epoch % 100 == 0:
+    precision, recall, f1, sup = precision_recall_fscore_support(y_test_list, preds, average='macro', zero_division=0)
+    if (epoch + 1) % 25 == 0:
         print('Test set avg loss: {:.4f}'.format(test_loss))
         print('conf_mat:\n', conf_mat)
         print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))

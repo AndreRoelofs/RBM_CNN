@@ -7,6 +7,7 @@ class Node(nn.Module):
     def __init__(self,
                  image_channels,
                  encoder_channels,
+                 encoder_weight_variance,
                  rbm_visible_units,
                  rbm_hidden_units,
                  rbm_learning_rate,
@@ -14,13 +15,14 @@ class Node(nn.Module):
                  level=0,
                  ):
         super().__init__()
-        self.encoder = Encoder(image_channels, encoder_channels, use_relu)
+        self.encoder = Encoder(image_channels, encoder_channels, encoder_weight_variance, use_relu)
         self.rbm = RV_RBM(
             rbm_visible_units,
             rbm_hidden_units,
             learning_rate=rbm_learning_rate,
             momentum_coefficient=0.0,
             weight_decay=0.00,
+            weight_variance=encoder_weight_variance,
             use_cuda=True,
             use_relu=use_relu,
         )

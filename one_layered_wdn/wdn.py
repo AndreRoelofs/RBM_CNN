@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torchvision.transforms.functional import resize, crop, rotate, affine, center_crop, five_crop, ten_crop, vflip, hflip
+from torchvision.transforms.functional import resize, crop, rotate, affine, center_crop, five_crop, ten_crop, vflip, \
+    hflip
 import matplotlib.pyplot as plt
 import numpy as np
 from one_layered_wdn.node import Node
@@ -20,14 +21,19 @@ class WDN(nn.Module):
         self.levels = [
             # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
             # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 56,  'rbm_hidden_units': 400, 'rbm_learning_rate': 1e-20},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28,  'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-20},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14,  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-20},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7,  'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-20},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3,  'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2,  'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 5.0,
+             'rbm_hidden_units': 400, 'rbm_learning_rate': 1e-20},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 10.0,
+             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-20},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
         ]
 
-        self.n_levels = 4
+        self.n_levels = 3
 
         self.log_interval = 100
 
@@ -38,6 +44,7 @@ class WDN(nn.Module):
         network = Node(
             image_channels=settings['input_channels'],
             encoder_channels=settings['encoder_channels'],
+            encoder_weight_variance=settings['encoder_weight_variance'],
             rbm_visible_units=(settings['rbm_visible_units'] ** 2) * settings['encoder_channels'],
             rbm_hidden_units=settings['rbm_hidden_units'],
             rbm_learning_rate=settings['rbm_learning_rate'],
@@ -57,7 +64,7 @@ class WDN(nn.Module):
     def divide_data_in_five(self, data):
         original_size = data.shape[-1]
         # Accepts images of up to 128x128 size, more needed?
-        new_size = np.floor(original_size/2).astype(np.int64)
+        new_size = np.floor(original_size / 2).astype(np.int64)
         new_size = max(new_size, 2)
 
         # offset = new_size
@@ -82,7 +89,6 @@ class WDN(nn.Module):
         #
         # return regions
         return five_crop(data, [new_size, new_size])
-
         # return ten_crop(data, [new_size, new_size])
 
         # return regions
@@ -103,7 +109,7 @@ class WDN(nn.Module):
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_settings['encoder_learning_rate'])
 
-        for i in range(3):
+        for i in range(2):
             # Encode the image
             rbm_input = self.model.encode(data)
             # Flatten input for RBM
@@ -113,17 +119,17 @@ class WDN(nn.Module):
             self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
             # Encode the image
 
-        # Train encoder
-        hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-        visible = self.model.rbm.sample_visible(hidden).reshape((
-            data.shape[0],
-            self.model_settings['encoder_channels'],
-            self.levels[level]['rbm_visible_units'],
-            self.levels[level]['rbm_visible_units']
-        ))
-        loss = self.loss_function(visible, rbm_input)
-        loss.backward(retain_graph=True)
-        self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+            # Train encoder
+            hidden = self.model.rbm.sample_hidden(flat_rbm_input)
+            visible = self.model.rbm.sample_visible(hidden).reshape((
+                data.shape[0],
+                self.model_settings['encoder_channels'],
+                self.levels[level]['rbm_visible_units'],
+                self.levels[level]['rbm_visible_units']
+            ))
+            loss = self.loss_function(visible, rbm_input)
+            loss.backward(retain_graph=True)
+            self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
         return network
 
@@ -146,10 +152,9 @@ class WDN(nn.Module):
                 regions_to_train.append(region)
         # Train new children if region not recognized
         for region in regions_to_train:
-            new_model = self.train_new_network(region, level=model.level+1)
+            new_model = self.train_new_network(region, level=model.level + 1)
             self._joint_training(region, new_model, depth - 1)
             model.child_networks.append(new_model)
-
 
     def joint_training(self):
         counter = 0
@@ -158,7 +163,7 @@ class WDN(nn.Module):
             data = data.to(self.device)
 
             counter += 1
-            if counter % 10 == 0:
+            if counter % 50 == 0:
                 print("______________")
                 print("Iteration: ", counter)
 
@@ -199,7 +204,3 @@ class WDN(nn.Module):
             model = self.train_new_network(data, level=0)
             self.models.append(model)
             self._joint_training(data, model, self.n_levels - 1)
-
-
-
-

@@ -10,6 +10,7 @@ class RV_RBM():
     energy_threshold = None
 
     def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
+                 weight_variance=10.0,
                  use_cuda=True, use_relu=True):
         self.num_visible = num_visible
         self.num_hidden = num_hidden
@@ -28,8 +29,8 @@ class RV_RBM():
             self.rand = self.random_selu_noise
 
         self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
-        nn.init.xavier_normal_(self.weights, 10.0)
-        # nn.init.xavier_normal_(self.weights, 0.07)
+        nn.init.xavier_normal_(self.weights, weight_variance)
+        # nn.init.xavier_normal_(self.weights, 0.7)
 
         self.visible_bias = torch.zeros(num_visible)
         # self.visible_bias = torch.ones(num_visible)
@@ -74,7 +75,7 @@ class RV_RBM():
 
         if provide_value:
             # return torch.where(self.energy_threshold >= energy, 1, 0)
-            return self.energy_threshold - energy
+            return self.energy_threshold - energy, torch.where(self.energy_threshold >= energy, 1, 0)
         else:
             return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
 

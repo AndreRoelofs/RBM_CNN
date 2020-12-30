@@ -103,13 +103,13 @@ def load_data():
                            transform=transforms.Compose([
                                transforms.ToTensor(),
                                # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                               transforms.Resize((image_input_size, image_input_size)),
+                               # transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            transforms.Resize((image_input_size, image_input_size)),
+            # transforms.Resize((image_input_size, image_input_size)),
         ]))
 
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
@@ -146,7 +146,6 @@ def load_data():
 
         test_data.data = test_data.data[:100]
         test_data.targets = test_data.targets[:100]
-
 
 
 if __name__ == "__main__":
@@ -192,9 +191,9 @@ if __name__ == "__main__":
     # exit(0)
 
     print("Converting train images to latent vectors")
-    train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
+    train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
     print("Converting test images to latent vectors")
-    test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
+    test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
     print("Creating dataset of images")
     #
     train_dataset = UnsupervisedVectorDataset(train_features, train_labels)
@@ -233,23 +232,17 @@ if __name__ == "__main__":
 
     #
     # #
-    # svc = LinearSVC(max_iter=100, loss='hinge', C=0.01, fit_intercept=False)
-    # print("Fitting SVM")
-    # # svc = SVC(cache_size=32768)
-    # svc.fit(train_features, train_labels)
-    # print("Predicting SVM")
-    # predictions = svc.predict(test_features)
-    # print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
-    # #
-    # wrong_indices = np.where(predictions != test_labels)[0]
+    svc = LinearSVC(max_iter=100, loss='hinge', C=0.01, fit_intercept=False)
+    print("Fitting SVM")
+    # svc = SVC(cache_size=32768)
+    svc.fit(train_features, train_labels)
+    print("Predicting SVM")
+    predictions = svc.predict(test_features)
+    print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
     #
-    # for i in wrong_indices:
-    #     img = test_data.data[i].cpu().detach().numpy()
-    #     plt.imshow(img, cmap='gray')
-    #     plt.show()
+    wrong_indices = np.where(predictions != test_labels)[0]
 
-
-
-
-
-
+    for i in wrong_indices:
+        img = test_data.data[i].cpu().detach().numpy()
+        plt.imshow(img, cmap='gray')
+        plt.show()

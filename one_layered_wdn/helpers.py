@@ -98,36 +98,25 @@ def convert_images_to_latent_vector(images, model):
     for batch_idx, (data, target) in enumerate(data_loader):
         data = data.to(model.device)
         latent_vector = []
+        # correct_indices = []
         for m in model.models:
-            if len(m.child_networks) == 0:
-                values = model.is_familiar(m, data, provide_value=True)
-                values = values.cpu().detach().numpy()
-                latent_vector.append(values)
-                continue
             second_level_regions = model.divide_data_in_five(data)
             for second_level_region in second_level_regions:
                 for m_second_level in m.child_networks:
-                    if len(m_second_level.child_networks) == 0:
-                        values = model.is_familiar(m_second_level, second_level_region, provide_value=True)
-                        values = values.cpu().detach().numpy()
-                        latent_vector.append(values)
-                        continue
                     third_level_regions = model.divide_data_in_five(second_level_region)
                     for third_level_region in third_level_regions:
                         for m_third_level in m_second_level.child_networks:
-                            if len(m_third_level.child_networks) == 0:
-                                values = model.is_familiar(m_third_level, third_level_region, provide_value=True)
-                                values = values.cpu().detach().numpy()
-                                latent_vector.append(values)
-                                continue
+                            values, is_familiar = model.is_familiar(m_third_level, third_level_region, provide_value=True)
+                            values = values.cpu().detach().numpy()
+                            latent_vector.append(values)
+                            continue
                             fourth_level_regions = model.divide_data_in_five(third_level_region)
                             for fourth_level_region in fourth_level_regions:
                                 for m_fourth_level in m_third_level.child_networks:
-                                    if len(m_fourth_level.child_networks) == 0:
-                                        values = model.is_familiar(m_fourth_level, fourth_level_region, provide_value=True)
-                                        values = values.cpu().detach().numpy()
-                                        latent_vector.append(values)
-                                        continue
+                                    values, is_familiar = model.is_familiar(m_fourth_level, fourth_level_region, provide_value=True)
+                                    values = values.cpu().detach().numpy()
+                                    latent_vector.append(values)
+                                    continue
                                     fifth_level_regions = model.divide_data_in_five(fourth_level_region)
                                     for fifth_level_region in fifth_level_regions:
                                         for m_fifth_level in m_fourth_level.child_networks:
@@ -146,7 +135,7 @@ def convert_images_to_latent_vector(images, model):
     # new_dataset = np.array(new_dataset, dtype=float)
     features = np.array(features)
 
-    features_norm = preprocessing.scale(features)
+    # features_norm = preprocessing.scale(features)
     labels = np.array(labels, dtype=float)
 
-    return features, features_norm, labels
+    return features, features, labels
