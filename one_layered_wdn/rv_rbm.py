@@ -74,7 +74,7 @@ class RV_RBM():
 
         if provide_value:
             # return torch.where(self.energy_threshold >= energy, 1, 0)
-            return self.energy_threshold - energy, torch.where(self.energy_threshold >= energy, 1, 0)
+            return self.energy_threshold - energy
         else:
             return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
 

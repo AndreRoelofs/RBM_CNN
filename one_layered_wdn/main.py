@@ -39,7 +39,7 @@ train_data = None
 test_data = None
 fast_training = None
 fastest_training = None
-tolerance = 0.0
+tolerance = 0.5
 
 
 def process_settings():
@@ -101,13 +101,13 @@ def load_data():
         train_data = MNIST(data_path, train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
-                               CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+                               # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
                                # transforms.Resize((14, 14)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+            # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
             # transforms.Resize((14, 14)),
         ]))
 
@@ -149,8 +149,8 @@ def load_data():
 
 
 if __name__ == "__main__":
-    # torch.manual_seed(0)
-    # np.random.seed(0)
+    torch.manual_seed(0)
+    np.random.seed(0)
 
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -188,32 +188,11 @@ if __name__ == "__main__":
                                                          sampler=SubsetRandomSampler(subset_indices))
         model.joint_training()
 
-    # tolerance = 0.5
-    # load_data()
-    # for i in range(10):
-    # # for i in [5]:
-    #     print("Training digit: ", i)
-    #     subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
-    #     subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
-    #     model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=node_train_batch_size,
-    #                                                      shuffle=False,
-    #                                                      sampler=SubsetRandomSampler(subset_indices))
-    #     model.joint_training()
-    #
-    # tolerance = 0.0
-    # load_data()
-    # for i in range(10):
-    # # for i in [5]:
-    #     print("Training digit: ", i)
-    #     subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
-    #     subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
-    #     model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=node_train_batch_size,
-    #                                                      shuffle=False,
-    #                                                      sampler=SubsetRandomSampler(subset_indices))
-    #     model.joint_training()
+    # exit(0)
 
     print("Converting train images to latent vectors")
     train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
+    print("Converting test images to latent vectors")
     test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
     #
     train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
@@ -223,17 +202,7 @@ if __name__ == "__main__":
     test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
     #
     print("Training classifier")
-    # clf = SVC()
-    # clf.fit(train_features_norm, train_labels)
-    # predictions = clf.predict(test_features_norm)
-    # print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
-    # #
-    # wrong_indices = np.where(predictions != test_labels)[0]
-    #
-    # for i in wrong_indices:
-    #     img = test_data.data[i].cpu().detach().numpy()
-    #     plt.imshow(img, cmap='gray')
-    #     plt.show()
+
 
     # kmeans = KMeans(n_clusters=2, random_state=0).fit(train_features)
     # predictions = kmeans.predict(test_features)
@@ -255,6 +224,20 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
 
     train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader)
+
+    svc = LinearSVC()
+    svc.fit(train_features_norm, train_labels,)
+    predictions = svc.predict(test_features_norm)
+    print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+    #
+    wrong_indices = np.where(predictions != test_labels)[0]
+
+    for i in wrong_indices:
+        img = test_data.data[i].cpu().detach().numpy()
+        plt.imshow(img, cmap='gray')
+        plt.show()
+
+
 
 
 
