@@ -22,7 +22,7 @@ class Node(nn.Module):
             learning_rate=rbm_learning_rate,
             momentum_coefficient=0.0,
             weight_decay=0.00,
-            weight_variance=encoder_weight_variance,
+            weight_variance=encoder_weight_variance/2,
             use_cuda=True,
             use_relu=use_relu,
         )

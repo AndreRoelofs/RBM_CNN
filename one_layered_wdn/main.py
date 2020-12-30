@@ -102,13 +102,13 @@ def load_data():
         train_data = MNIST(data_path, train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
-                               CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+                               # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
                                # transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+            # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
             # transforms.Resize((image_input_size, image_input_size)),
         ]))
 

@@ -22,12 +22,12 @@ class WDN(nn.Module):
             # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
             # {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 56, 'encoder_weight_variance': 0.5,
             #  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-4},
-            {'input_channels': 1, 'encoder_channels': 8, 'rbm_visibZle_units': 28, 'encoder_weight_variance': 1.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-5},
-            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
-             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-6},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 5.0,
-             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-7},
+            {'input_channels': 1, 'encoder_channels': 8, 'rbm_visible_units': 28, 'encoder_weight_variance': 5.0,
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-10},
+            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 14, 'encoder_weight_variance': 10.0,
+             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-10},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-10},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 8.0,
              'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-6},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
@@ -89,8 +89,8 @@ class WDN(nn.Module):
         #     regions.append(vflip(cropped_regions[i]))
         #
         # return regions
-        return five_crop(data, [new_size, new_size])
-        # return ten_crop(data, [new_size, new_size])
+        # return five_crop(data, [new_size, new_size])
+        return ten_crop(data, [new_size, new_size])
 
         # return regions
 
