@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torchvision.transforms.functional import resize, crop, rotate, affine, center_crop
+from torchvision.transforms.functional import resize, crop, rotate, affine, center_crop, five_crop, ten_crop, vflip, hflip
 import matplotlib.pyplot as plt
 import numpy as np
 from one_layered_wdn.node import Node
@@ -27,7 +27,7 @@ class WDN(nn.Module):
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2,  'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
         ]
 
-        self.n_levels = 3
+        self.n_levels = 4
 
         self.log_interval = 100
 
@@ -60,21 +60,32 @@ class WDN(nn.Module):
         new_size = np.floor(original_size/2).astype(np.int64)
         new_size = max(new_size, 2)
 
-        offset = new_size
+        # offset = new_size
+        #
+        # while offset + new_size > original_size:
+        #     offset -= 1
+        #
+        # regions = [
+        #     crop(data, 0, 0, new_size, new_size),
+        #     crop(data, 0, offset, new_size, new_size),
+        #     crop(data, offset, 0, new_size, new_size),
+        #     crop(data, offset, offset, new_size, new_size),
+        #     center_crop(data, [new_size, new_size]),
+        # ]
 
-        while offset + new_size > original_size:
-            offset -= 1
+        # cropped_regions = five_crop(data, [new_size, new_size])
+        # regions = []
+        # for i in range(5):
+        #     regions.append(cropped_regions[i])
+        #     regions.append(hflip(cropped_regions[i]))
+        #     regions.append(vflip(cropped_regions[i]))
+        #
+        # return regions
+        return five_crop(data, [new_size, new_size])
 
-        regions = [
-            crop(data, 0, 0, new_size, new_size),
-            crop(data, 0, offset, new_size, new_size),
-            crop(data, offset, 0, new_size, new_size),
-            crop(data, offset, offset, new_size, new_size),
-            center_crop(data, [new_size, new_size]),
-            # resize(rotate(data, np.random.uniform(-20, 20)), [new_size, new_size])
-        ]
+        # return ten_crop(data, [new_size, new_size])
 
-        return regions
+        # return regions
 
     def is_familiar(self, network, data, provide_value=False):
         # Encode the image
@@ -92,7 +103,7 @@ class WDN(nn.Module):
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_settings['encoder_learning_rate'])
 
-        for i in range(2):
+        for i in range(3):
             # Encode the image
             rbm_input = self.model.encode(data)
             # Flatten input for RBM
@@ -102,17 +113,17 @@ class WDN(nn.Module):
             self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
             # Encode the image
 
-            # Train encoder
-            hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-            visible = self.model.rbm.sample_visible(hidden).reshape((
-                data.shape[0],
-                self.model_settings['encoder_channels'],
-                self.levels[level]['rbm_visible_units'],
-                self.levels[level]['rbm_visible_units']
-            ))
-            loss = self.loss_function(visible, rbm_input)
-            loss.backward(retain_graph=True)
-            self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+        # Train encoder
+        hidden = self.model.rbm.sample_hidden(flat_rbm_input)
+        visible = self.model.rbm.sample_visible(hidden).reshape((
+            data.shape[0],
+            self.model_settings['encoder_channels'],
+            self.levels[level]['rbm_visible_units'],
+            self.levels[level]['rbm_visible_units']
+        ))
+        loss = self.loss_function(visible, rbm_input)
+        loss.backward(retain_graph=True)
+        self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
         return network
 
@@ -147,7 +158,7 @@ class WDN(nn.Module):
             data = data.to(self.device)
 
             counter += 1
-            if counter % 25 == 0:
+            if counter % 10 == 0:
                 print("______________")
                 print("Iteration: ", counter)
 

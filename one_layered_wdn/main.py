@@ -14,6 +14,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn import preprocessing
 from one_layered_wdn.custom_dataset import UnsupervisedVectorDataset
 from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier
+import one_layered_wdn.svm as svm
 
 # General
 config = None
@@ -196,37 +197,43 @@ if __name__ == "__main__":
     test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
     print("Creating dataset of images")
     #
-    train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
-    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
+    train_dataset = UnsupervisedVectorDataset(train_features, train_labels)
+    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=False)
     #
-    test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
-    test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
-    #
-
-
-    # kmeans = KMeans(n_clusters=2, random_state=0).fit(train_features)
-    # predictions = kmeans.predict(test_features)
-    # print('Result: %d/%d' % (sum(predictions == test_labels), train_labels.shape[0]))
-
-    # neigh = KNeighborsClassifier(n_neighbors=1, leaf_size=1, algorithm='kd_tree', p=1, weights='distance')
-    # neigh.fit(train_features, train_labels)
-    # predictions = neigh.predict(test_features)
-    # print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
-
-    # wrong_indices = np.where(predictions != test_labels)[0]
-    #
-    # for i in wrong_indices:
-    #     img = test_data.data[i].cpu().detach().numpy()
-    #     plt.imshow(img, cmap='gray')
-    #     plt.show()
+    test_dataset = UnsupervisedVectorDataset(test_features, test_labels)
+    test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
     #
     print("Training classifier")
-    fcnc = FullyConnectedClassifier(train_features_norm.shape[1])
-    optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
-
-    train_classifier(fcnc, optimizer, train_dataset_loader, test_dataset_loader)
+    # fcnc = FullyConnectedClassifier(train_features_norm.shape[1])
+    # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
     #
-    # svc = LinearSVC()
+    # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
+
+    custom_svm = svm.Net(train_features.shape[1], 10)
+    custom_svm.cuda()
+    custom_svm_optimizer = torch.optim.Adam(custom_svm.parameters(), lr=0.5, amsgrad=False)
+    custom_svm_loss = svm.multiClassHingeLoss()
+
+    best_epoch_idx = -1
+    best_f1 = 0.
+    history = list()
+    for i in range(100):
+        svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, train_dataset_loader)
+        conf_mat, precision, recall, f1 = svm.test(i, custom_svm, test_dataset_loader, test_labels)
+        history.append((conf_mat, precision, recall, f1))
+        if f1 > best_f1:  # save best model
+            best_f1 = f1
+            best_epoch_idx = i
+            # torch.save(custom_svm.state_dict(), 'best.model')
+
+    print('Best epoch:{}\n'.format(best_epoch_idx))
+    conf_mat, precision, recall, f1 = history[best_epoch_idx]
+    print('conf_mat:\n', conf_mat)
+    print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
+
+    #
+    # #
+    # svc = LinearSVC(max_iter=100, loss='hinge', C=0.01, fit_intercept=False)
     # print("Fitting SVM")
     # # svc = SVC(cache_size=32768)
     # svc.fit(train_features, train_labels)
