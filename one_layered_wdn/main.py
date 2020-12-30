@@ -194,6 +194,7 @@ if __name__ == "__main__":
     train_features, train_features_norm, train_labels = convert_images_to_latent_vector(train_data, model)
     print("Converting test images to latent vectors")
     test_features, test_features_norm, test_labels = convert_images_to_latent_vector(test_data, model)
+    print("Creating dataset of images")
     #
     train_dataset = UnsupervisedVectorDataset(train_features_norm, train_labels)
     train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
@@ -201,7 +202,6 @@ if __name__ == "__main__":
     test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
     test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
     #
-    print("Training classifier")
 
 
     # kmeans = KMeans(n_clusters=2, random_state=0).fit(train_features)
@@ -220,23 +220,26 @@ if __name__ == "__main__":
     #     plt.imshow(img, cmap='gray')
     #     plt.show()
     #
+    print("Training classifier")
     fcnc = FullyConnectedClassifier(train_features_norm.shape[1])
     optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
 
     train_classifier(fcnc, optimizer, train_dataset_loader, test_dataset_loader)
-
-    svc = LinearSVC()
-    # svc = SVC(cache_size=32768)
-    svc.fit(train_features, train_labels)
-    predictions = svc.predict(test_features)
-    print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
     #
-    wrong_indices = np.where(predictions != test_labels)[0]
-
-    for i in wrong_indices:
-        img = test_data.data[i].cpu().detach().numpy()
-        plt.imshow(img, cmap='gray')
-        plt.show()
+    # svc = LinearSVC()
+    # print("Fitting SVM")
+    # # svc = SVC(cache_size=32768)
+    # svc.fit(train_features, train_labels)
+    # print("Predicting SVM")
+    # predictions = svc.predict(test_features)
+    # print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+    # #
+    # wrong_indices = np.where(predictions != test_labels)[0]
+    #
+    # for i in wrong_indices:
+    #     img = test_data.data[i].cpu().detach().numpy()
+    #     plt.imshow(img, cmap='gray')
+    #     plt.show()
 
 
 

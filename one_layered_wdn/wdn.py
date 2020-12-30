@@ -18,7 +18,8 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 56,  'rbm_hidden_units': 400, 'rbm_learning_rate': 1e-20},
+            # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
+            # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 56,  'rbm_hidden_units': 400, 'rbm_learning_rate': 1e-20},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28,  'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-20},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14,  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-20},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7,  'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-20},
@@ -26,7 +27,7 @@ class WDN(nn.Module):
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2,  'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
         ]
 
-        self.n_levels = 4
+        self.n_levels = 3
 
         self.log_interval = 100
 
@@ -56,7 +57,7 @@ class WDN(nn.Module):
     def divide_data_in_five(self, data):
         original_size = data.shape[-1]
         # Accepts images of up to 128x128 size, more needed?
-        new_size = np.floor(original_size/2).astype(np.int8)
+        new_size = np.floor(original_size/2).astype(np.int64)
         new_size = max(new_size, 2)
 
         offset = new_size
