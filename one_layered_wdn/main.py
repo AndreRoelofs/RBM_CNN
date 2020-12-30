@@ -102,13 +102,13 @@ def load_data():
                            transform=transforms.Compose([
                                transforms.ToTensor(),
                                # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                               # transforms.Resize((14, 14)),
+                               transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            # transforms.Resize((14, 14)),
+            transforms.Resize((image_input_size, image_input_size)),
         ]))
 
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
@@ -220,14 +220,15 @@ if __name__ == "__main__":
     #     plt.imshow(img, cmap='gray')
     #     plt.show()
     #
-    clf = FullyConnectedClassifier(train_features_norm.shape[1])
-    optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
+    fcnc = FullyConnectedClassifier(train_features_norm.shape[1])
+    optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
 
-    train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader)
+    train_classifier(fcnc, optimizer, train_dataset_loader, test_dataset_loader)
 
     svc = LinearSVC()
-    svc.fit(train_features_norm, train_labels,)
-    predictions = svc.predict(test_features_norm)
+    # svc = SVC(cache_size=32768)
+    svc.fit(train_features, train_labels)
+    predictions = svc.predict(test_features)
     print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
     #
     wrong_indices = np.where(predictions != test_labels)[0]

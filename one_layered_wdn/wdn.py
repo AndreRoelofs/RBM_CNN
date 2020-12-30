@@ -18,21 +18,15 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 8, 'rbm_visible_units': 28,  'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 8, 'encoder_channels': 8, 'rbm_visible_units': 14,  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-5},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7,  'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-10},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3,  'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-15},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2,  'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-20},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 56,  'rbm_hidden_units': 400, 'rbm_learning_rate': 1e-20},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28,  'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-20},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14,  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-20},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7,  'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-20},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3,  'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2,  'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
         ]
 
-        # self.levels = [
-        #     {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14,  'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-5},
-        #     {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7,  'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-10},
-        #     {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3,  'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-15},
-        #     {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2,  'rbm_hidden_units': 1, 'rbm_learning_rate': 1e-20},
-        # ]
-
-        self.n_levels = 2
+        self.n_levels = 4
 
         self.log_interval = 100
 
@@ -59,25 +53,7 @@ class WDN(nn.Module):
     def loss_function(self, recon_x, x):
         return F.mse_loss(x, recon_x)
 
-    def generate_second_level_regions(self, data):
-        regions = [
-            crop(data, 0, 0, 7, 7),
-            crop(data, 0, 7, 7, 7),
-            crop(data, 7, 0, 7, 7),
-            crop(data, 7, 7, 7, 7),
-        ]
-        return regions
-
-    def generate_third_level_regions(self, data):
-        regions = [
-            crop(data, 0, 0, 3, 3),
-            crop(data, 0, 4, 3, 3),
-            crop(data, 4, 0, 3, 3),
-            crop(data, 4, 4, 3, 3),
-        ]
-        return regions
-
-    def divide_data_in_four(self, data):
+    def divide_data_in_five(self, data):
         original_size = data.shape[-1]
         # Accepts images of up to 128x128 size, more needed?
         new_size = np.floor(original_size/2).astype(np.int8)
@@ -93,6 +69,8 @@ class WDN(nn.Module):
             crop(data, 0, offset, new_size, new_size),
             crop(data, offset, 0, new_size, new_size),
             crop(data, offset, offset, new_size, new_size),
+            center_crop(data, [new_size, new_size]),
+            # resize(rotate(data, np.random.uniform(-20, 20)), [new_size, new_size])
         ]
 
         return regions
@@ -142,7 +120,7 @@ class WDN(nn.Module):
             return
 
         # Split data into finer regions
-        regions = self.divide_data_in_four(data)
+        regions = self.divide_data_in_five(data)
         regions_to_train = []
         for region in regions:
             familiar = 0
@@ -172,25 +150,26 @@ class WDN(nn.Module):
                 print("______________")
                 print("Iteration: ", counter)
 
-                models_counter = np.zeros(self.n_levels + 1, dtype=np.int)
+                models_counter = np.zeros(self.n_levels, dtype=np.int)
                 models_counter[0] = len(self.models)
-                if self.n_levels > 1:
-                    for m_1 in self.models:
-                        models_counter[1] += len(m_1.child_networks)
-                        if self.n_levels < 2:
-                            continue
-                        for m_2 in m_1.child_networks:
-                            models_counter[2] += len(m_2.child_networks)
-                            if self.n_levels < 3:
-                                continue
-                            for m_3 in m_2.child_networks:
-                                models_counter[3] += len(m_3.child_networks)
-                                if self.n_levels < 4:
-                                    continue
-                                for m_4 in m_3.child_networks:
-                                    models_counter[4] += len(m_4.child_networks)
+                for m_1 in self.models:
+                    if self.n_levels == 1:
+                        break
+                    models_counter[1] += len(m_1.child_networks)
+                    for m_2 in m_1.child_networks:
+                        if self.n_levels == 2:
+                            break
+                        models_counter[2] += len(m_2.child_networks)
+                        for m_3 in m_2.child_networks:
+                            if self.n_levels == 3:
+                                break
+                            models_counter[3] += len(m_3.child_networks)
+                            for m_4 in m_3.child_networks:
+                                if self.n_levels == 4:
+                                    break
+                                models_counter[4] += len(m_4.child_networks)
 
-                for i in range(self.n_levels):
+                for i in range(models_counter.shape[0]):
                     print("Level {}: {}".format(i + 1, models_counter[i]))
 
             n_familiar = 0
@@ -198,7 +177,7 @@ class WDN(nn.Module):
                 familiar = self.is_familiar(m, data)
                 if familiar:
                     n_familiar += 1
-                    self._joint_training(data, m, self.n_levels)
+                    self._joint_training(data, m, self.n_levels - 1)
 
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
@@ -207,7 +186,7 @@ class WDN(nn.Module):
 
             model = self.train_new_network(data, level=0)
             self.models.append(model)
-            self._joint_training(data, model, self.n_levels)
+            self._joint_training(data, model, self.n_levels - 1)
 
 
 
