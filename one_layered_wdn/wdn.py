@@ -20,15 +20,16 @@ class WDN(nn.Module):
 
         self.levels = [
             # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
-            # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 56,  'rbm_hidden_units': 400, 'rbm_learning_rate': 1e-20},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 5.0,
-             'rbm_hidden_units': 400, 'rbm_learning_rate': 1e-20},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 10.0,
-             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-20},
+            # {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 56, 'encoder_weight_variance': 0.5,
+            #  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-4},
+            {'input_channels': 1, 'encoder_channels': 8, 'rbm_visibZle_units': 28, 'encoder_weight_variance': 1.0,
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-5},
+            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
+             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-6},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 5.0,
+             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-7},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 8.0,
+             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-6},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
         ]
@@ -97,7 +98,7 @@ class WDN(nn.Module):
         # Encode the image
         rbm_input = network.encode(data)
         # Flatten input for RBM
-        flat_rbm_input = rbm_input.view(len(rbm_input), self.levels[network.level]['rbm_visible_units'] ** 2)
+        flat_rbm_input = rbm_input.view(len(rbm_input), (self.levels[network.level]['rbm_visible_units'] ** 2) * self.levels[network.level]['encoder_channels'])
 
         # Compare data with existing models
         return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
@@ -113,7 +114,7 @@ class WDN(nn.Module):
             # Encode the image
             rbm_input = self.model.encode(data)
             # Flatten input for RBM
-            flat_rbm_input = rbm_input.view(len(rbm_input), self.levels[level]['rbm_visible_units'] ** 2)
+            flat_rbm_input = rbm_input.view(len(rbm_input), (self.levels[level]['rbm_visible_units'] ** 2) * self.levels[level]['encoder_channels'])
 
             # Train RBM
             self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
@@ -123,7 +124,7 @@ class WDN(nn.Module):
             hidden = self.model.rbm.sample_hidden(flat_rbm_input)
             visible = self.model.rbm.sample_visible(hidden).reshape((
                 data.shape[0],
-                self.model_settings['encoder_channels'],
+                self.levels[level]['encoder_channels'],
                 self.levels[level]['rbm_visible_units'],
                 self.levels[level]['rbm_visible_units']
             ))

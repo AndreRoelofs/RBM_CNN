@@ -11,7 +11,6 @@ RELU_ACTIVATION = "RELU"
 SELU_ACTIVATION = "SELU"
 
 
-
 # def convert_images_to_latent_vector(images, model):
 #     classifier_training_batch_size = images.data.shape[0]
 #     data_loader = torch.utils.data.DataLoader(images, batch_size=classifier_training_batch_size, shuffle=False)
@@ -100,27 +99,44 @@ def convert_images_to_latent_vector(images, model):
         latent_vector = []
         # correct_indices = []
         for m in model.models:
+            if len(m.child_networks) == 0:
+                values, is_familiar = model.is_familiar(m, data,
+                                                        provide_value=True)
+                values = values.cpu().detach().numpy()
+                latent_vector.append(values)
+                continue
             second_level_regions = model.divide_data_in_five(data)
             for second_level_region in second_level_regions:
                 for m_second_level in m.child_networks:
+                    if len(m_second_level.child_networks) == 0:
+                        values, is_familiar = model.is_familiar(m_second_level, second_level_region,
+                                                                provide_value=True)
+                        values = values.cpu().detach().numpy()
+                        latent_vector.append(values)
+                        continue
                     third_level_regions = model.divide_data_in_five(second_level_region)
                     for third_level_region in third_level_regions:
                         for m_third_level in m_second_level.child_networks:
-                            values, is_familiar = model.is_familiar(m_third_level, third_level_region, provide_value=True)
-                            values = values.cpu().detach().numpy()
-                            latent_vector.append(values)
-                            continue
+                            if len(m_third_level.child_networks) == 0:
+                                values, is_familiar = model.is_familiar(m_third_level, third_level_region,
+                                                                   provide_value=True)
+                                values = values.cpu().detach().numpy()
+                                latent_vector.append(values)
+                                continue
                             fourth_level_regions = model.divide_data_in_five(third_level_region)
                             for fourth_level_region in fourth_level_regions:
                                 for m_fourth_level in m_third_level.child_networks:
-                                    values, is_familiar = model.is_familiar(m_fourth_level, fourth_level_region, provide_value=True)
-                                    values = values.cpu().detach().numpy()
-                                    latent_vector.append(values)
-                                    continue
+                                    if len(m_fourth_level.child_networks) == 0:
+                                        values, is_familiar = model.is_familiar(m_fourth_level, fourth_level_region,
+                                                                                provide_value=True)
+                                        values = values.cpu().detach().numpy()
+                                        latent_vector.append(values)
+                                        continue
                                     fifth_level_regions = model.divide_data_in_five(fourth_level_region)
                                     for fifth_level_region in fifth_level_regions:
                                         for m_fifth_level in m_fourth_level.child_networks:
-                                            values = model.is_familiar(m_fifth_level, fifth_level_region, provide_value=True)
+                                            values, _ = model.is_familiar(m_fifth_level, fifth_level_region,
+                                                                       provide_value=True)
                                             values = values.cpu().detach().numpy()
                                             latent_vector.append(values)
         latent_vector = np.array(latent_vector)

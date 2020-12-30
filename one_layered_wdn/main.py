@@ -102,13 +102,13 @@ def load_data():
         train_data = MNIST(data_path, train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
-                               # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+                               CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
                                # transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+            CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
             # transforms.Resize((image_input_size, image_input_size)),
         ]))
 
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
     #
     print("Training classifier")
-    # fcnc = FullyConnectedClassifier(train_features_norm.shape[1])
+    # fcnc = FullyConnectedClassifier(train_features.shape[1])
     # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
     #
     # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
