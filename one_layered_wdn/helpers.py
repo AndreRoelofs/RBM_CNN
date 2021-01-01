@@ -46,7 +46,8 @@ def calculate_latent_vector(model, node, data, depth, latent_vector):
             calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
 
 def convert_images_to_latent_vector(images, model):
-    classifier_training_batch_size = images.data.shape[0]
+    classifier_training_batch_size = min(images.data.shape[0], 1000)
+    # classifier_training_batch_size = 1000
     # classifier_training_batch_size = 1
     data_loader = torch.utils.data.DataLoader(images, batch_size=classifier_training_batch_size, shuffle=False)
     counter = 0

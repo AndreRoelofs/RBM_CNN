@@ -22,19 +22,19 @@ class WDN(nn.Module):
             # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
             # {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 56, 'encoder_weight_variance': 0.5,
             #  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-4},
-            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
              'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-5},
-            {'input_channels': 1, 'encoder_channels': 64, 'rbm_visible_units': 7, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-10},
-            {'input_channels': 1, 'encoder_channels': 64, 'rbm_visible_units': 3, 'encoder_weight_variance': 8.0,
-             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-10},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
+             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-4},
+            {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-10},
+            {'input_channels': 1, 'encoder_channels': 64, 'rbm_visible_units': 3, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-20},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
         ]
 
-        self.n_levels = 3
+        self.n_levels = 4
 
         self.log_interval = 100
 
@@ -148,12 +148,21 @@ class WDN(nn.Module):
                 if is_familiar:
                     self._joint_training(region, child_model, depth - 1, target)
                     familiar = 1
-                    # break
+                    break
             if familiar == 0:
                 regions_to_train.append(region)
         # Train new children if region not recognized
+        new_models = []
         for region in regions_to_train:
+            is_familiar = 0
+            for m in new_models:
+                is_familiar = self.is_familiar(m, region)
+                if is_familiar == 1:
+                    break
+            if is_familiar == 1:
+                continue
             new_model = self.train_new_network(region, level=model.level + 1, target=target)
+            new_models.append(new_model)
             self._joint_training(region, new_model, depth - 1, target)
             model.child_networks.append(new_model)
 
@@ -167,7 +176,7 @@ class WDN(nn.Module):
             target = target.cpu().detach().numpy()[0]
 
             counter += 1
-            if counter % 1 == 0:
+            if counter % 50 == 0:
                 print("______________")
                 print("Iteration: ", counter)
 
