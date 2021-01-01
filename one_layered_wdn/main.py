@@ -141,11 +141,11 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        train_data.data = train_data.data[:1000]
-        train_data.targets = train_data.targets[:1000]
+        train_data.data = train_data.data[:10]
+        train_data.targets = train_data.targets[:10]
 
-        test_data.data = test_data.data[:100]
-        test_data.targets = test_data.targets[:100]
+        test_data.data = test_data.data[:10]
+        test_data.targets = test_data.targets[:10]
 
 
 if __name__ == "__main__":

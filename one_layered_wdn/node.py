@@ -28,7 +28,6 @@ class Node(nn.Module):
         )
         self.child_networks = []
         self.level = level
-        self.predictors = set()
 
     def encode(self, x):
         return self.encoder(x)
