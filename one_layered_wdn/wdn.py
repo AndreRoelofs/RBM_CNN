@@ -137,6 +137,8 @@ class WDN(nn.Module):
 
     def _joint_training(self, data, model, depth, target):
         if depth <= 0:
+            plt.imshow(data[0].permute(1,2,0).cpu().detach().numpy())
+            plt.show()
             return
 
         # Split data into finer regions
