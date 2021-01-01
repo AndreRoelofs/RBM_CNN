@@ -232,7 +232,7 @@ if __name__ == "__main__":
 
     #
     # #
-    svc = LinearSVC(max_iter=100000, loss='hinge', C=0.01, fit_intercept=False)
+    svc = LinearSVC(max_iter=100, loss='hinge', C=0.01, fit_intercept=False)
     print("Fitting SVM")
     # svc = SVC(cache_size=32768)
     svc.fit(train_features, train_labels)

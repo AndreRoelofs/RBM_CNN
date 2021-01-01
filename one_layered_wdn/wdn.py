@@ -52,7 +52,7 @@ class WDN(nn.Module):
             use_relu=self.model_settings['rbm_activation'] == RELU_ACTIVATION,
             level=level
         )
-        network.predictors.append(target)
+        network.predictors.add(target)
         network.to(self.device)
 
         return network
@@ -137,8 +137,6 @@ class WDN(nn.Module):
 
     def _joint_training(self, data, model, depth, target):
         if depth <= 0:
-            plt.imshow(data[0].permute(1,2,0).cpu().detach().numpy())
-            plt.show()
             return
 
         # Split data into finer regions
@@ -151,7 +149,7 @@ class WDN(nn.Module):
                 if is_familiar:
                     self._joint_training(region, child_model, depth - 1, target)
                     familiar = 1
-                    child_model.predictors.append(target)
+                    child_model.predictors.add(target)
                     # break
             if familiar == 0:
                 regions_to_train.append(region)
@@ -199,7 +197,7 @@ class WDN(nn.Module):
             for m in new_models:
                 familiar = self.is_familiar(m, data)
                 if familiar:
-                    m.predictors.append(target)
+                    m.predictors.add(target)
                     n_familiar += 1
                     self._joint_training(data, m, self.n_levels - 1, target)
 
