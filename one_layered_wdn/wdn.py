@@ -22,14 +22,14 @@ class WDN(nn.Module):
             # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
             # {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 56, 'encoder_weight_variance': 0.5,
             #  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-4},
-            {'input_channels': 1, 'encoder_channels': 8, 'rbm_visible_units': 28, 'encoder_weight_variance': 5.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-10},
-            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 14, 'encoder_weight_variance': 10.0,
-             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-10},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-10},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 8.0,
-             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-6},
+            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-5},
+            {'input_channels': 1, 'encoder_channels': 64, 'rbm_visible_units': 7, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-10},
+            {'input_channels': 1, 'encoder_channels': 64, 'rbm_visible_units': 3, 'encoder_weight_variance': 8.0,
+             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-10},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
         ]
@@ -38,7 +38,7 @@ class WDN(nn.Module):
 
         self.log_interval = 100
 
-    def create_new_model(self, level):
+    def create_new_model(self, level, target):
 
         settings = self.levels[level]
 
@@ -52,6 +52,7 @@ class WDN(nn.Module):
             use_relu=self.model_settings['rbm_activation'] == RELU_ACTIVATION,
             level=level
         )
+        network.predictors.append(target)
         network.to(self.device)
 
         return network
@@ -89,8 +90,8 @@ class WDN(nn.Module):
         #     regions.append(vflip(cropped_regions[i]))
         #
         # return regions
-        # return five_crop(data, [new_size, new_size])
-        return ten_crop(data, [new_size, new_size])
+        return five_crop(data, [new_size, new_size])
+        # return ten_crop(data, [new_size, new_size])
 
         # return regions
 
@@ -103,8 +104,8 @@ class WDN(nn.Module):
         # Compare data with existing models
         return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
 
-    def train_new_network(self, data, level):
-        network = self.create_new_model(level)
+    def train_new_network(self, data, level, target):
+        network = self.create_new_model(level, target)
         self.model = network
         self.model.train()
 
@@ -134,7 +135,7 @@ class WDN(nn.Module):
 
         return network
 
-    def _joint_training(self, data, model, depth):
+    def _joint_training(self, data, model, depth, target):
         if depth <= 0:
             return
 
@@ -146,22 +147,26 @@ class WDN(nn.Module):
             for child_model in model.child_networks:
                 is_familiar = self.is_familiar(child_model, region)
                 if is_familiar:
-                    self._joint_training(region, child_model, depth - 1)
+                    self._joint_training(region, child_model, depth - 1, target)
                     familiar = 1
-                    break
+                    child_model.predictors.append(target)
+                    # break
             if familiar == 0:
                 regions_to_train.append(region)
         # Train new children if region not recognized
         for region in regions_to_train:
-            new_model = self.train_new_network(region, level=model.level + 1)
-            self._joint_training(region, new_model, depth - 1)
+            new_model = self.train_new_network(region, level=model.level + 1, target=target)
+            self._joint_training(region, new_model, depth - 1, target)
             model.child_networks.append(new_model)
 
     def joint_training(self):
         counter = 0
-        for batch_idx, (data, _) in enumerate(self.train_loader):
+        new_models = self.models
+        # new_models = []
+        for batch_idx, (data, target) in enumerate(self.train_loader):
             # Assume we have batch size of 1
             data = data.to(self.device)
+            target = target.cpu().detach().numpy()[0]
 
             counter += 1
             if counter % 50 == 0:
@@ -171,8 +176,6 @@ class WDN(nn.Module):
                 models_counter = np.zeros(self.n_levels, dtype=np.int)
                 models_counter[0] = len(self.models)
                 for m_1 in self.models:
-                    if self.n_levels == 1:
-                        break
                     models_counter[1] += len(m_1.child_networks)
                     for m_2 in m_1.child_networks:
                         if self.n_levels == 2:
@@ -191,17 +194,19 @@ class WDN(nn.Module):
                     print("Level {}: {}".format(i + 1, models_counter[i]))
 
             n_familiar = 0
-            for m in self.models:
+            for m in new_models:
                 familiar = self.is_familiar(m, data)
                 if familiar:
+                    m.predictors.append(target)
                     n_familiar += 1
-                    self._joint_training(data, m, self.n_levels - 1)
+                    self._joint_training(data, m, self.n_levels - 1, target)
 
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
             if n_familiar >= self.model_settings['min_familiarity_threshold']:
                 continue
 
-            model = self.train_new_network(data, level=0)
-            self.models.append(model)
-            self._joint_training(data, model, self.n_levels - 1)
+            model = self.train_new_network(data, level=0, target=target)
+            new_models.append(model)
+            self._joint_training(data, model, self.n_levels - 1, target)
+        # self.models += new_models

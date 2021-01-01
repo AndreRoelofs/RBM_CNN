@@ -90,6 +90,7 @@ SELU_ACTIVATION = "SELU"
 
 def convert_images_to_latent_vector(images, model):
     classifier_training_batch_size = images.data.shape[0]
+    # classifier_training_batch_size = 1
     data_loader = torch.utils.data.DataLoader(images, batch_size=classifier_training_batch_size, shuffle=False)
     counter = 0
     features = []
@@ -122,6 +123,8 @@ def convert_images_to_latent_vector(images, model):
                                                                    provide_value=True)
                                 values = values.cpu().detach().numpy()
                                 latent_vector.append(values)
+                                # if is_familiar.cpu().detach().numpy()[0] == 1:
+                                #     print(m_third_level.predictors)
                                 continue
                             fourth_level_regions = model.divide_data_in_five(third_level_region)
                             for fourth_level_region in fourth_level_regions:
@@ -139,6 +142,7 @@ def convert_images_to_latent_vector(images, model):
                                                                        provide_value=True)
                                             values = values.cpu().detach().numpy()
                                             latent_vector.append(values)
+            # break
         latent_vector = np.array(latent_vector)
         target_labels = target.cpu().detach().numpy()
         for i in range(classifier_training_batch_size):
@@ -148,6 +152,7 @@ def convert_images_to_latent_vector(images, model):
         counter += 1
         if counter % 10 == 0:
             print("Latent conversion iteration: ", counter)
+        # break
     # new_dataset = np.array(new_dataset, dtype=float)
     features = np.array(features)
 
