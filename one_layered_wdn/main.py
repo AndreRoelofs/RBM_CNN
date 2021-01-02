@@ -209,17 +209,39 @@ if __name__ == "__main__":
     # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
     #
     # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
+    kmeans_n_subset = 10000000
+    kmeans_train_features = train_features[:kmeans_n_subset]
+    kmeans_train_labels = train_labels[:kmeans_n_subset]
 
-    n_clusters = 2
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(train_features)
+    kmeans_test_features = test_features[:kmeans_n_subset]
+    kmeans_test_labels = test_labels[:kmeans_n_subset]
+
+    n_clusters = 20
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=100, algorithm='elkan', n_jobs=-1).fit(kmeans_train_features)
     cluster_labels = kmeans.labels_
-    train_predictions = kmeans.predict(train_features)
+    train_predictions = kmeans.predict(kmeans_train_features)
 
     bins = np.zeros((n_clusters, 10))
     for i in range(len(train_predictions)):
         cluster = train_predictions[i]
-        bins[cluster][train_labels[i]] += 1
-    print(bins)
+        bins[cluster][int(kmeans_train_labels[i])] += 1
+    for bin in bins:
+        print(np.array(bin, dtype=np.int))
+
+
+    np.save("20 clusters training bins", np.array(bins))
+
+
+    test_predictions = kmeans.predict(kmeans_test_features)
+
+    test_bins = np.zeros((n_clusters, 10))
+    for i in range(len(test_predictions)):
+        cluster = test_predictions[i]
+        test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    for bin in test_bins:
+        print(np.array(bin, dtype=np.int))
+
+    np.save("20 clusters test bins", np.array(test_bins))
 
 
     predictions = kmeans.predict(test_features)
@@ -227,7 +249,7 @@ if __name__ == "__main__":
 
     custom_svm = svm.Net(train_features.shape[1], 10)
     custom_svm.cuda()
-    custom_svm_optimizer = torch.optim.Adam(custom_svm.parameters(), lr=0.5, amsgrad=False)
+    custom_svm_optimizer = torch.optim.Adam(custom_svm.parameters(), lr=1e-3, amsgrad=False)
     custom_svm_loss = svm.multiClassHingeLoss()
 
     best_epoch_idx = -1
