@@ -181,7 +181,7 @@ if __name__ == "__main__":
     model = WDN(node_settings)
 
     for i in range(10):
-    # for i in [5]:
+        # for i in [5]:
         print("Training digit: ", i)
         subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
         subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
@@ -217,7 +217,8 @@ if __name__ == "__main__":
     kmeans_test_labels = test_labels[:kmeans_n_subset]
 
     n_clusters = 20
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=100, algorithm='elkan', n_jobs=-1).fit(kmeans_train_features)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=100, algorithm='elkan', n_jobs=-1).fit(
+        kmeans_train_features)
     cluster_labels = kmeans.labels_
     train_predictions = kmeans.predict(kmeans_train_features)
 
@@ -228,9 +229,7 @@ if __name__ == "__main__":
     for bin in bins:
         print(np.array(bin, dtype=np.int))
 
-
     np.save("20 clusters training bins", np.array(bins))
-
 
     test_predictions = kmeans.predict(kmeans_test_features)
 
@@ -243,9 +242,7 @@ if __name__ == "__main__":
 
     np.save("20 clusters test bins", np.array(test_bins))
 
-
     predictions = kmeans.predict(test_features)
-
 
     custom_svm = svm.Net(train_features.shape[1], 10)
     custom_svm.cuda()
