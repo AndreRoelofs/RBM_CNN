@@ -103,25 +103,27 @@ def load_data():
                            transform=transforms.Compose([
                                transforms.ToTensor(),
                                # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                               # transforms.Resize((image_input_size, image_input_size)),
+                               transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            # transforms.Resize((image_input_size, image_input_size)),
+            transforms.Resize((image_input_size, image_input_size)),
         ]))
 
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
         train_data = FashionMNIST(data_path, train=True, download=True,
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
-                                      CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+                                      # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+                                      # transforms.Resize((image_input_size, image_input_size)),
                                   ]))
 
         test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+            # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
+            # transforms.Resize((image_input_size, image_input_size)),
         ]))
     if general_settings['Dataset'] == CIFAR10_DATASET:
         train_data = CIFAR10(data_path, train=True, download=True,
@@ -242,7 +244,7 @@ if __name__ == "__main__":
     #
     wrong_indices = np.where(predictions != test_labels)[0]
 
-    for i in wrong_indices:
-        img = test_data.data[i].cpu().detach().numpy()
-        plt.imshow(img, cmap='gray')
-        plt.show()
+    # for i in wrong_indices:
+    #     img = test_data.data[i].cpu().detach().numpy()
+    #     plt.imshow(img, cmap='gray')
+    #     plt.show()

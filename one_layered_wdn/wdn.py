@@ -22,19 +22,21 @@ class WDN(nn.Module):
             # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
             # {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 56, 'encoder_weight_variance': 0.5,
             #  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-4},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
+            # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 56, 'encoder_weight_variance': 40.0,
+            #  'rbm_hidden_units': 600, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 40.0,
              'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
-             'rbm_hidden_units': 200, 'rbm_learning_rate': 1e-4},
-            {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-10},
-            {'input_channels': 1, 'encoder_channels': 64, 'rbm_visible_units': 3, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-20},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 2, 'rbm_visible_units': 14, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
+             'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3},
+            {'input_channels': 1, 'encoder_channels': 128, 'rbm_visible_units': 3, 'encoder_weight_variance': 40.0,
+             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-10},
+            {'input_channels': 1, 'encoder_channels': 128, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-20},
         ]
 
-        self.n_levels = 4
+        self.n_levels = 3
 
         self.log_interval = 100
 
@@ -52,6 +54,7 @@ class WDN(nn.Module):
             use_relu=self.model_settings['rbm_activation'] == RELU_ACTIVATION,
             level=level
         )
+        network.target = target
         network.to(self.device)
 
         return network
@@ -68,31 +71,7 @@ class WDN(nn.Module):
         new_size = np.floor(original_size / 2).astype(np.int64)
         new_size = max(new_size, 2)
 
-        # offset = new_size
-        #
-        # while offset + new_size > original_size:
-        #     offset -= 1
-        #
-        # regions = [
-        #     crop(data, 0, 0, new_size, new_size),
-        #     crop(data, 0, offset, new_size, new_size),
-        #     crop(data, offset, 0, new_size, new_size),
-        #     crop(data, offset, offset, new_size, new_size),
-        #     center_crop(data, [new_size, new_size]),
-        # ]
-
-        # cropped_regions = five_crop(data, [new_size, new_size])
-        # regions = []
-        # for i in range(5):
-        #     regions.append(cropped_regions[i])
-        #     regions.append(hflip(cropped_regions[i]))
-        #     regions.append(vflip(cropped_regions[i]))
-        #
-        # return regions
         return five_crop(data, [new_size, new_size])
-        # return ten_crop(data, [new_size, new_size])
-
-        # return regions
 
     def is_familiar(self, network, data, provide_value=False):
         # Encode the image
@@ -183,6 +162,8 @@ class WDN(nn.Module):
                 models_counter = np.zeros(self.n_levels, dtype=np.int)
                 models_counter[0] = len(self.models)
                 for m_1 in self.models:
+                    if self.n_levels == 1:
+                        break
                     models_counter[1] += len(m_1.child_networks)
                     for m_2 in m_1.child_networks:
                         if self.n_levels == 2:
