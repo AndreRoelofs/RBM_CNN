@@ -143,11 +143,11 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        train_data.data = train_data.data[:1000]
-        train_data.targets = train_data.targets[:1000]
+        train_data.data = train_data.data[:10]
+        train_data.targets = train_data.targets[:10]
 
-        test_data.data = test_data.data[:100]
-        test_data.targets = test_data.targets[:100]
+        test_data.data = test_data.data[:10]
+        test_data.targets = test_data.targets[:10]
 
 
 if __name__ == "__main__":
@@ -209,6 +209,21 @@ if __name__ == "__main__":
     # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
     #
     # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
+
+    n_clusters = 2
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(train_features)
+    cluster_labels = kmeans.labels_
+    train_predictions = kmeans.predict(train_features)
+
+    bins = np.zeros((n_clusters, 10))
+    for i in range(len(train_predictions)):
+        cluster = train_predictions[i]
+        bins[cluster][train_labels[i]] += 1
+    print(bins)
+
+
+    predictions = kmeans.predict(test_features)
+
 
     custom_svm = svm.Net(train_features.shape[1], 10)
     custom_svm.cuda()
