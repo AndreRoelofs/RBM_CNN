@@ -28,7 +28,7 @@ class WDN(nn.Module):
              'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3},
             {'input_channels': 1, 'encoder_channels': 2, 'rbm_visible_units': 14, 'encoder_weight_variance': 20.0,
              'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 4, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
+            {'input_channels': 2, 'encoder_channels': 4, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
              'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3},
             {'input_channels': 1, 'encoder_channels': 128, 'rbm_visible_units': 3, 'encoder_weight_variance': 40.0,
              'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-10},
@@ -73,12 +73,14 @@ class WDN(nn.Module):
 
         return five_crop(data, [new_size, new_size])
 
-    def is_familiar(self, network, data, provide_value=False):
+    def is_familiar(self, network, data, provide_value=False, provide_encoding=False):
         # Encode the image
         rbm_input = network.encode(data)
         # Flatten input for RBM
         flat_rbm_input = rbm_input.view(len(rbm_input), (self.levels[network.level]['rbm_visible_units'] ** 2) * self.levels[network.level]['encoder_channels'])
 
+        if provide_encoding:
+            return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value), rbm_input
         # Compare data with existing models
         return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
 
@@ -123,9 +125,9 @@ class WDN(nn.Module):
         for region in regions:
             familiar = 0
             for child_model in model.child_networks:
-                is_familiar = self.is_familiar(child_model, region)
+                is_familiar, encoded_region = self.is_familiar(child_model, region, provide_encoding=True)
                 if is_familiar:
-                    self._joint_training(region, child_model, depth - 1, target)
+                    self._joint_training(encoded_region, child_model, depth - 1, target)
                     familiar = 1
                     break
             if familiar == 0:
@@ -135,14 +137,15 @@ class WDN(nn.Module):
         for region in regions_to_train:
             is_familiar = 0
             for m in new_models:
-                is_familiar = self.is_familiar(m, region)
+                is_familiar = self.is_familiar(m, region, provide_encoding=True)
                 if is_familiar == 1:
                     break
             if is_familiar == 1:
                 continue
             new_model = self.train_new_network(region, level=model.level + 1, target=target)
             new_models.append(new_model)
-            self._joint_training(region, new_model, depth - 1, target)
+            encoded_region = new_model.encode(region)
+            self._joint_training(encoded_region, new_model, depth - 1, target)
             model.child_networks.append(new_model)
 
     def joint_training(self):
@@ -183,10 +186,10 @@ class WDN(nn.Module):
 
             n_familiar = 0
             for m in new_models:
-                familiar = self.is_familiar(m, data)
+                familiar, encoded_data = self.is_familiar(m, data, provide_encoding=True)
                 if familiar:
                     n_familiar += 1
-                    self._joint_training(data, m, self.n_levels - 1, target)
+                    self._joint_training(encoded_data, m, self.n_levels - 1, target)
 
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
@@ -195,5 +198,6 @@ class WDN(nn.Module):
 
             model = self.train_new_network(data, level=0, target=target)
             new_models.append(model)
-            self._joint_training(data, model, self.n_levels - 1, target)
+            encoded_data = model.encode(data)
+            self._joint_training(encoded_data, model, self.n_levels - 1, target)
         # self.models += new_models

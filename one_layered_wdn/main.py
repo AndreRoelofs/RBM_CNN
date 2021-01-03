@@ -143,11 +143,11 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        train_data.data = train_data.data[:10]
-        train_data.targets = train_data.targets[:10]
+        train_data.data = train_data.data[:1000]
+        train_data.targets = train_data.targets[:1000]
 
-        test_data.data = test_data.data[:10]
-        test_data.targets = test_data.targets[:10]
+        test_data.data = test_data.data[:100]
+        test_data.targets = test_data.targets[:100]
 
 
 if __name__ == "__main__":
@@ -209,119 +209,102 @@ if __name__ == "__main__":
     # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
     #
     # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
-    kmeans_n_subset = 10000000
-    kmeans_train_features = train_features[:kmeans_n_subset]
-    kmeans_train_labels = train_labels[:kmeans_n_subset]
+    kmeans_train_features = train_features
+    kmeans_train_labels = train_labels
 
-    kmeans_test_features = test_features[:kmeans_n_subset]
-    kmeans_test_labels = test_labels[:kmeans_n_subset]
+    kmeans_test_features = test_features
+    kmeans_test_labels = test_labels
 
-    n_clusters = 20
+    n_clusters = 40
     kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=100, algorithm='elkan', n_jobs=-1).fit(
         kmeans_train_features)
     cluster_labels = kmeans.labels_
     train_predictions = kmeans.predict(kmeans_train_features)
     test_predictions = kmeans.predict(kmeans_test_features)
 
-    train_cluster_idx = []
-    for i in range(len(train_predictions)):
-        cluster = train_predictions[i]
-        if cluster != 0:
-            continue
-        train_cluster_idx.append(i)
-
-    cluster_cnn_train_images = train_data.data[train_cluster_idx].reshape((-1, 1, 28, 28)) / 255
-    cluster_cnn_train_labels = train_data.targets[train_cluster_idx]
-
-    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 5, 0, cluster_cnn_train_labels)
-    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 7, 1, cluster_cnn_train_labels)
-    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 8, 2, cluster_cnn_train_labels)
-    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 9, 3, cluster_cnn_train_labels)
-
-    cluster_cnn_train_dataset = UnsupervisedVectorDataset(cluster_cnn_train_images, cluster_cnn_train_labels)
-    cluster_cnn_train_dataloader = torch.utils.data.DataLoader(cluster_cnn_train_dataset, batch_size=10, shuffle=True,
-                                                               # sampler=random_sampler
-                                                               )
-
-    test_cluster_idx = []
-    for i in range(len(test_predictions)):
-        cluster = test_predictions[i]
-        if cluster != 0:
-            continue
-        test_cluster_idx.append(i)
-    cluster_cnn_test_images = test_data.data[test_cluster_idx].reshape((-1, 1, 28, 28)) / 255
-    cluster_cnn_test_labels = test_data.targets[test_cluster_idx]
-
-    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 5, 0, cluster_cnn_test_labels)
-    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 7, 1, cluster_cnn_test_labels)
-    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 8, 2, cluster_cnn_test_labels)
-    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 9, 3, cluster_cnn_test_labels)
-
-    cluster_cnn_test_dataset = UnsupervisedVectorDataset(cluster_cnn_test_images, cluster_cnn_test_labels)
-    cluster_cnn_test_dataloader = torch.utils.data.DataLoader(cluster_cnn_test_dataset, batch_size=100, shuffle=False)
-
-    cnnc = FashionCNN()
-    cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-3, amsgrad=True)
-
-    train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader)
-
-    # bins = np.zeros((n_clusters, 10))
+    # train_cluster_idx = []
     # for i in range(len(train_predictions)):
     #     cluster = train_predictions[i]
-    #     bins[cluster][int(kmeans_train_labels[i])] += 1
-    # for bin in bins:
-    #     print(np.array(bin, dtype=np.int))
+    #     if cluster != 0:
+    #         continue
+    #     train_cluster_idx.append(i)
     #
-    # np.save("20 clusters training bins", np.array(bins))
-
-    # test_predictions = kmeans.predict(kmeans_test_features)
-    #
-    # test_bins = np.zeros((n_clusters, 10))
+    # cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=50, shuffle=False,
+    #                                                            sampler=SubsetRandomSampler(train_cluster_idx),
+    #                                                            )
+    # test_cluster_idx = []
     # for i in range(len(test_predictions)):
     #     cluster = test_predictions[i]
-    #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
-    # for bin in test_bins:
-    #     print(np.array(bin, dtype=np.int))
+    #     if cluster != 0:
+    #         continue
+    #     test_cluster_idx.append(i)
+    # cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False,
+    #                                                           sampler=SubsetRandomSampler(test_cluster_idx),
+    #                                                           )
     #
-    # np.save("20 clusters test bins", np.array(test_bins))
+    # cnnc = FashionCNN()
+    # cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-5, amsgrad=False)
     #
-    # predictions = kmeans.predict(test_features)
+    # train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader)
+    #
+    bins = np.zeros((n_clusters, 10))
+    for i in range(len(train_predictions)):
+        cluster = train_predictions[i]
+        bins[cluster][int(kmeans_train_labels[i])] += 1
+    for bin in bins:
+        print(np.array(bin, dtype=np.int))
+    # #
+    np.save("40 clusters training bins", np.array(bins))
+    #
+    print("_____________________")
+    test_predictions = kmeans.predict(kmeans_test_features)
 
-    custom_svm = svm.Net(train_features.shape[1], 10)
-    custom_svm.cuda()
-    custom_svm_optimizer = torch.optim.Adam(custom_svm.parameters(), lr=1e-3, amsgrad=False)
-    custom_svm_loss = svm.multiClassHingeLoss()
-
-    best_epoch_idx = -1
-    best_f1 = 0.
-    history = list()
-    for i in range(100):
-        svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, train_dataset_loader)
-        conf_mat, precision, recall, f1 = svm.test(i, custom_svm, test_dataset_loader, test_labels)
-        history.append((conf_mat, precision, recall, f1))
-        if f1 > best_f1:  # save best model
-            best_f1 = f1
-            best_epoch_idx = i
-            # torch.save(custom_svm.state_dict(), 'best.model')
-
-    print('Best epoch:{}\n'.format(best_epoch_idx))
-    conf_mat, precision, recall, f1 = history[best_epoch_idx]
-    print('conf_mat:\n', conf_mat)
-    print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
-
+    test_bins = np.zeros((n_clusters, 10))
+    for i in range(len(test_predictions)):
+        cluster = test_predictions[i]
+        test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    for bin in test_bins:
+        print(np.array(bin, dtype=np.int))
+    # #
+    np.save("40 clusters test bins", np.array(test_bins))
+    # #
+    # # predictions = kmeans.predict(test_features)
+    #
+    # custom_svm = svm.Net(train_features.shape[1], 10)
+    # custom_svm.cuda()
+    # custom_svm_optimizer = torch.optim.Adam(custom_svm.parameters(), lr=1e-3, amsgrad=False)
+    # custom_svm_loss = svm.multiClassHingeLoss()
+    #
+    # best_epoch_idx = -1
+    # best_f1 = 0.
+    # history = list()
+    # for i in range(100):
+    #     svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, train_dataset_loader)
+    #     conf_mat, precision, recall, f1 = svm.test(i, custom_svm, test_dataset_loader, test_labels)
+    #     history.append((conf_mat, precision, recall, f1))
+    #     if f1 > best_f1:  # save best model
+    #         best_f1 = f1
+    #         best_epoch_idx = i
+    #         # torch.save(custom_svm.state_dict(), 'best.model')
+    #
+    # print('Best epoch:{}\n'.format(best_epoch_idx))
+    # conf_mat, precision, recall, f1 = history[best_epoch_idx]
+    # print('conf_mat:\n', conf_mat)
+    # print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
     #
     # #
-    svc = LinearSVC(max_iter=100, loss='hinge', C=0.01, fit_intercept=False)
-    print("Fitting SVM")
-    # svc = SVC(cache_size=32768)
-    svc.fit(train_features, train_labels)
-    print("Predicting SVM")
-    predictions = svc.predict(test_features)
-    print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+    # # #
+    # svc = LinearSVC(max_iter=100, loss='hinge', C=0.01, fit_intercept=False)
+    # print("Fitting SVM")
+    # # svc = SVC(cache_size=32768)
+    # svc.fit(train_features, train_labels)
+    # print("Predicting SVM")
+    # predictions = svc.predict(test_features)
+    # print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+    # #
+    # wrong_indices = np.where(predictions != test_labels)[0]
     #
-    wrong_indices = np.where(predictions != test_labels)[0]
-
-    # for i in wrong_indices:
-    #     img = test_data.data[i].cpu().detach().numpy()
-    #     plt.imshow(img, cmap='gray')
-    #     plt.show()
+    # # for i in wrong_indices:
+    # #     img = test_data.data[i].cpu().detach().numpy()
+    # #     plt.imshow(img, cmap='gray')
+    # #     plt.show()

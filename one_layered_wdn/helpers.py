@@ -46,17 +46,12 @@ def calculate_latent_vector(model, node, data, depth, latent_vector):
     lower_level_regions = model.divide_data_in_five(data)
     for region in lower_level_regions:
         for child_node in node.child_networks:
-            # familiar = model.is_familiar(child_node, region)
-            # if familiar == 1:
-            #     if child_node not in used_models:
-            #         used_models.append(child_node)
-            #         level_act_counter[model.n_levels - depth] += 1
-            #         if depth == 1:
-            #             print(child_node.target)
-            #
-            # else:
-            #     continue
-            calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
+            if depth > 1:
+                familiar, encoded_region = model.is_familiar(child_node, region, provide_encoding=True)
+                calculate_latent_vector(model, child_node, encoded_region, depth - 1, latent_vector)
+            else:
+                calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
+
 
 def convert_images_to_latent_vector(images, model):
     # global level_act_counter
@@ -73,14 +68,8 @@ def convert_images_to_latent_vector(images, model):
         # print(target)
         latent_vector = []
         for node in model.models:
-            # familiar = model.is_familiar(node, data)
-            # if familiar == 1:
-            #     if node not in used_models:
-            #         used_models.append(node)
-            #         level_act_counter[0] += 1
-            # else:
-            #     continue
-            calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector)
+            familiar, encoded_data = model.is_familiar(node, data, provide_encoding=True)
+            calculate_latent_vector(model, node, encoded_data, model.n_levels - 1, latent_vector)
         # print(level_act_counter)
         # return None
         latent_vector = np.array(latent_vector)
