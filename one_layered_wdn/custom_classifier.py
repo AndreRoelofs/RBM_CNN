@@ -3,15 +3,119 @@ from torch import nn
 from torch.nn import functional as F
 
 
+class FashionCNN(nn.Module):
+
+    def __init__(self):
+        super(FashionCNN, self).__init__()
+        self.device = torch.device("cpu")
+        # self.device = torch.device("cuda")
+
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.conv6 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.conv7 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
+        self.conv8 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        self.conv9 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1)
+
+        self.act = nn.SELU()
+        self.max_pool = nn.MaxPool2d(kernel_size=2)
+
+        nn.init.xavier_normal_(self.conv1.weight, 40.0)
+        nn.init.xavier_normal_(self.conv2.weight, 1.0)
+        nn.init.xavier_normal_(self.conv3.weight, 1.0)
+        nn.init.xavier_normal_(self.conv4.weight, 1.0)
+        nn.init.xavier_normal_(self.conv5.weight, 1.0)
+        nn.init.xavier_normal_(self.conv6.weight, 1.0)
+        nn.init.xavier_normal_(self.conv7.weight, 1.0)
+        nn.init.xavier_normal_(self.conv8.weight, 20.0)
+        nn.init.xavier_normal_(self.conv9.weight, 20.0)
+
+        self.conv1_bn = nn.BatchNorm2d(32)
+        self.conv2_bn = nn.BatchNorm2d(32)
+        self.conv3_bn = nn.BatchNorm2d(32)
+        self.conv4_bn = nn.BatchNorm2d(32)
+        self.conv5_bn = nn.BatchNorm2d(32)
+        self.conv6_bn = nn.BatchNorm2d(32)
+        self.conv7_bn = nn.BatchNorm2d(32)
+        self.conv8_bn = nn.BatchNorm2d(64)
+        self.conv9_bn = nn.BatchNorm2d(128)
+
+        self.fc1 = nn.Linear(in_features=64*(7**2), out_features=600)
+        self.drop = nn.Dropout2d(0.25)
+        self.fc2 = nn.Linear(in_features=600, out_features=120)
+        self.fc3 = nn.Linear(in_features=120, out_features=4)
+
+        self.to(self.device)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv1_bn(x)
+        x = self.act(x)
+        x = self.max_pool(x)
+
+        x = self.conv2(x)
+        x = self.conv2_bn(x)
+        x = self.act(x)
+        x = self.max_pool(x)
+
+
+        # x = self.conv3(x)
+        # x = self.conv3_bn(x)
+        # x = self.act(x)
+        #
+        # x = self.conv4(x)
+        # x = self.conv4_bn(x)
+        # x = self.act(x)
+        #
+        # x = self.conv5(x)
+        # x = self.conv5_bn(x)
+        # x = self.act(x)
+        #
+        # x = self.conv6(x)
+        # x = self.conv6_bn(x)
+        # x = self.act(x)
+
+        # x = self.conv7(x)
+        # x = self.conv7_bn(x)
+        # x = self.act(x)
+        # x = self.max_pool(x)
+
+        x = self.conv8(x)
+        x = self.conv8_bn(x)
+        x = self.act(x)
+
+        # x = self.conv9(x)
+        # x = self.conv9_bn(x)
+        # x = self.act(x)
+        # x = self.max_pool(x)
+
+
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        # x = self.drop(x)
+        x = self.fc2(x)
+        # x = self.drop(x)
+        x = self.fc3(x)
+
+        return F.log_softmax(x, dim=1)
+
+    def loss_function(self, x, y):
+        return F.cross_entropy(x, y)
+        # return F.nll_loss(x, y)
+
+
 class FullyConnectedClassifier(nn.Module):
-    def __init__(self, n_features):
+    def __init__(self, n_features, n_targets):
         super().__init__()
         self.device = torch.device("cuda")
 
         self.fc1 = nn.Linear(n_features, 400)
         self.fc2 = nn.Linear(400, 200)
         self.fc3 = nn.Linear(200, 100)
-        self.fc4 = nn.Linear(100, 10)
+        self.fc4 = nn.Linear(100, n_targets)
 
         self.fc1_bn = nn.BatchNorm1d(400)
         self.fc2_bn = nn.BatchNorm1d(200)
@@ -40,7 +144,6 @@ class FullyConnectedClassifier(nn.Module):
         return F.log_softmax(x, dim=1)
 
     def loss_function(self, x, y):
-        # return F.kl_div(x, y)
         return F.nll_loss(x, y)
 
 
@@ -63,8 +166,8 @@ def predict_classifier(clf, test_dataset_loader):
 
 
 def train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader):
-    clf.train()
-    for epoch in range(10):
+    for epoch in range(5):
+        clf.train()
         for batch_idx, (data, target) in enumerate(train_dataset_loader):
             data = data.to(clf.device)
             target = target.to(clf.device)

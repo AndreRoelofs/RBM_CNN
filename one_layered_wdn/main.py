@@ -13,7 +13,7 @@ from one_layered_wdn.wdn import WDN
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn import preprocessing
 from one_layered_wdn.custom_dataset import UnsupervisedVectorDataset
-from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier
+from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier, FashionCNN
 import one_layered_wdn.svm as svm
 
 # General
@@ -221,28 +221,71 @@ if __name__ == "__main__":
         kmeans_train_features)
     cluster_labels = kmeans.labels_
     train_predictions = kmeans.predict(kmeans_train_features)
-
-    bins = np.zeros((n_clusters, 10))
-    for i in range(len(train_predictions)):
-        cluster = train_predictions[i]
-        bins[cluster][int(kmeans_train_labels[i])] += 1
-    for bin in bins:
-        print(np.array(bin, dtype=np.int))
-
-    np.save("20 clusters training bins", np.array(bins))
-
     test_predictions = kmeans.predict(kmeans_test_features)
 
-    test_bins = np.zeros((n_clusters, 10))
+    train_cluster_idx = []
+    for i in range(len(train_predictions)):
+        cluster = train_predictions[i]
+        if cluster != 0:
+            continue
+        train_cluster_idx.append(i)
+
+    cluster_cnn_train_images = train_data.data[train_cluster_idx].reshape((-1, 1, 28, 28)) / 255
+    cluster_cnn_train_labels = train_data.targets[train_cluster_idx]
+
+    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 5, 0, cluster_cnn_train_labels)
+    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 7, 1, cluster_cnn_train_labels)
+    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 8, 2, cluster_cnn_train_labels)
+    cluster_cnn_train_labels = torch.where(cluster_cnn_train_labels == 9, 3, cluster_cnn_train_labels)
+
+    cluster_cnn_train_dataset = UnsupervisedVectorDataset(cluster_cnn_train_images, cluster_cnn_train_labels)
+    cluster_cnn_train_dataloader = torch.utils.data.DataLoader(cluster_cnn_train_dataset, batch_size=10, shuffle=True,
+                                                               # sampler=random_sampler
+                                                               )
+
+    test_cluster_idx = []
     for i in range(len(test_predictions)):
         cluster = test_predictions[i]
-        test_bins[cluster][int(kmeans_test_labels[i])] += 1
-    for bin in test_bins:
-        print(np.array(bin, dtype=np.int))
+        if cluster != 0:
+            continue
+        test_cluster_idx.append(i)
+    cluster_cnn_test_images = test_data.data[test_cluster_idx].reshape((-1, 1, 28, 28)) / 255
+    cluster_cnn_test_labels = test_data.targets[test_cluster_idx]
 
-    np.save("20 clusters test bins", np.array(test_bins))
+    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 5, 0, cluster_cnn_test_labels)
+    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 7, 1, cluster_cnn_test_labels)
+    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 8, 2, cluster_cnn_test_labels)
+    cluster_cnn_test_labels = torch.where(cluster_cnn_test_labels == 9, 3, cluster_cnn_test_labels)
 
-    predictions = kmeans.predict(test_features)
+    cluster_cnn_test_dataset = UnsupervisedVectorDataset(cluster_cnn_test_images, cluster_cnn_test_labels)
+    cluster_cnn_test_dataloader = torch.utils.data.DataLoader(cluster_cnn_test_dataset, batch_size=100, shuffle=False)
+
+    cnnc = FashionCNN()
+    cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-3, amsgrad=True)
+
+    train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader)
+
+    # bins = np.zeros((n_clusters, 10))
+    # for i in range(len(train_predictions)):
+    #     cluster = train_predictions[i]
+    #     bins[cluster][int(kmeans_train_labels[i])] += 1
+    # for bin in bins:
+    #     print(np.array(bin, dtype=np.int))
+    #
+    # np.save("20 clusters training bins", np.array(bins))
+
+    # test_predictions = kmeans.predict(kmeans_test_features)
+    #
+    # test_bins = np.zeros((n_clusters, 10))
+    # for i in range(len(test_predictions)):
+    #     cluster = test_predictions[i]
+    #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    # for bin in test_bins:
+    #     print(np.array(bin, dtype=np.int))
+    #
+    # np.save("20 clusters test bins", np.array(test_bins))
+    #
+    # predictions = kmeans.predict(test_features)
 
     custom_svm = svm.Net(train_features.shape[1], 10)
     custom_svm.cuda()
