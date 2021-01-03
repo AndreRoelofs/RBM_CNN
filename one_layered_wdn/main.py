@@ -41,7 +41,7 @@ test_data = None
 fast_training = None
 fastest_training = None
 tolerance = 0.5
-
+total_accuracy = 0
 
 def process_settings():
     # Setup dataset to use
@@ -103,13 +103,13 @@ def load_data():
                            transform=transforms.Compose([
                                transforms.ToTensor(),
                                # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                               transforms.Resize((image_input_size, image_input_size)),
+                               # transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            transforms.Resize((image_input_size, image_input_size)),
+            # transforms.Resize((image_input_size, image_input_size)),
         ]))
 
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
@@ -148,6 +148,45 @@ def load_data():
 
         test_data.data = test_data.data[:100]
         test_data.targets = test_data.targets[:100]
+
+def calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters):
+    global total_accuracy
+    total_accuracy = 0
+    for cluster_id in range(n_clusters):
+    # for cluster_id in range(29, 30):
+        print("Current cluster ", cluster_id)
+        train_cluster_idx = []
+        # undesired_targets = [5, 7, 8, 9]
+        # undesired_targets = [2, 5, 7, 8, 9]
+        for i in range(len(train_predictions)):
+            target_id = train_data.targets[i]
+            # if target_id in undesired_targets:
+            #     continue
+            cluster = train_predictions[i]
+            if cluster != cluster_id:
+                continue
+            train_cluster_idx.append(i)
+
+        cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=min(50, len(train_predictions)), shuffle=False,
+                                                                   sampler=SubsetRandomSampler(train_cluster_idx),
+                                                                   )
+        test_cluster_idx = []
+        for i in range(len(test_predictions)):
+            cluster = test_predictions[i]
+            if cluster != cluster_id:
+                continue
+            test_cluster_idx.append(i)
+        cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False,
+                                                                  sampler=SubsetRandomSampler(test_cluster_idx),
+                                                                  )
+
+        cnnc = FashionCNN()
+        cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-3, amsgrad=False)
+
+        train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader)
+    print("Average accuracy over {} clusters is {}".format(n_clusters, total_accuracy/n_clusters))
+
+
 
 
 if __name__ == "__main__":
@@ -215,58 +254,37 @@ if __name__ == "__main__":
     kmeans_test_features = test_features
     kmeans_test_labels = test_labels
 
-    n_clusters = 40
+    n_clusters = 20
     kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=100, algorithm='elkan', n_jobs=-1).fit(
         kmeans_train_features)
     cluster_labels = kmeans.labels_
     train_predictions = kmeans.predict(kmeans_train_features)
     test_predictions = kmeans.predict(kmeans_test_features)
 
-    # train_cluster_idx = []
+    calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters)
+
+    #
+    # #
+    # bins = np.zeros((n_clusters, 10))
     # for i in range(len(train_predictions)):
     #     cluster = train_predictions[i]
-    #     if cluster != 0:
-    #         continue
-    #     train_cluster_idx.append(i)
+    #     bins[cluster][int(kmeans_train_labels[i])] += 1
+    # for bin in bins:
+    #     print(np.array(bin, dtype=np.int))
+    # # #
+    # np.save("40 clusters training bins", np.array(bins))
+    # #
+    # print("_____________________")
+    # test_predictions = kmeans.predict(kmeans_test_features)
     #
-    # cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=50, shuffle=False,
-    #                                                            sampler=SubsetRandomSampler(train_cluster_idx),
-    #                                                            )
-    # test_cluster_idx = []
+    # test_bins = np.zeros((n_clusters, 10))
     # for i in range(len(test_predictions)):
     #     cluster = test_predictions[i]
-    #     if cluster != 0:
-    #         continue
-    #     test_cluster_idx.append(i)
-    # cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False,
-    #                                                           sampler=SubsetRandomSampler(test_cluster_idx),
-    #                                                           )
-    #
-    # cnnc = FashionCNN()
-    # cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-5, amsgrad=False)
-    #
-    # train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader)
-    #
-    bins = np.zeros((n_clusters, 10))
-    for i in range(len(train_predictions)):
-        cluster = train_predictions[i]
-        bins[cluster][int(kmeans_train_labels[i])] += 1
-    for bin in bins:
-        print(np.array(bin, dtype=np.int))
-    # #
-    np.save("40 clusters training bins", np.array(bins))
-    #
-    print("_____________________")
-    test_predictions = kmeans.predict(kmeans_test_features)
-
-    test_bins = np.zeros((n_clusters, 10))
-    for i in range(len(test_predictions)):
-        cluster = test_predictions[i]
-        test_bins[cluster][int(kmeans_test_labels[i])] += 1
-    for bin in test_bins:
-        print(np.array(bin, dtype=np.int))
-    # #
-    np.save("40 clusters test bins", np.array(test_bins))
+    #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    # for bin in test_bins:
+    #     print(np.array(bin, dtype=np.int))
+    # # #
+    # np.save("40 clusters test bins", np.array(test_bins))
     # #
     # # predictions = kmeans.predict(test_features)
     #
