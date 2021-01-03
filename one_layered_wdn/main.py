@@ -41,7 +41,6 @@ test_data = None
 fast_training = None
 fastest_training = None
 tolerance = 0.5
-total_accuracy = 0
 
 def process_settings():
     # Setup dataset to use
@@ -150,8 +149,7 @@ def load_data():
         test_data.targets = test_data.targets[:100]
 
 def calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters):
-    global total_accuracy
-    total_accuracy = 0
+    accuracies = []
     for cluster_id in range(n_clusters):
     # for cluster_id in range(29, 30):
         print("Current cluster ", cluster_id)
@@ -159,7 +157,7 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         # undesired_targets = [5, 7, 8, 9]
         # undesired_targets = [2, 5, 7, 8, 9]
         for i in range(len(train_predictions)):
-            target_id = train_data.targets[i]
+            # target_id = train_data.targets[i]
             # if target_id in undesired_targets:
             #     continue
             cluster = train_predictions[i]
@@ -183,8 +181,8 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         cnnc = FashionCNN()
         cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-3, amsgrad=False)
 
-        train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader)
-    print("Average accuracy over {} clusters is {}".format(n_clusters, total_accuracy/n_clusters))
+        train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, accuracies)
+    print("Average accuracy over {} clusters is {}".format(n_clusters, np.mean(accuracies)))
 
 
 

@@ -101,8 +101,7 @@ class FullyConnectedClassifier(nn.Module):
         return F.nll_loss(x, y)
 
 
-def predict_classifier(clf, test_dataset_loader):
-    global total_accuracy
+def predict_classifier(clf, test_dataset_loader, accuracies):
     print("Making predictions")
     test_loss = 0
     correct = 0
@@ -117,13 +116,14 @@ def predict_classifier(clf, test_dataset_loader):
         pred = out.data.max(1)[1]
         correct += pred.eq(target.data).sum()
     test_loss /= len(test_dataset_loader.dataset)
-    total_accuracy += correct/counter
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, counter,
-        100. * correct / counter))
+    if counter > 0:
+        accuracies.append(correct / counter)
+        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+            test_loss, correct, counter,
+            100. * correct / counter))
 
 
-def train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader):
+def train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader, accuracies):
     for epoch in range(10):
         clf.train()
         for batch_idx, (data, target) in enumerate(train_dataset_loader):
@@ -139,4 +139,4 @@ def train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader):
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, batch_idx * len(data), len(train_dataset_loader.dataset),
                            100.0 * batch_idx / len(train_dataset_loader), loss.item()))
-    predict_classifier(clf, test_dataset_loader)
+    predict_classifier(clf, test_dataset_loader, accuracies)
