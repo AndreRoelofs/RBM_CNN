@@ -19,21 +19,12 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 112,  'rbm_hidden_units': 800, 'rbm_learning_rate': 1e-20},
-            # {'input_channels': 1, 'encoder_channels': 16, 'rbm_visible_units': 56, 'encoder_weight_variance': 0.5,
-            #  'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-4},
-            # {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 56, 'encoder_weight_variance': 40.0,
-            #  'rbm_hidden_units': 600, 'rbm_learning_rate': 1e-3},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 40.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 2, 'rbm_visible_units': 14, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 2, 'encoder_channels': 4, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
-             'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3},
-            {'input_channels': 1, 'encoder_channels': 128, 'rbm_visible_units': 3, 'encoder_weight_variance': 40.0,
-             'rbm_hidden_units': 2, 'rbm_learning_rate': 1e-10},
-            {'input_channels': 1, 'encoder_channels': 128, 'rbm_visible_units': 2, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-20},
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'n_training': 2},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 20.0,
+             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3, 'n_training': 2},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
+             'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3, 'n_training': 2},
         ]
 
         self.n_levels = 3
@@ -91,7 +82,7 @@ class WDN(nn.Module):
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_settings['encoder_learning_rate'])
 
-        for i in range(2):
+        for i in range(self.levels[level]['n_training']):
             # Encode the image
             rbm_input = self.model.encode(data)
             # Flatten input for RBM
@@ -137,7 +128,7 @@ class WDN(nn.Module):
         for region in regions_to_train:
             is_familiar = 0
             for m in new_models:
-                is_familiar = self.is_familiar(m, region, provide_encoding=True)
+                is_familiar = self.is_familiar(m, region)
                 if is_familiar == 1:
                     break
             if is_familiar == 1:

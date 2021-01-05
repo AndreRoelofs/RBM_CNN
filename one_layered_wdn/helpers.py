@@ -68,8 +68,14 @@ def convert_images_to_latent_vector(images, model):
         # print(target)
         latent_vector = []
         for node in model.models:
-            familiar, encoded_data = model.is_familiar(node, data, provide_encoding=True)
-            calculate_latent_vector(model, node, encoded_data, model.n_levels - 1, latent_vector)
+            if model.n_levels > 1:
+                familiar, encoded_data = model.is_familiar(node, data, provide_encoding=True)
+                calculate_latent_vector(model, node, encoded_data, model.n_levels - 1, latent_vector)
+            else:
+                values, familiar = model.is_familiar(node, data, provide_value=True)
+                values = values.cpu().detach().numpy()
+                latent_vector.append(values)
+
         # print(level_act_counter)
         # return None
         latent_vector = np.array(latent_vector)

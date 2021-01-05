@@ -13,7 +13,7 @@ from one_layered_wdn.wdn import WDN
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn import preprocessing
 from one_layered_wdn.custom_dataset import UnsupervisedVectorDataset
-from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier, FashionCNN
+from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier, predict_classifier, FashionCNN
 import one_layered_wdn.svm as svm
 
 # General
@@ -41,6 +41,7 @@ test_data = None
 fast_training = None
 fastest_training = None
 tolerance = 0.5
+
 
 def process_settings():
     # Setup dataset to use
@@ -148,24 +149,35 @@ def load_data():
         test_data.data = test_data.data[:100]
         test_data.targets = test_data.targets[:100]
 
+
 def calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters):
     accuracies = []
+    low_performance_clusters = [1, 3, 6, 8, 14, 15, 17, 19, 21, 22, 24, 25, 28, 30, 33, 34, 35, 36, 37,
+                                39]  # 9, 16, 23, 32 maybe
+    # low_performance_clusters = []
+    if len(low_performance_clusters) > 0:
+        cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data,
+                                                                   batch_size=100,
+                                                                   shuffle=True,
+                                                                   )
+        cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False)
+        big_cnnc = FashionCNN()
+        cnnc_optimizer = torch.optim.Adam(big_cnnc.parameters(), lr=1e-3, amsgrad=False)
+        train_classifier(big_cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, [])
+
     for cluster_id in range(n_clusters):
-    # for cluster_id in range(29, 30):
+        # for cluster_id in range(2, 3):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
-        # undesired_targets = [5, 7, 8, 9]
-        # undesired_targets = [2, 5, 7, 8, 9]
         for i in range(len(train_predictions)):
-            # target_id = train_data.targets[i]
-            # if target_id in undesired_targets:
-            #     continue
             cluster = train_predictions[i]
             if cluster != cluster_id:
                 continue
             train_cluster_idx.append(i)
 
-        cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=min(50, len(train_predictions)), shuffle=False,
+        cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data,
+                                                                   batch_size=min(10, len(train_predictions)),
+                                                                   shuffle=False,
                                                                    sampler=SubsetRandomSampler(train_cluster_idx),
                                                                    )
         test_cluster_idx = []
@@ -178,13 +190,16 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
                                                                   sampler=SubsetRandomSampler(test_cluster_idx),
                                                                   )
 
-        cnnc = FashionCNN()
-        cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-3, amsgrad=False)
+        if cluster_id in low_performance_clusters:
+            # test = 0
+            predict_classifier(big_cnnc, cluster_cnn_test_dataloader, accuracies)
+        else:
+            cnnc = FashionCNN()
+            cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-3, amsgrad=False)
+            train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader,
+                             accuracies)
 
-        train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, accuracies)
     print("Average accuracy over {} clusters is {}".format(n_clusters, np.mean(accuracies)))
-
-
 
 
 if __name__ == "__main__":
@@ -252,8 +267,8 @@ if __name__ == "__main__":
     kmeans_test_features = test_features
     kmeans_test_labels = test_labels
 
-    n_clusters = 20
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=100, algorithm='elkan', n_jobs=-1).fit(
+    n_clusters = 40
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=500, algorithm='elkan', n_jobs=-1).fit(
         kmeans_train_features)
     cluster_labels = kmeans.labels_
     train_predictions = kmeans.predict(kmeans_train_features)
@@ -261,27 +276,21 @@ if __name__ == "__main__":
 
     calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters)
 
-    #
-    # #
     # bins = np.zeros((n_clusters, 10))
     # for i in range(len(train_predictions)):
     #     cluster = train_predictions[i]
     #     bins[cluster][int(kmeans_train_labels[i])] += 1
     # for bin in bins:
     #     print(np.array(bin, dtype=np.int))
-    # # #
-    # np.save("40 clusters training bins", np.array(bins))
-    # #
     # print("_____________________")
-    # test_predictions = kmeans.predict(kmeans_test_features)
-    #
+    # #
     # test_bins = np.zeros((n_clusters, 10))
     # for i in range(len(test_predictions)):
     #     cluster = test_predictions[i]
     #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
     # for bin in test_bins:
     #     print(np.array(bin, dtype=np.int))
-    # # #
+    # np.save("40 clusters training bins", np.array(bins))
     # np.save("40 clusters test bins", np.array(test_bins))
     # #
     # # predictions = kmeans.predict(test_features)
@@ -320,7 +329,7 @@ if __name__ == "__main__":
     # #
     # wrong_indices = np.where(predictions != test_labels)[0]
     #
-    # # for i in wrong_indices:
-    # #     img = test_data.data[i].cpu().detach().numpy()
-    # #     plt.imshow(img, cmap='gray')
-    # #     plt.show()
+    # for i in wrong_indices:
+    #     img = test_data.data[i].cpu().detach().numpy()
+    #     plt.imshow(img, cmap='gray')
+    #     plt.show()

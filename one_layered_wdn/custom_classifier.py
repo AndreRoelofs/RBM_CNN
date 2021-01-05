@@ -3,29 +3,83 @@ from torch import nn
 from torch.nn import functional as F
 
 
+# class FashionCNN(nn.Module):
+#
+#     def __init__(self):
+#         super(FashionCNN, self).__init__()
+#         # self.device = torch.device("cpu")
+#         self.device = torch.device("cuda")
+#
+#         self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=3, padding=1)
+#         self.conv2 = nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3, padding=1)
+#         self.conv8 = nn.Conv2d(in_channels=64, out_channels=32, kernel_size=3, padding=1)
+#
+#         self.act = nn.SELU()
+#         self.max_pool = nn.MaxPool2d(kernel_size=2)
+#
+#         nn.init.xavier_normal_(self.conv1.weight, 20.0)
+#         nn.init.xavier_normal_(self.conv2.weight, 10.0)
+#         nn.init.xavier_normal_(self.conv8.weight, 0.07)
+#
+#         # self.conv1_bn = nn.BatchNorm2d(128)
+#         # self.conv2_bn = nn.BatchNorm2d(64)
+#         # self.conv8_bn = nn.BatchNorm2d(32)
+#
+#         self.fc1 = nn.Linear(in_features=32*(7**2), out_features=600)
+#         self.drop = nn.Dropout2d(0.25)
+#         self.fc2 = nn.Linear(in_features=600, out_features=120)
+#         self.fc3 = nn.Linear(in_features=120, out_features=10)
+#
+#         self.to(self.device)
+#
+#     def forward(self, x):
+#         x = self.conv1(x)
+#         # x = self.conv1_bn(x)
+#         x = self.act(x)
+#         x = self.max_pool(x)
+#         #
+#         x = self.conv2(x)
+#         # x = self.conv2_bn(x)
+#         x = self.act(x)
+#         x = self.max_pool(x)
+#         #
+#         x = self.conv8(x)
+#         # x = self.conv8_bn(x)
+#         x = self.act(x)
+#         #
+#         x = x.view(x.size(0), -1)
+#         x = self.fc1(x)
+#         # x = self.drop(x)
+#         x = self.fc2(x)
+#         # x = self.drop(x)
+#         x = self.fc3(x)
+#
+#         return F.log_softmax(x, dim=1)
+#
+#     def loss_function(self, x, y):
+#         return F.cross_entropy(x, y)
+#         # return F.nll_loss(x, y)
+
 class FashionCNN(nn.Module):
 
     def __init__(self):
         super(FashionCNN, self).__init__()
-        self.device = torch.device("cpu")
-        # self.device = torch.device("cuda")
+        self.device = torch.device("cuda")
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
 
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3, padding=1)
-        self.conv8 = nn.Conv2d(in_channels=64, out_channels=32, kernel_size=3, padding=1)
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        )
 
-        self.act = nn.SELU()
-        self.max_pool = nn.MaxPool2d(kernel_size=2)
-
-        nn.init.xavier_normal_(self.conv1.weight, 20.0)
-        nn.init.xavier_normal_(self.conv2.weight, 10.0)
-        nn.init.xavier_normal_(self.conv8.weight, 0.07)
-
-        # self.conv1_bn = nn.BatchNorm2d(128)
-        # self.conv2_bn = nn.BatchNorm2d(64)
-        # self.conv8_bn = nn.BatchNorm2d(32)
-
-        self.fc1 = nn.Linear(in_features=32*(7**2), out_features=600)
+        self.fc1 = nn.Linear(in_features=64 * 6 * 6, out_features=600)
         self.drop = nn.Dropout2d(0.25)
         self.fc2 = nn.Linear(in_features=600, out_features=120)
         self.fc3 = nn.Linear(in_features=120, out_features=10)
@@ -33,32 +87,19 @@ class FashionCNN(nn.Module):
         self.to(self.device)
 
     def forward(self, x):
-        x = self.conv1(x)
-        # x = self.conv1_bn(x)
-        x = self.act(x)
-        x = self.max_pool(x)
-        #
-        x = self.conv2(x)
-        # x = self.conv2_bn(x)
-        x = self.act(x)
-        x = self.max_pool(x)
-        #
-        x = self.conv8(x)
-        # x = self.conv8_bn(x)
-        x = self.act(x)
-        #
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
-        # x = self.drop(x)
-        x = self.fc2(x)
-        # x = self.drop(x)
-        x = self.fc3(x)
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = out.view(out.size(0), -1)
+        out = self.fc1(out)
+        out = self.drop(out)
+        out = self.fc2(out)
+        # out = self.drop(out)
+        out = self.fc3(out)
 
-        return F.log_softmax(x, dim=1)
+        return F.log_softmax(out, dim=1)
 
     def loss_function(self, x, y):
         return F.cross_entropy(x, y)
-        # return F.nll_loss(x, y)
 
 
 class FullyConnectedClassifier(nn.Module):
@@ -117,7 +158,7 @@ def predict_classifier(clf, test_dataset_loader, accuracies):
         correct += pred.eq(target.data).sum()
     test_loss /= len(test_dataset_loader.dataset)
     if counter > 0:
-        accuracies.append(correct / counter)
+        accuracies.append((correct / counter).cpu().detach().numpy())
         print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
             test_loss, correct, counter,
             100. * correct / counter))
