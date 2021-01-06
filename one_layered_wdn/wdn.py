@@ -27,7 +27,7 @@ class WDN(nn.Module):
              'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3, 'n_training': 2},
         ]
 
-        self.n_levels = 3
+        self.n_levels = 1
 
         self.log_interval = 100
 

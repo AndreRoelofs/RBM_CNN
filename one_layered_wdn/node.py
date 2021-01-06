@@ -30,5 +30,6 @@ class Node(nn.Module):
         self.level = level
         self.target = None
 
+
     def encode(self, x):
         return self.encoder(x)

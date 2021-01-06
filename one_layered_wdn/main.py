@@ -151,22 +151,25 @@ def load_data():
 
 
 def calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters):
+    np.random.seed(0)
+    torch.manual_seed(0)
+
     accuracies = []
-    low_performance_clusters = [1, 3, 6, 8, 14, 15, 17, 19, 21, 22, 24, 25, 28, 30, 33, 34, 35, 36, 37,
-                                39]  # 9, 16, 23, 32 maybe
-    # low_performance_clusters = []
+    low_performance_clusters = [0, 4, 7, 10, 13, 15, 16, 17, 18]
+    low_performance_clusters = []
     if len(low_performance_clusters) > 0:
         cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data,
                                                                    batch_size=100,
                                                                    shuffle=True,
                                                                    )
-        cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False)
+        cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False,
+                                                                  )
         big_cnnc = FashionCNN()
         cnnc_optimizer = torch.optim.Adam(big_cnnc.parameters(), lr=1e-3, amsgrad=False)
         train_classifier(big_cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, [])
 
     for cluster_id in range(n_clusters):
-        # for cluster_id in range(2, 3):
+    # for cluster_id in range(8, 9):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
         for i in range(len(train_predictions)):
@@ -191,15 +194,17 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
                                                                   )
 
         if cluster_id in low_performance_clusters:
+        # if True:
             # test = 0
             predict_classifier(big_cnnc, cluster_cnn_test_dataloader, accuracies)
         else:
             cnnc = FashionCNN()
-            cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-3, amsgrad=False)
+            cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-4, amsgrad=True)
             train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader,
                              accuracies)
 
     print("Average accuracy over {} clusters is {}".format(n_clusters, np.mean(accuracies)))
+    print(accuracies)
 
 
 if __name__ == "__main__":
@@ -267,7 +272,7 @@ if __name__ == "__main__":
     kmeans_test_features = test_features
     kmeans_test_labels = test_labels
 
-    n_clusters = 40
+    n_clusters = 20
     kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=500, algorithm='elkan', n_jobs=-1).fit(
         kmeans_train_features)
     cluster_labels = kmeans.labels_
@@ -276,20 +281,22 @@ if __name__ == "__main__":
 
     calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters)
 
-    # bins = np.zeros((n_clusters, 10))
-    # for i in range(len(train_predictions)):
-    #     cluster = train_predictions[i]
-    #     bins[cluster][int(kmeans_train_labels[i])] += 1
-    # for bin in bins:
-    #     print(np.array(bin, dtype=np.int))
-    # print("_____________________")
-    # #
-    # test_bins = np.zeros((n_clusters, 10))
-    # for i in range(len(test_predictions)):
-    #     cluster = test_predictions[i]
-    #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
-    # for bin in test_bins:
-    #     print(np.array(bin, dtype=np.int))
+    bins = np.zeros((n_clusters, 10))
+    for i in range(len(train_predictions)):
+        cluster = train_predictions[i]
+        bins[cluster][int(kmeans_train_labels[i])] += 1
+    for bin in bins:
+        print(np.array(bin, dtype=np.int))
+    print("_____________________")
+    #
+    test_bins = np.zeros((n_clusters, 10))
+    for i in range(len(test_predictions)):
+        cluster = test_predictions[i]
+        test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    bin_counter = 0
+    for bin in test_bins:
+        print(bin_counter, np.array(bin, dtype=np.int))
+        bin_counter += 1
     # np.save("40 clusters training bins", np.array(bins))
     # np.save("40 clusters test bins", np.array(test_bins))
     # #
