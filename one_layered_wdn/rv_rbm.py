@@ -4,16 +4,38 @@ import numpy as np
 from torch.nn import functional as F
 from torch.autograd import Variable
 
+
 class RV_RBM(nn.Module):
+    lowest_energy = 10000
+    highest_energy = -10000
+    energy_threshold = None
     def __init__(self,
-                 n_vis=784,
-                 n_hin=500,
-                 k=10):
+                 n_vis,
+                 n_hin,
+                 weight_variance,
+                 k=2):
         super(RV_RBM, self).__init__()
-        self.W = nn.Parameter(torch.randn(n_hin, n_vis).cuda() * 1e-2)
+        self.W = nn.Parameter(torch.zeros(n_hin, n_vis).cuda())
         self.v_bias = nn.Parameter(torch.zeros(n_vis).cuda())
-        self.h_bias = nn.Parameter(torch.ones(n_hin).cuda())
+        self.h_bias = nn.Parameter(torch.zeros(n_hin).cuda())
         self.k = k
+        #
+        nn.init.xavier_normal_(self.W, weight_variance)
+
+    def is_familiar(self, v0, provide_value=True):
+        if self.energy_threshold is None:
+            return 0
+        energy = self.free_energy(v0)
+
+        if torch.isinf(energy).any():
+            print("Infinite energy")
+            exit(1)
+
+        if provide_value:
+            # return torch.where(self.energy_threshold >= energy, 1, 0)
+            return self.energy_threshold - energy, torch.where(self.energy_threshold >= energy, 1, 0)
+        else:
+            return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
 
     def sample_from_p(self, p):
         return F.relu(torch.sign(p - Variable(torch.rand(p.size()).cuda())))
@@ -41,5 +63,13 @@ class RV_RBM(nn.Module):
     def free_energy(self, v):
         vbias_term = v.mv(self.v_bias)
         wx_b = F.linear(v, self.W, self.h_bias)
-        hidden_term = wx_b.exp().add(1).log().sum(1)
-        return (-hidden_term - vbias_term).mean()
+        hidden_term = torch.clamp(wx_b, -88, 88).exp().add(1).log().sum(1)
+        return -hidden_term - vbias_term
+
+    def calculate_energy_threshold(self, v0):
+        energy = self.free_energy(v0)
+        self.lowest_energy = energy.min()
+        self.highest_energy = energy.max()
+        self.energy_threshold = (self.highest_energy + self.lowest_energy) / 2
+
+

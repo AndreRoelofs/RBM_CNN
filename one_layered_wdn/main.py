@@ -103,13 +103,13 @@ def load_data():
                            transform=transforms.Compose([
                                transforms.ToTensor(),
                                # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                               # transforms.Resize((image_input_size, image_input_size)),
+                               transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            # transforms.Resize((image_input_size, image_input_size)),
+            transforms.Resize((image_input_size, image_input_size)),
         ]))
 
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
@@ -117,13 +117,13 @@ def load_data():
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
                                       # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                                      # transforms.Resize((image_input_size, image_input_size)),
+                                      transforms.Resize((image_input_size, image_input_size)),
                                   ]))
 
         test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            # transforms.Resize((image_input_size, image_input_size)),
+            transforms.Resize((image_input_size, image_input_size)),
         ]))
     if general_settings['Dataset'] == CIFAR10_DATASET:
         train_data = CIFAR10(data_path, train=True, download=True,
@@ -268,7 +268,7 @@ if __name__ == "__main__":
     print("Training classifier")
     # fcnc = FullyConnectedClassifier(train_features.shape[1])
     # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
-    #
+    # #
     # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
     kmeans_train_features = train_features
     kmeans_train_labels = train_labels
@@ -330,9 +330,9 @@ if __name__ == "__main__":
     #
     # #
     # # #
-    # svc = LinearSVC(max_iter=100, loss='hinge', C=0.01, fit_intercept=False)
+    # svc = LinearSVC(max_iter=10000)
     # print("Fitting SVM")
-    # # svc = SVC(cache_size=32768)
+    # svc = SVC(cache_size=32768)
     # svc.fit(train_features, train_labels)
     # print("Predicting SVM")
     # predictions = svc.predict(test_features)

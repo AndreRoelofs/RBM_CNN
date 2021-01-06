@@ -15,24 +15,17 @@ class Node(nn.Module):
                  level=0,
                  ):
         super().__init__()
-        self.encoder = Encoder(image_channels, encoder_channels, encoder_weight_variance, use_relu=True)
+        self.encoder = Encoder(image_channels, encoder_channels, encoder_weight_variance, use_relu=False)
         self.rbm = RV_RBM(
             rbm_visible_units,
             rbm_hidden_units,
+            weight_variance=encoder_weight_variance/4
         )
         self.child_networks = []
         self.level = level
         self.target = None
 
-        self.first_encoding = True
-        self.original_data = None
-        self.encoded_data = None
-
 
     def encode(self, x):
         encoded_data = self.encoder(x)
-        if self.first_encoding:
-            self.first_encoding = True
-            self.original_data = x[0].cpu().detach().numpy().reshape((28, 28))
-            self.encoded_data = encoded_data[0].cpu().detach().numpy().reshape((28, 28))
         return encoded_data

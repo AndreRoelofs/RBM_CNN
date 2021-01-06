@@ -19,15 +19,15 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 0.07,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'n_training': 10},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 40.0,
+             'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3, 'n_training': 2},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3, 'n_training': 2},
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'n_training': 2},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
              'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3, 'n_training': 2},
         ]
 
-        self.n_levels = 1
+        self.n_levels = 2
         self.debug = False
 
     def create_new_model(self, level, target):
@@ -78,11 +78,11 @@ class WDN(nn.Module):
         network = self.create_new_model(level, target)
         network.train()
 
-        encoder_optimizer = torch.optim.Adam(network.encoder.parameters(), lr=self.model_settings['encoder_learning_rate'])
+        encoder_optimizer = torch.optim.Adam(network.encoder.parameters(), lr=1e-3)
         rbm_optimizer = torch.optim.SGD(network.rbm.parameters(), lr=1e-1)
         # plt.imshow(data[0].cpu().detach().numpy().reshape((28, 28)), cmap='gray')
         # plt.show()
-        torch.autograd.set_detect_anomaly(True)
+        # torch.autograd.set_detect_anomaly(True)
         # for i in range(self.levels[level]['n_training']):
         for i in range(1):
             # Encode the image
@@ -97,25 +97,23 @@ class WDN(nn.Module):
             encoder_loss.backward()
             encoder_optimizer.step()
 
-            rbm_loss = network.rbm.free_energy(flat_rbm_input) - network.rbm.free_energy(rbm_output)
-            print(rbm_loss.item())
+            rbm_loss = network.rbm.free_energy(flat_rbm_input).mean() - network.rbm.free_energy(rbm_output).mean()
             rbm_optimizer.zero_grad()
-            rbm_loss.backward(retain_graph=True)
+            rbm_loss.backward()
             rbm_optimizer.step()
 
             # Encode the image
 
             # Train encoder
-            plt.imshow(rbm_input.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
-            plt.show()
-            plt.imshow(rbm_output.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
-            plt.show()
+            # plt.imshow(rbm_input.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
+            # plt.show()
+            # plt.imshow(rbm_output.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
+            # plt.show()
 
 
-            # network.rbm.calculate_energy_threshold(flat_rbm_input)
+            network.rbm.calculate_energy_threshold(flat_rbm_input)
 
         network.eval()
-        exit()
         return network
 
     def _joint_training(self, data, model, depth, target):
