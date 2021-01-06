@@ -285,24 +285,26 @@ if __name__ == "__main__":
 
     calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters)
     #
-    # bins = np.zeros((n_clusters, 10))
-    # for i in range(len(train_predictions)):
-    #     cluster = train_predictions[i]
-    #     bins[cluster][int(kmeans_train_labels[i])] += 1
-    # for bin in bins:
-    #     print(np.array(bin, dtype=np.int))
-    # print("_____________________")
-    # #
-    # test_bins = np.zeros((n_clusters, 10))
-    # for i in range(len(test_predictions)):
-    #     cluster = test_predictions[i]
-    #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
-    # bin_counter = 0
-    # for bin in test_bins:
-    #     print(bin_counter, np.array(bin, dtype=np.int))
-    #     bin_counter += 1
-    # np.save("40 clusters training bins", np.array(bins))
-    # np.save("40 clusters test bins", np.array(test_bins))
+    bins = np.zeros((n_clusters, 10))
+    for i in range(len(train_predictions)):
+        cluster = train_predictions[i]
+        bins[cluster][int(kmeans_train_labels[i])] += 1
+    bin_counter = 0
+    for bin in bins:
+        print(bin_counter, np.array(bin, dtype=np.int))
+        bin_counter += 1
+    print("_____________________")
+    #
+    test_bins = np.zeros((n_clusters, 10))
+    for i in range(len(test_predictions)):
+        cluster = test_predictions[i]
+        test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    bin_counter = 0
+    for bin in test_bins:
+        print(bin_counter, np.array(bin, dtype=np.int))
+        bin_counter += 1
+    np.save("20 clusters training bins", np.array(bins))
+    np.save("20 clusters test bins", np.array(test_bins))
     # #
     # # predictions = kmeans.predict(test_features)
     #
