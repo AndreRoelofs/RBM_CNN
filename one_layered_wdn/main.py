@@ -308,27 +308,26 @@ if __name__ == "__main__":
     # #
     # # predictions = kmeans.predict(test_features)
     #
-    # custom_svm = svm.Net(train_features.shape[1], 10)
-    # custom_svm.cuda()
-    # custom_svm_optimizer = torch.optim.Adam(custom_svm.parameters(), lr=1e-3, amsgrad=False)
-    # custom_svm_loss = svm.multiClassHingeLoss()
-    #
-    # best_epoch_idx = -1
-    # best_f1 = 0.
-    # history = list()
-    # for i in range(100):
-    #     svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, train_dataset_loader)
-    #     conf_mat, precision, recall, f1 = svm.test(i, custom_svm, test_dataset_loader, test_labels)
-    #     history.append((conf_mat, precision, recall, f1))
-    #     if f1 > best_f1:  # save best model
-    #         best_f1 = f1
-    #         best_epoch_idx = i
-    #         # torch.save(custom_svm.state_dict(), 'best.model')
-    #
-    # print('Best epoch:{}\n'.format(best_epoch_idx))
-    # conf_mat, precision, recall, f1 = history[best_epoch_idx]
-    # print('conf_mat:\n', conf_mat)
-    # print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
+    custom_svm = svm.Net(train_features.shape[1], 10)
+    custom_svm.cuda()
+    custom_svm_optimizer = torch.optim.SGD(custom_svm.parameters(), lr=1e-1)
+    custom_svm_loss = svm.multiClassHingeLoss()
+    best_epoch_idx = -1
+    best_f1 = 0.
+    history = list()
+    for i in range(90):
+        svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, train_dataset_loader)
+        conf_mat, precision, recall, f1 = svm.test(i, custom_svm, test_dataset_loader, test_labels)
+        history.append((conf_mat, precision, recall, f1))
+        if f1 > best_f1:  # save best model
+            best_f1 = f1
+            best_epoch_idx = i
+            # torch.save(custom_svm.state_dict(), 'best.model')
+
+    print('Best epoch:{}\n'.format(best_epoch_idx))
+    conf_mat, precision, recall, f1 = history[best_epoch_idx]
+    print('conf_mat:\n', conf_mat)
+    print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
     #
     # #
     # # #
