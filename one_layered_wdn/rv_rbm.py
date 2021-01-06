@@ -13,7 +13,7 @@ class RV_RBM(nn.Module):
                  n_vis,
                  n_hin,
                  weight_variance,
-                 k=2):
+                 k=1):
         super(RV_RBM, self).__init__()
         self.W = nn.Parameter(torch.zeros(n_hin, n_vis).cuda())
         self.v_bias = nn.Parameter(torch.zeros(n_vis).cuda())

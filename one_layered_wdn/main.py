@@ -276,7 +276,7 @@ if __name__ == "__main__":
     kmeans_test_features = test_features
     kmeans_test_labels = test_labels
 
-    n_clusters = 20
+    n_clusters = 40
     kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=500, algorithm='elkan', n_jobs=-1).fit(
         kmeans_train_features)
     cluster_labels = kmeans.labels_
@@ -285,26 +285,26 @@ if __name__ == "__main__":
 
     calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters)
     #
-    bins = np.zeros((n_clusters, 10))
-    for i in range(len(train_predictions)):
-        cluster = train_predictions[i]
-        bins[cluster][int(kmeans_train_labels[i])] += 1
-    bin_counter = 0
-    for bin in bins:
-        print(bin_counter, np.array(bin, dtype=np.int))
-        bin_counter += 1
-    print("_____________________")
-    #
-    test_bins = np.zeros((n_clusters, 10))
-    for i in range(len(test_predictions)):
-        cluster = test_predictions[i]
-        test_bins[cluster][int(kmeans_test_labels[i])] += 1
-    bin_counter = 0
-    for bin in test_bins:
-        print(bin_counter, np.array(bin, dtype=np.int))
-        bin_counter += 1
-    np.save("20 clusters training bins", np.array(bins))
-    np.save("20 clusters test bins", np.array(test_bins))
+    # bins = np.zeros((n_clusters, 10))
+    # for i in range(len(train_predictions)):
+    #     cluster = train_predictions[i]
+    #     bins[cluster][int(kmeans_train_labels[i])] += 1
+    # bin_counter = 0
+    # for bin in bins:
+    #     print(bin_counter, np.array(bin, dtype=np.int))
+    #     bin_counter += 1
+    # print("_____________________")
+    # #
+    # test_bins = np.zeros((n_clusters, 10))
+    # for i in range(len(test_predictions)):
+    #     cluster = test_predictions[i]
+    #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    # bin_counter = 0
+    # for bin in test_bins:
+    #     print(bin_counter, np.array(bin, dtype=np.int))
+    #     bin_counter += 1
+    # np.save("20 clusters training bins", np.array(bins))
+    # np.save("20 clusters test bins", np.array(test_bins))
     # #
     # # predictions = kmeans.predict(test_features)
     #
@@ -332,9 +332,9 @@ if __name__ == "__main__":
     #
     # #
     # # #
-    # svc = LinearSVC(max_iter=10000)
+    # svc = LinearSVC(max_iter=100, loss='hinge', random_state=0)
     # print("Fitting SVM")
-    # svc = SVC(cache_size=32768)
+    # # svc = SVC(cache_size=32768)
     # svc.fit(train_features, train_labels)
     # print("Predicting SVM")
     # predictions = svc.predict(test_features)
