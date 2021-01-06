@@ -19,8 +19,8 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 40.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'n_training': 2},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 0.07,
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'n_training': 100},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 20.0,
              'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3, 'n_training': 2},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
@@ -28,8 +28,7 @@ class WDN(nn.Module):
         ]
 
         self.n_levels = 1
-
-        self.log_interval = 100
+        self.debug = False
 
     def create_new_model(self, level, target):
 
@@ -77,33 +76,42 @@ class WDN(nn.Module):
 
     def train_new_network(self, data, level, target):
         network = self.create_new_model(level, target)
-        self.model = network
-        self.model.train()
+        network.train()
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_settings['encoder_learning_rate'])
-
+        optimizer = torch.optim.Adam(network.parameters(), lr=self.model_settings['encoder_learning_rate'])
+        # plt.imshow(data[0].cpu().detach().numpy().reshape((28, 28)), cmap='gray')
+        # plt.show()
+        torch.autograd.set_detect_anomaly(True)
         for i in range(self.levels[level]['n_training']):
             # Encode the image
-            rbm_input = self.model.encode(data)
+            rbm_input = network.encode(data)
             # Flatten input for RBM
-            flat_rbm_input = rbm_input.view(len(rbm_input), (self.levels[level]['rbm_visible_units'] ** 2) * self.levels[level]['encoder_channels'])
+            flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input), (self.levels[level]['rbm_visible_units'] ** 2) * self.levels[level]['encoder_channels'])
 
             # Train RBM
-            self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
+            network.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
             # Encode the image
 
             # Train encoder
-            hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-            visible = self.model.rbm.sample_visible(hidden).reshape((
+            hidden = network.rbm.sample_hidden(flat_rbm_input)
+            visible = network.rbm.sample_visible(hidden).reshape((
                 data.shape[0],
                 self.levels[level]['encoder_channels'],
                 self.levels[level]['rbm_visible_units'],
                 self.levels[level]['rbm_visible_units']
             ))
-            loss = self.loss_function(visible, rbm_input)
-            loss.backward(retain_graph=True)
-            self.model.rbm.calculate_energy_threshold(flat_rbm_input)
-
+            # plt.imshow(visible.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
+            # plt.show()
+            #
+            # loss = network.encoder.loss_function(visible, rbm_input)
+            # loss.backward(retain_graph=True)
+            # optimizer.step()
+            network.rbm.calculate_energy_threshold(flat_rbm_input)
+        plt.imshow(rbm_input.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
+        plt.show()
+        plt.imshow(visible.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
+        plt.show()
+        network.eval()
         return network
 
     def _joint_training(self, data, model, depth, target):
@@ -116,9 +124,9 @@ class WDN(nn.Module):
         for region in regions:
             familiar = 0
             for child_model in model.child_networks:
-                is_familiar, encoded_region = self.is_familiar(child_model, region, provide_encoding=True)
+                is_familiar = self.is_familiar(child_model, region)
                 if is_familiar:
-                    self._joint_training(encoded_region, child_model, depth - 1, target)
+                    self._joint_training(region, child_model, depth - 1, target)
                     familiar = 1
                     break
             if familiar == 0:
@@ -135,21 +143,18 @@ class WDN(nn.Module):
                 continue
             new_model = self.train_new_network(region, level=model.level + 1, target=target)
             new_models.append(new_model)
-            encoded_region = new_model.encode(region)
-            self._joint_training(encoded_region, new_model, depth - 1, target)
+            self._joint_training(region, new_model, depth - 1, target)
             model.child_networks.append(new_model)
 
     def joint_training(self):
         counter = 0
-        new_models = self.models
-        # new_models = []
         for batch_idx, (data, target) in enumerate(self.train_loader):
             # Assume we have batch size of 1
             data = data.to(self.device)
             target = target.cpu().detach().numpy()[0]
 
             counter += 1
-            if counter % 50 == 0:
+            if counter % self.model_settings['log_interval'] == 0:
                 print("______________")
                 print("Iteration: ", counter)
 
@@ -176,11 +181,11 @@ class WDN(nn.Module):
                     print("Level {}: {}".format(i + 1, models_counter[i]))
 
             n_familiar = 0
-            for m in new_models:
-                familiar, encoded_data = self.is_familiar(m, data, provide_encoding=True)
+            for m in self.models:
+                familiar = self.is_familiar(m, data)
                 if familiar:
                     n_familiar += 1
-                    self._joint_training(encoded_data, m, self.n_levels - 1, target)
+                    self._joint_training(data, m, self.n_levels - 1, target)
 
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
@@ -188,7 +193,13 @@ class WDN(nn.Module):
                 continue
 
             model = self.train_new_network(data, level=0, target=target)
-            new_models.append(model)
-            encoded_data = model.encode(data)
-            self._joint_training(encoded_data, model, self.n_levels - 1, target)
-        # self.models += new_models
+            self.models.append(model)
+            self._joint_training(data, model, self.n_levels - 1, target)
+            #
+            # plt.imshow(model.original_data, cmap='gray')
+            # plt.show()
+            #
+            # plt.imshow(model.encoded_data, cmap='gray')
+            # plt.show()
+            # test = 0
+

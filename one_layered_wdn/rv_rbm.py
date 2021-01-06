@@ -30,7 +30,7 @@ class RV_RBM():
 
         self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
         nn.init.xavier_normal_(self.weights, weight_variance)
-        # nn.init.xavier_normal_(self.weights, 0.7)
+        # nn.init.xavier_normal_(self.weights, 5)
 
         self.visible_bias = torch.zeros(num_visible)
         # self.visible_bias = torch.ones(num_visible)
@@ -53,14 +53,14 @@ class RV_RBM():
 
     def sample_hidden(self, visible_activations):
         # Visible layer activation
-        hidden_probabilities = self.act_prob(torch.matmul(visible_activations, self.weights) + self.hidden_bias)
+        hidden_probabilities = torch.matmul(visible_activations, self.weights) + self.hidden_bias
         # Gibb's Sampling
-        hidden_activations = self.act(torch.sign(hidden_probabilities - self.rand(hidden_probabilities.shape)))
+        hidden_activations = self.act_prob(torch.sign(hidden_probabilities - self.rand(hidden_probabilities.shape)))
         return hidden_activations
 
     def sample_visible(self, hidden_activations):
-        visible_probabilities = self.act_prob(torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias)
-        visible_activations = self.act(
+        visible_probabilities = torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias
+        visible_activations = self.act_prob(
             torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
         return visible_activations
 
@@ -94,14 +94,14 @@ class RV_RBM():
             if update_weights:
                 CD = (positive_grad - negative_grad)
 
-                self.weights_momentum *= self.momentum_coefficient
-                self.weights_momentum += CD
+                self.weights_momentum = self.weights_momentum * self.momentum_coefficient
+                self.weights_momentum = self.weights_momentum + CD
 
-                self.visible_bias_momentum *= self.momentum_coefficient
-                self.visible_bias_momentum += torch.sum(recon_error, dim=0)
+                self.visible_bias_momentum = self.visible_bias_momentum * self.momentum_coefficient
+                self.visible_bias_momentum = self.visible_bias_momentum + torch.sum(recon_error, dim=0)
 
-                self.hidden_bias_momentum *= self.momentum_coefficient
-                self.hidden_bias_momentum += torch.sum(h0 - h1, dim=0)
+                self.hidden_bias_momentum = self.hidden_bias_momentum * self.momentum_coefficient
+                self.hidden_bias_momentum = self.hidden_bias_momentum + torch.sum(h0 - h1, dim=0)
 
                 self.weights = self.weights + (self.weights_momentum * self.lr / batch_size)
                 self.visible_bias = self.visible_bias + (self.visible_bias_momentum * self.lr / batch_size)

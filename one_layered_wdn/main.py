@@ -169,7 +169,7 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         train_classifier(big_cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, [])
 
     for cluster_id in range(n_clusters):
-    # for cluster_id in range(8, 9):
+        # for cluster_id in range(8, 9):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
         for i in range(len(train_predictions)):
@@ -194,7 +194,7 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
                                                                   )
 
         if cluster_id in low_performance_clusters:
-        # if True:
+            # if True:
             # test = 0
             predict_classifier(big_cnnc, cluster_cnn_test_dataloader, accuracies)
         else:
@@ -231,7 +231,9 @@ if __name__ == "__main__":
         'rbm_learning_rate': rbm_learning_rate,
         'rbm_activation': rbm_activation,
 
-        'min_familiarity_threshold': min_familiarity_threshold
+        'min_familiarity_threshold': min_familiarity_threshold,
+
+        'log_interval': 1
 
     }
 
@@ -240,11 +242,14 @@ if __name__ == "__main__":
     for i in range(10):
         # for i in [5]:
         print("Training digit: ", i)
-        subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
-        subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
-        model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=node_train_batch_size,
-                                                         shuffle=False,
-                                                         sampler=SubsetRandomSampler(subset_indices))
+        # subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
+        # subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
+        model.train_loader = torch.utils.data.DataLoader(
+            train_data,
+            batch_size=node_train_batch_size,
+            shuffle=True,
+            # sampler=SubsetRandomSampler(subset_indices)
+        )
         model.joint_training()
 
     # exit(0)

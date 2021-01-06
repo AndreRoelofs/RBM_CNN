@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import numpy as np
+from torch.nn import functional as F
 
 
 class Encoder(nn.Module):
@@ -23,3 +24,6 @@ class Encoder(nn.Module):
     def forward(self, x):
         x = self.act(self.conv1(x))
         return x
+
+    def loss_function(self, x, recon_x):
+        return F.mse_loss(x, recon_x)

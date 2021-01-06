@@ -46,11 +46,7 @@ def calculate_latent_vector(model, node, data, depth, latent_vector):
     lower_level_regions = model.divide_data_in_five(data)
     for region in lower_level_regions:
         for child_node in node.child_networks:
-            if depth > 1:
-                familiar, encoded_region = model.is_familiar(child_node, region, provide_encoding=True)
-                calculate_latent_vector(model, child_node, encoded_region, depth - 1, latent_vector)
-            else:
-                calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
+            calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
 
 
 def convert_images_to_latent_vector(images, model):
@@ -65,19 +61,11 @@ def convert_images_to_latent_vector(images, model):
     labels = []
     for batch_idx, (data, target) in enumerate(data_loader):
         data = data.to(model.device)
-        # print(target)
         latent_vector = []
         for node in model.models:
-            if model.n_levels > 1:
-                familiar, encoded_data = model.is_familiar(node, data, provide_encoding=True)
-                calculate_latent_vector(model, node, encoded_data, model.n_levels - 1, latent_vector)
-            else:
-                values, familiar = model.is_familiar(node, data, provide_value=True)
-                values = values.cpu().detach().numpy()
-                latent_vector.append(values)
-
-        # print(level_act_counter)
-        # return None
+            values, familiar = model.is_familiar(node, data, provide_value=True)
+            values = values.cpu().detach().numpy()
+            latent_vector.append(values)
         latent_vector = np.array(latent_vector)
         target_labels = target.cpu().detach().numpy()
         for i in range(classifier_training_batch_size):
