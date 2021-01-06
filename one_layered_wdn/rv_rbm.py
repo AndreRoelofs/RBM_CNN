@@ -1,134 +1,45 @@
 import torch
 from torch import nn
 import numpy as np
+from torch.nn import functional as F
+from torch.autograd import Variable
 
+class RV_RBM(nn.Module):
+    def __init__(self,
+                 n_vis=784,
+                 n_hin=500,
+                 k=10):
+        super(RV_RBM, self).__init__()
+        self.W = nn.Parameter(torch.randn(n_hin, n_vis).cuda() * 1e-2)
+        self.v_bias = nn.Parameter(torch.zeros(n_vis).cuda())
+        self.h_bias = nn.Parameter(torch.ones(n_hin).cuda())
+        self.k = k
 
-# Real valued RBM using Rectified Linear Units
-class RV_RBM():
-    lowest_energy = 10000
-    highest_energy = -10000
-    energy_threshold = None
+    def sample_from_p(self, p):
+        return F.relu(torch.sign(p - Variable(torch.rand(p.size()).cuda())))
 
-    def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
-                 weight_variance=10.0,
-                 use_cuda=True, use_relu=True):
-        self.num_visible = num_visible
-        self.num_hidden = num_hidden
-        self.lr = learning_rate
-        self.momentum_coefficient = momentum_coefficient
-        self.weight_decay = weight_decay
-        self.use_cuda = use_cuda
+    def v_to_h(self, v):
+        p_h = F.sigmoid(F.linear(v, self.W, self.h_bias))
+        sample_h = self.sample_from_p(p_h)
+        return p_h, sample_h
 
-        if use_relu:
-            self.act = nn.ReLU()
-            self.act_prob = nn.Sigmoid()
-            self.rand = self.random_relu_noise
-        else:
-            self.act = nn.SELU()
-            self.act_prob = nn.Tanh()
-            self.rand = self.random_selu_noise
+    def h_to_v(self, h):
+        p_v = F.sigmoid(F.linear(h, self.W.t(), self.v_bias))
+        sample_v = self.sample_from_p(p_v)
+        return p_v, sample_v
 
-        self.weights = torch.zeros((self.num_visible, self.num_hidden), dtype=torch.float)
-        nn.init.xavier_normal_(self.weights, weight_variance)
-        # nn.init.xavier_normal_(self.weights, 5)
+    def forward(self, v):
+        pre_h1, h1 = self.v_to_h(v)
 
-        self.visible_bias = torch.zeros(num_visible)
-        # self.visible_bias = torch.ones(num_visible)
-        # self.hidden_bias = torch.ones(num_hidden)
-        self.hidden_bias = torch.zeros(num_hidden)
+        h_ = h1
+        for _ in range(self.k):
+            pre_v_, v_ = self.h_to_v(h_)
+            pre_h_, h_ = self.v_to_h(v_)
 
-        self.weights_momentum = torch.zeros(num_visible, num_hidden)
-        self.visible_bias_momentum = torch.zeros(num_visible)
-        self.hidden_bias_momentum = torch.zeros(num_hidden)
+        return v_
 
-        if self.use_cuda:
-            self.device = torch.device("cuda")
-            self.weights = self.weights.cuda()
-            self.visible_bias = self.visible_bias.cuda()
-            self.hidden_bias = self.hidden_bias.cuda()
-
-            self.weights_momentum = self.weights_momentum.cuda()
-            self.visible_bias_momentum = self.visible_bias_momentum.cuda()
-            self.hidden_bias_momentum = self.hidden_bias_momentum.cuda()
-
-    def sample_hidden(self, visible_activations):
-        # Visible layer activation
-        hidden_probabilities = torch.matmul(visible_activations, self.weights) + self.hidden_bias
-        # Gibb's Sampling
-        hidden_activations = self.act_prob(torch.sign(hidden_probabilities - self.rand(hidden_probabilities.shape)))
-        return hidden_activations
-
-    def sample_visible(self, hidden_activations):
-        visible_probabilities = torch.matmul(hidden_activations, self.weights.t()) + self.visible_bias
-        visible_activations = self.act_prob(
-            torch.sign(visible_probabilities - self.rand(visible_probabilities.shape).cuda()))
-        return visible_activations
-
-    def is_familiar(self, v0, provide_value=True):
-        if self.energy_threshold is None:
-            return 0
-        energy = self.free_energy(v0)
-
-        if torch.isinf(energy).any():
-            print("Infinite energy")
-            exit(1)
-
-        if provide_value:
-            # return torch.where(self.energy_threshold >= energy, 1, 0)
-            return self.energy_threshold - energy, torch.where(self.energy_threshold >= energy, 1, 0)
-        else:
-            return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
-
-    def contrastive_divergence(self, v0, update_weights=True):
-        batch_size = v0.shape[0]
-
-        for i in range(1):
-            h0 = self.sample_hidden(v0)
-            v1 = self.sample_visible(h0)
-            h1 = self.act_prob(torch.matmul(v1, self.weights) + self.hidden_bias)
-
-            positive_grad = torch.matmul(v0.t(), h0)
-            negative_grad = torch.matmul(v1.t(), h1)
-            recon_error = v0 - v1
-            recon_error_sum = torch.mean(recon_error ** 2, dim=1)
-            if update_weights:
-                CD = (positive_grad - negative_grad)
-
-                self.weights_momentum = self.weights_momentum * self.momentum_coefficient
-                self.weights_momentum = self.weights_momentum + CD
-
-                self.visible_bias_momentum = self.visible_bias_momentum * self.momentum_coefficient
-                self.visible_bias_momentum = self.visible_bias_momentum + torch.sum(recon_error, dim=0)
-
-                self.hidden_bias_momentum = self.hidden_bias_momentum * self.momentum_coefficient
-                self.hidden_bias_momentum = self.hidden_bias_momentum + torch.sum(h0 - h1, dim=0)
-
-                self.weights = self.weights + (self.weights_momentum * self.lr / batch_size)
-                self.visible_bias = self.visible_bias + (self.visible_bias_momentum * self.lr / batch_size)
-                self.hidden_bias = self.hidden_bias + (self.hidden_bias_momentum * self.lr / batch_size)
-
-                self.weights = self.weights - (self.weights * self.weight_decay)  # L2 weight decay
-
-        return recon_error_sum
-
-    def calculate_energy_threshold(self, v0):
-        energy = self.free_energy(v0)
-        # self.lowest_energy = min(energy.min(), self.lowest_energy)
-        # self.highest_energy = max(energy.max(), self.highest_energy)
-        self.lowest_energy = energy.min()
-        self.highest_energy = energy.max()
-        self.energy_threshold = (self.highest_energy + self.lowest_energy) / 2
-
-    def free_energy(self, input_data):
-        wx_b = torch.mm(input_data, self.weights) + self.hidden_bias
-        vbias_term = torch.sum(input_data * self.visible_bias, axis=1)
-        hidden_term = torch.sum(torch.log(1 + torch.exp(torch.clamp(wx_b, -88, 88))), axis=1)
-
-        energy = -hidden_term - vbias_term
-        return energy
-
-    def random_selu_noise(self, shape):
-        return (-2 * torch.rand(shape) + 1).cuda()
-
-    def random_relu_noise(self, shape):
-        return torch.rand(shape).cuda()
+    def free_energy(self, v):
+        vbias_term = v.mv(self.v_bias)
+        wx_b = F.linear(v, self.W, self.h_bias)
+        hidden_term = wx_b.exp().add(1).log().sum(1)
+        return (-hidden_term - vbias_term).mean()
