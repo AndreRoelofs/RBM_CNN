@@ -263,31 +263,41 @@ if __name__ == "__main__":
     print("Convert test images to latent vectors")
     test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
 
-    exit(1)
-
-    train_features = np.load('3_level_train_features.npy')
-    train_labels = np.load('3_level_train_labels.npy')
-    test_features = np.load('3_level_test_features.npy')
-    test_labels = np.load('3_level_test_labels.npy')
-    cluster_ids_x = np.load("3_level_train_clusters.npy")
-    cluster_ids_y = np.load("3_level_test_clusters.npy")
-
-    n_clusters = 40
-    print("Fit KNN")
-    cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+    print("Fitting SVM")
+    # svc = LinearSVC(max_iter=10000, loss='hinge', random_state=0)
+    svc = SVC(cache_size=32768, tol=1e-10, kernel='linear')
+    svc.fit(train_features, train_labels)
+    print("Predicting SVM")
+    predictions = svc.predict(train_features)
+    print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
+    predictions = svc.predict(test_features)
+    print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
 
 
-    print("Train predictor")
-    calculate_average_accuracy_over_clusters(cluster_ids_x, cluster_ids_y, n_clusters)
-
-    test_bins = np.zeros((n_clusters, 10))
-    for i in range(len(cluster_ids_y)):
-        cluster = cluster_ids_y[i]
-        test_bins[cluster][int(test_labels[i])] += 1
-    bin_counter = 0
-    for bin in test_bins:
-        print(bin_counter, np.array(bin, dtype=np.int))
-        bin_counter += 1
+    #
+    # # train_features = np.load('3_level_train_features.npy')
+    # # train_labels = np.load('3_level_train_labels.npy')
+    # # test_features = np.load('3_level_test_features.npy')
+    # # test_labels = np.load('3_level_test_labels.npy')
+    # # cluster_ids_x = np.load("3_level_train_clusters.npy")
+    # # cluster_ids_y = np.load("3_level_test_clusters.npy")
+    #
+    # n_clusters = 40
+    # print("Fit KNN")
+    # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+    #
+    #
+    # print("Train predictor")
+    # calculate_average_accuracy_over_clusters(cluster_ids_x, cluster_ids_y, n_clusters)
+    #
+    # test_bins = np.zeros((n_clusters, 10))
+    # for i in range(len(cluster_ids_y)):
+    #     cluster = cluster_ids_y[i]
+    #     test_bins[cluster][int(test_labels[i])] += 1
+    # bin_counter = 0
+    # for bin in test_bins:
+    #     print(bin_counter, np.array(bin, dtype=np.int))
+    #     bin_counter += 1
 
     # np.save("3_level_train_features.npy", train_features)
     # np.save("3_level_train_labels.npy", train_labels)

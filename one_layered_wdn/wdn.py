@@ -32,6 +32,7 @@ class WDN(nn.Module):
 
         self.n_levels = 3
         self.debug = False
+        self.models_total = 0
 
     def create_new_model(self, level, target):
 
@@ -65,6 +66,19 @@ class WDN(nn.Module):
         new_size = max(new_size, 2)
 
         return five_crop(data, [new_size, new_size])
+
+    def _calculate_number_of_children(self, network):
+        if len(network.child_networks) == 0:
+            network.n_children = 1
+            return
+        for child_network in network.child_networks:
+            self._calculate_number_of_children(child_network)
+            network.n_children += child_network.n_children
+
+    def calculate_number_of_children(self):
+        for m in self.models:
+            self._calculate_number_of_children(m)
+            self.models_total += m.n_children
 
     def is_familiar(self, network, data, provide_value=False, provide_encoding=False):
         # Encode the image
@@ -164,7 +178,6 @@ class WDN(nn.Module):
 
             counter += 1
             if counter % self.model_settings['log_interval'] == 0:
-                print("______________")
                 print("Iteration: ", counter)
 
                 models_counter = np.zeros(self.n_levels, dtype=np.int)
@@ -188,6 +201,7 @@ class WDN(nn.Module):
 
                 for i in range(models_counter.shape[0]):
                     print("Level {}: {}".format(i + 1, models_counter[i]))
+                print("______________")
 
             n_familiar = 0
             for m in self.models:
@@ -204,13 +218,6 @@ class WDN(nn.Module):
             model = self.train_new_network(data, level=0, target=target)
             self.models.append(model)
             self._joint_training(data, model, self.n_levels - 1, target)
-            #
-            # plt.imshow(model.original_data, cmap='gray')
-            # plt.show()
-            #
-            # plt.imshow(model.encoded_data, cmap='gray')
-            # plt.show()
-            # test = 0
 
 
 def train_wdn(train_data, settings):
@@ -227,7 +234,28 @@ def train_wdn(train_data, settings):
             sampler=SubsetRandomSampler(subset_indices)
         )
         model.joint_training()
+    model.calculate_number_of_children()
+
+    models_counter = np.zeros(model.n_levels, dtype=np.int)
+    models_counter[0] = len(model.models)
+    for m_1 in model.models:
+        if model.n_levels == 1:
+            break
+        models_counter[1] += len(m_1.child_networks)
+        for m_2 in m_1.child_networks:
+            if model.n_levels == 2:
+                break
+            models_counter[2] += len(m_2.child_networks)
+            for m_3 in m_2.child_networks:
+                if model.n_levels == 3:
+                    break
+                models_counter[3] += len(m_3.child_networks)
+                for m_4 in m_3.child_networks:
+                    if model.n_levels == 4:
+                        break
+                    models_counter[4] += len(m_4.child_networks)
+
+    for i in range(models_counter.shape[0]):
+        print("Level {}: {}".format(i + 1, models_counter[i]))
 
     return model
-
-

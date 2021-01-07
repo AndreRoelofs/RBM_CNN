@@ -24,6 +24,7 @@ class Node(nn.Module):
         self.child_networks = []
         self.level = level
         self.target = None
+        self.n_children = 0
 
 
     def encode(self, x):
