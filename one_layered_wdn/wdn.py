@@ -5,6 +5,7 @@ from torchvision.transforms.functional import resize, crop, rotate, affine, cent
     hflip
 import matplotlib.pyplot as plt
 import numpy as np
+from torch.utils.data.sampler import SubsetRandomSampler
 from one_layered_wdn.node import Node
 from one_layered_wdn.helpers import *
 
@@ -19,15 +20,17 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 0.1,
-             'rbm_hidden_units': 25, 'rbm_learning_rate': 1e-3, 'n_training': 2},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 20.0,
-             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-3, 'n_training': 2},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 10.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'n_training': 2},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
+             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 5.0,
+             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 2.0,
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
-        self.n_levels = 1
+        self.n_levels = 3
         self.debug = False
 
     def create_new_model(self, level, target):
@@ -67,7 +70,8 @@ class WDN(nn.Module):
         # Encode the image
         rbm_input = network.encode(data)
         # Flatten input for RBM
-        flat_rbm_input = rbm_input.view(len(rbm_input), (self.levels[network.level]['rbm_visible_units'] ** 2) * self.levels[network.level]['encoder_channels'])
+        flat_rbm_input = rbm_input.view(len(rbm_input), (self.levels[network.level]['rbm_visible_units'] ** 2) *
+                                        self.levels[network.level]['encoder_channels'])
 
         if provide_encoding:
             return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value), rbm_input
@@ -78,29 +82,33 @@ class WDN(nn.Module):
         network = self.create_new_model(level, target)
         network.train()
 
-        encoder_optimizer = torch.optim.Adam(network.encoder.parameters(), lr=1e-3)
-        rbm_optimizer = torch.optim.SGD(network.rbm.parameters(), lr=1e-1)
+        encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
+                                             lr=self.levels[network.level]['encoder_learning_rate'])
+        # rbm_optimizer = torch.optim.SGD(network.rbm.parameters(), lr=1e-1)
+        rbm_optimizer = torch.optim.Adam(network.rbm.parameters(), lr=self.levels[network.level]['rbm_learning_rate'])
         # plt.imshow(data[0].cpu().detach().numpy().reshape((28, 28)), cmap='gray')
         # plt.show()
-        # torch.autograd.set_detect_anomaly(True)
-        # for i in range(self.levels[level]['n_training']):
-        for i in range(1):
+        for i in range(self.levels[level]['n_training']):
             # Encode the image
             rbm_input = network.encode(data)
             # rbm_input = data
             # Flatten input for RBM
-            flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input), (self.levels[level]['rbm_visible_units'] ** 2) * self.levels[level]['encoder_channels'])
+            flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
+                                                             (self.levels[level]['rbm_visible_units'] ** 2) *
+                                                             self.levels[level]['encoder_channels'])
 
             # Train RBM
             rbm_output = network.rbm(flat_rbm_input)
-            encoder_loss = network.encoder.loss_function(rbm_input, rbm_output.detach().clone().reshape(rbm_input.shape))
+            encoder_loss = network.encoder.loss_function(rbm_input,
+                                                         rbm_output.detach().clone().reshape(rbm_input.shape))
             encoder_loss.backward()
             encoder_optimizer.step()
 
-            rbm_loss = network.rbm.free_energy(flat_rbm_input).mean() - network.rbm.free_energy(rbm_output).mean()
-            rbm_optimizer.zero_grad()
-            rbm_loss.backward()
-            rbm_optimizer.step()
+            if i == 0:
+                rbm_loss = network.rbm.free_energy(flat_rbm_input).mean() - network.rbm.free_energy(rbm_output).mean()
+                rbm_optimizer.zero_grad()
+                rbm_loss.backward()
+                rbm_optimizer.step()
 
             # Encode the image
 
@@ -109,7 +117,6 @@ class WDN(nn.Module):
             # plt.show()
             # plt.imshow(rbm_output.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
             # plt.show()
-
 
             network.rbm.calculate_energy_threshold(flat_rbm_input)
 
@@ -204,4 +211,23 @@ class WDN(nn.Module):
             # plt.imshow(model.encoded_data, cmap='gray')
             # plt.show()
             # test = 0
+
+
+def train_wdn(train_data, settings):
+    model = WDN(settings)
+
+    for i in range(10):
+        # for i in [5]:
+        print("Training digit: ", i)
+        subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
+        model.train_loader = torch.utils.data.DataLoader(
+            train_data,
+            batch_size=1,
+            shuffle=False,
+            sampler=SubsetRandomSampler(subset_indices)
+        )
+        model.joint_training()
+
+    return model
+
 

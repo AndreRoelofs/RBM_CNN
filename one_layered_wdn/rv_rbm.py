@@ -13,7 +13,7 @@ class RV_RBM(nn.Module):
                  n_vis,
                  n_hin,
                  weight_variance,
-                 k=2):
+                 k=1):
         super(RV_RBM, self).__init__()
         self.W = nn.Parameter(torch.zeros(n_hin, n_vis).cuda())
         self.v_bias = nn.Parameter(torch.zeros(n_vis).cuda())
@@ -41,12 +41,12 @@ class RV_RBM(nn.Module):
         return F.relu(torch.sign(p - Variable(torch.rand(p.size()).cuda())))
 
     def v_to_h(self, v):
-        p_h = F.sigmoid(F.linear(v, self.W, self.h_bias))
+        p_h = torch.sigmoid(F.linear(v, self.W, self.h_bias))
         sample_h = self.sample_from_p(p_h)
         return p_h, sample_h
 
     def h_to_v(self, h):
-        p_v = F.sigmoid(F.linear(h, self.W.t(), self.v_bias))
+        p_v = torch.sigmoid(F.linear(h, self.W.t(), self.v_bias))
         sample_v = self.sample_from_p(p_v)
         return p_v, sample_v
 

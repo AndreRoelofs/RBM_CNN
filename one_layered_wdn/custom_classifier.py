@@ -10,22 +10,16 @@ class FashionCNN(nn.Module):
         # self.device = torch.device("cpu")
         self.device = torch.device("cuda")
 
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3, padding=1)
-        self.conv8 = nn.Conv2d(in_channels=64, out_channels=32, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3)
 
-        self.act = nn.SELU()
-        self.max_pool = nn.MaxPool2d(kernel_size=2)
+        self.act = nn.ReLU()
+        self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        nn.init.xavier_normal_(self.conv1.weight, 40.0)
-        nn.init.xavier_normal_(self.conv2.weight, 20.0)
-        nn.init.xavier_normal_(self.conv8.weight, 10.0)
-
-        self.conv1_bn = nn.BatchNorm2d(128)
+        self.conv1_bn = nn.BatchNorm2d(32)
         self.conv2_bn = nn.BatchNorm2d(64)
-        self.conv8_bn = nn.BatchNorm2d(32)
 
-        self.fc1 = nn.Linear(in_features=32*(14**2), out_features=600)
+        self.fc1 = nn.Linear(in_features=64 * (6 ** 2), out_features=600)
         self.drop = nn.Dropout2d(0.25)
         self.fc2 = nn.Linear(in_features=600, out_features=120)
         self.fc3 = nn.Linear(in_features=120, out_features=10)
@@ -33,29 +27,23 @@ class FashionCNN(nn.Module):
         self.to(self.device)
 
     def forward(self, x):
-        # print(x.shape)
         x = self.conv1(x)
-        # x = self.conv1_bn(x)
-        x = self.act(x)
-        #
-        x = self.conv2(x)
-        # x = self.conv2_bn(x)
+        x = self.conv1_bn(x)
         x = self.act(x)
         x = self.max_pool(x)
 
-        x = self.conv8(x)
-        # x = self.conv8_bn(x)
+        x = self.conv2(x)
+        x = self.conv2_bn(x)
         x = self.act(x)
-        # x = self.max_pool(x)
+        x = self.max_pool(x)
 
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
         x = self.drop(x)
         x = self.fc2(x)
-        # x = self.drop(x)
         x = self.fc3(x)
 
-        return F.log_softmax(x, dim=1)
+        return x
 
     def loss_function(self, x, y):
         return F.cross_entropy(x, y)
