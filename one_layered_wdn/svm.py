@@ -13,6 +13,7 @@ from torch.autograd import Variable, gradcheck
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import f1_score
 from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import accuracy_score
 
 
 class Net(nn.Module):
@@ -96,8 +97,9 @@ def test(epoch, model, tst_loader, y_test_list):
     test_loss /= len(tst_loader.dataset)
     conf_mat = confusion_matrix(y_test_list, preds)
     precision, recall, f1, sup = precision_recall_fscore_support(y_test_list, preds, average='macro', zero_division=0)
+    accuracy = accuracy_score(y_test_list, preds)
     if (epoch + 1) % 25 == 0:
         print('Test set avg loss: {:.4f}'.format(test_loss))
         print('conf_mat:\n', conf_mat)
-        print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
-    return conf_mat, precision, recall, f1
+        print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\nAccuracy:{:.4f}'.format(precision, recall, f1, accuracy))
+    return conf_mat, precision, recall, f1, accuracy

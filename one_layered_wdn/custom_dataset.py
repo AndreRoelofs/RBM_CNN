@@ -3,8 +3,8 @@ from torch.utils.data import Dataset
 
 class UnsupervisedVectorDataset(Dataset):
     def __init__(self, features, labels):
-        self.features = torch.tensor(features, dtype=torch.float)
-        self.labels = torch.tensor(labels, dtype=torch.float)
+        self.features = features
+        self.labels = labels
 
     def __len__(self):
         return self.features.shape[0]
@@ -13,4 +13,4 @@ class UnsupervisedVectorDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        return [self.features[idx], self.labels[idx]]
+        return [torch.tensor(self.features[idx], dtype=torch.float), torch.tensor(self.labels[idx], dtype=torch.float)]

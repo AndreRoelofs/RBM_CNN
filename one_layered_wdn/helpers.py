@@ -63,9 +63,7 @@ def convert_images_to_latent_vector(images, model):
         data = data.to(model.device)
         latent_vector = []
         for node in model.models:
-            values, familiar = model.is_familiar(node, data, provide_value=True)
-            values = values.cpu().detach().numpy()
-            latent_vector.append(values)
+            calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector)
         latent_vector = np.array(latent_vector)
         target_labels = target.cpu().detach().numpy()
         for i in range(classifier_training_batch_size):

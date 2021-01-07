@@ -15,6 +15,8 @@ from sklearn import preprocessing
 from one_layered_wdn.custom_dataset import UnsupervisedVectorDataset
 from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier, predict_classifier, FashionCNN
 import one_layered_wdn.svm as svm
+from kmeans_pytorch import kmeans, kmeans_predict
+# import wandb
 
 # General
 config = None
@@ -153,23 +155,12 @@ def load_data():
 def calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters):
     np.random.seed(0)
     torch.manual_seed(0)
+    print(train_features.shape)
 
     accuracies = []
-    low_performance_clusters = [0, 4, 7, 10, 13, 15, 16, 17, 18]
-    low_performance_clusters = []
-    if len(low_performance_clusters) > 0:
-        cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data,
-                                                                   batch_size=100,
-                                                                   shuffle=True,
-                                                                   )
-        cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False,
-                                                                  )
-        big_cnnc = FashionCNN()
-        cnnc_optimizer = torch.optim.Adam(big_cnnc.parameters(), lr=1e-3, amsgrad=False)
-        train_classifier(big_cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, [])
 
     for cluster_id in range(n_clusters):
-        # for cluster_id in range(8, 9):
+    # for cluster_id in range(37, 38):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
         for i in range(len(train_predictions)):
@@ -178,30 +169,54 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
                 continue
             train_cluster_idx.append(i)
 
-        cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data,
-                                                                   batch_size=min(10, len(train_predictions)),
-                                                                   shuffle=False,
-                                                                   sampler=SubsetRandomSampler(train_cluster_idx),
-                                                                   )
+        train_dataset = UnsupervisedVectorDataset(train_features[train_cluster_idx], train_labels[train_cluster_idx])
+
+        cluster_cnn_train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=min(10, len(train_predictions)),
+            shuffle=False,
+        )
         test_cluster_idx = []
         for i in range(len(test_predictions)):
             cluster = test_predictions[i]
             if cluster != cluster_id:
                 continue
             test_cluster_idx.append(i)
-        cluster_cnn_test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False,
-                                                                  sampler=SubsetRandomSampler(test_cluster_idx),
-                                                                  )
 
-        if cluster_id in low_performance_clusters:
-            # if True:
-            # test = 0
-            predict_classifier(big_cnnc, cluster_cnn_test_dataloader, accuracies)
-        else:
-            cnnc = FashionCNN()
-            cnnc_optimizer = torch.optim.Adam(cnnc.parameters(), lr=1e-4, amsgrad=True)
-            train_classifier(cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader,
-                             accuracies)
+        test_dataset = UnsupervisedVectorDataset(test_features[test_cluster_idx], test_labels[test_cluster_idx])
+
+        cluster_cnn_test_dataloader = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=10,
+            shuffle=False,
+        )
+
+        custom_svm = svm.Net(train_features.shape[1], 10)
+        custom_svm.cuda()
+        # custom_svm_optimizer = torch.optim.ASGD(custom_svm.parameters(), lr=1e-1)
+        custom_svm_optimizer = torch.optim.Adam(custom_svm.parameters(), lr=1e-3)
+        custom_svm_loss = svm.multiClassHingeLoss()
+        best_epoch_idx = -1
+        best_accuracy = 0.
+        best_f1 = 0.
+        history = list()
+        for i in range(100):
+            svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, cluster_cnn_train_dataloader)
+            conf_mat, precision, recall, f1, accuracy = svm.test(i, custom_svm, cluster_cnn_test_dataloader,
+                                                                 test_labels[test_cluster_idx])
+            history.append((conf_mat, precision, recall, f1, accuracy))
+            # if f1 > best_f1:
+            if accuracy > best_accuracy:
+                best_f1 = f1
+                best_accuracy = accuracy
+                best_epoch_idx = i
+                # torch.save(custom_svm.state_dict(), 'best.model')
+
+        print('Best epoch:{}\n'.format(best_epoch_idx))
+        conf_mat, precision, recall, f1, accuracy = history[best_epoch_idx]
+        print('conf_mat:\n', conf_mat)
+        print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\nAccuracy:{:.4f}'.format(precision, recall, f1, accuracy))
+        accuracies.append(accuracy)
 
     print("Average accuracy over {} clusters is {}".format(n_clusters, np.mean(accuracies)))
     print(accuracies)
@@ -210,6 +225,8 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
 if __name__ == "__main__":
     torch.manual_seed(0)
     np.random.seed(0)
+
+    # wandb.init(project="wdn-v1")
 
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -258,32 +275,53 @@ if __name__ == "__main__":
     print("Converting test images to latent vectors")
     test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
     print("Creating dataset of images")
-    #
-    train_dataset = UnsupervisedVectorDataset(train_features, train_labels)
-    train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=False)
-    #
-    test_dataset = UnsupervisedVectorDataset(test_features, test_labels)
-    test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
-    #
-    print("Training classifier")
-    # fcnc = FullyConnectedClassifier(train_features.shape[1])
-    # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
-    # #
-    # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
-    kmeans_train_features = train_features
-    kmeans_train_labels = train_labels
 
-    kmeans_test_features = test_features
-    kmeans_test_labels = test_labels
-
+    device = torch.device('cuda:0')
+    # device = torch.device('cpu')
     n_clusters = 40
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=500, algorithm='elkan', n_jobs=-1).fit(
-        kmeans_train_features)
-    cluster_labels = kmeans.labels_
-    train_predictions = kmeans.predict(kmeans_train_features)
-    test_predictions = kmeans.predict(kmeans_test_features)
+    print("Fitting clusters")
 
-    calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters)
+    train_features_tensor = torch.tensor(train_features, dtype=torch.float)
+    train_labels_tensor = torch.tensor(train_labels, dtype=torch.int8)
+
+    test_features_tensor = torch.tensor(test_features, dtype=torch.float)
+    test_labels_tensor = torch.tensor(test_labels, dtype=torch.int8)
+
+    cluster_ids_x, cluster_centers = kmeans(
+        X=train_features_tensor, num_clusters=n_clusters, distance='euclidean', device=device
+    )
+    print("Predicting clusters")
+    cluster_ids_y = kmeans_predict(
+        test_features_tensor, cluster_centers, 'euclidean', device=device
+    )
+
+    calculate_average_accuracy_over_clusters(cluster_ids_x, cluster_ids_y, n_clusters)
+
+    # train_dataset = UnsupervisedVectorDataset(train_features, train_labels)
+    # train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=False)
+    # #
+    # test_dataset = UnsupervisedVectorDataset(test_features, test_labels)
+    # test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
+    # #
+    # print("Training classifier")
+    # # fcnc = FullyConnectedClassifier(train_features.shape[1])
+    # # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=True)
+    # # #
+    # # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader)
+    # kmeans_train_features = train_features
+    # kmeans_train_labels = train_labels
+    #
+    # kmeans_test_features = test_features
+    # kmeans_test_labels = test_labels
+    #
+    # n_clusters = 40
+    # kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=500, algorithm='elkan', n_jobs=-1).fit(
+    #     train_features)
+    # cluster_labels = kmeans.labels_
+    # train_predictions = kmeans.predict(train_features)
+    # test_predictions = kmeans.predict(test_features)
+    #
+    # calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters)
     #
     # bins = np.zeros((n_clusters, 10))
     # for i in range(len(train_predictions)):
@@ -296,9 +334,9 @@ if __name__ == "__main__":
     # print("_____________________")
     # #
     # test_bins = np.zeros((n_clusters, 10))
-    # for i in range(len(test_predictions)):
-    #     cluster = test_predictions[i]
-    #     test_bins[cluster][int(kmeans_test_labels[i])] += 1
+    # for i in range(len(cluster_ids_y)):
+    #     cluster = cluster_ids_y[i]
+    #     test_bins[cluster][int(test_labels[i])] += 1
     # bin_counter = 0
     # for bin in test_bins:
     #     print(bin_counter, np.array(bin, dtype=np.int))
@@ -308,26 +346,26 @@ if __name__ == "__main__":
     # #
     # # predictions = kmeans.predict(test_features)
     #
-    custom_svm = svm.Net(train_features.shape[1], 10)
-    custom_svm.cuda()
-    custom_svm_optimizer = torch.optim.SGD(custom_svm.parameters(), lr=1e-1)
-    custom_svm_loss = svm.multiClassHingeLoss()
-    best_epoch_idx = -1
-    best_f1 = 0.
-    history = list()
-    for i in range(90):
-        svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, train_dataset_loader)
-        conf_mat, precision, recall, f1 = svm.test(i, custom_svm, test_dataset_loader, test_labels)
-        history.append((conf_mat, precision, recall, f1))
-        if f1 > best_f1:  # save best model
-            best_f1 = f1
-            best_epoch_idx = i
-            # torch.save(custom_svm.state_dict(), 'best.model')
-
-    print('Best epoch:{}\n'.format(best_epoch_idx))
-    conf_mat, precision, recall, f1 = history[best_epoch_idx]
-    print('conf_mat:\n', conf_mat)
-    print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
+    # custom_svm = svm.Net(train_features.shape[1], 10)
+    # custom_svm.cuda()
+    # custom_svm_optimizer = torch.optim.SGD(custom_svm.parameters(), lr=1e-1)
+    # custom_svm_loss = svm.multiClassHingeLoss()
+    # best_epoch_idx = -1
+    # best_f1 = 0.
+    # history = list()
+    # for i in range(90):
+    #     svm.train(i, custom_svm, custom_svm_optimizer, custom_svm_loss, train_dataset_loader)
+    #     conf_mat, precision, recall, f1 = svm.test(i, custom_svm, test_dataset_loader, test_labels)
+    #     history.append((conf_mat, precision, recall, f1))
+    #     if f1 > best_f1:  # save best model
+    #         best_f1 = f1
+    #         best_epoch_idx = i
+    #         # torch.save(custom_svm.state_dict(), 'best.model')
+    #
+    # print('Best epoch:{}\n'.format(best_epoch_idx))
+    # conf_mat, precision, recall, f1 = history[best_epoch_idx]
+    # print('conf_mat:\n', conf_mat)
+    # print('Precison:{:.4f}\nRecall:{:.4f}\nf1:{:.4f}\n'.format(precision, recall, f1))
     #
     # #
     # # #
