@@ -73,17 +73,17 @@ def convert_images_to_latent_vector(images, model):
     # features = []
     for batch_idx, (data, target) in enumerate(data_loader):
         data = data.to(model.device)
+        # latent_vector = np.zeros((batch_size, model.models_total))
         latent_vector = []
         for node in model.models:
             familiar, values = calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector)
             if not familiar:
                 latent_vector += np.repeat(values, node.n_children).tolist()
 
-        # latent_vector = latent_vector
         target_labels = target.cpu().detach().numpy()
 
-        features[batch_idx] = latent_vector
-        labels[batch_idx] = target_labels[0]
+        features[batch_idx * batch_size:batch_idx * batch_size + batch_size] = latent_vector
+        labels[batch_idx * batch_size:batch_idx * batch_size + batch_size] = target_labels
         counter += 1
         if counter % 100 == 0:
             print("Latent conversion iteration: ", counter)

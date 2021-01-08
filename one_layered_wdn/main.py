@@ -170,8 +170,8 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         cnnc_optimizer = torch.optim.Adam(big_cnnc.parameters(), lr=1e-3, amsgrad=False)
         train_classifier(big_cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, [])
 
-    # for cluster_id in range(n_clusters):
-    for cluster_id in range(1, 2):
+    for cluster_id in range(n_clusters):
+    # for cluster_id in range(1, 2):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
         for i in range(len(train_predictions)):
@@ -222,7 +222,6 @@ def train_knn(train_features, test_features, n_clusters):
     return cluster_ids_x, cluster_ids_y
 
 
-
 if __name__ == "__main__":
     torch.manual_seed(0)
     np.random.seed(0)
@@ -263,18 +262,16 @@ if __name__ == "__main__":
     print("Convert test images to latent vectors")
     test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
 
-    print("Fitting SVM")
-    # svc = LinearSVC(max_iter=10000, loss='hinge', random_state=0)
-    svc = SVC(cache_size=32768, tol=1e-10, kernel='linear')
-    svc.fit(train_features, train_labels)
-    print("Predicting SVM")
-    predictions = svc.predict(train_features)
-    print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
-    predictions = svc.predict(test_features)
-    print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
+    # print("Fitting SVM")
+    # # svc = LinearSVC(max_iter=10000, loss='hinge', random_state=0)
+    # svc = SVC(cache_size=32768, tol=1e-3, kernel='linear', random_state=0)
+    # svc.fit(train_features, train_labels)
+    # print("Predicting SVM")
+    # predictions = svc.predict(train_features)
+    # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
+    # predictions = svc.predict(test_features)
+    # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
 
-
-    #
     # # train_features = np.load('3_level_train_features.npy')
     # # train_labels = np.load('3_level_train_labels.npy')
     # # test_features = np.load('3_level_test_features.npy')
@@ -286,9 +283,30 @@ if __name__ == "__main__":
     # print("Fit KNN")
     # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
     #
-    #
     # print("Train predictor")
     # calculate_average_accuracy_over_clusters(cluster_ids_x, cluster_ids_y, n_clusters)
+    #
+    # print("Creating dataset of images")
+    # train_dataset = UnsupervisedVectorDataset(train_features, train_labels)
+    # train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=False)
+    # #
+    # test_dataset = UnsupervisedVectorDataset(test_features, test_labels)
+    # test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
+    #
+    # print("Training classifier")
+    # fcnc = FullyConnectedClassifier(train_features.shape[1], 10)
+    # fcnc_optimizer = torch.optim.Adam(fcnc.parameters(), lr=1e-3, amsgrad=False)
+    # #
+    # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader, [])
+
+    # train_bins = np.zeros((n_clusters, 10))
+    # for i in range(len(cluster_ids_x)):
+    #     cluster = cluster_ids_x[i]
+    #     train_bins[cluster][int(train_labels[i])] += 1
+    # bin_counter = 0
+    # for bin in train_bins:
+    #     print(bin_counter, np.array(bin, dtype=np.int))
+    #     bin_counter += 1
     #
     # test_bins = np.zeros((n_clusters, 10))
     # for i in range(len(cluster_ids_y)):
