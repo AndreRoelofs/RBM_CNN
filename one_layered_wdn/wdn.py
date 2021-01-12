@@ -30,7 +30,7 @@ class WDN(nn.Module):
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
-        self.n_levels = 4
+        self.n_levels = 2
         self.debug = False
         self.models_total = 0
 

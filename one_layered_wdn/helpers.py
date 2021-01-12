@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from sklearn import preprocessing
+import copy
 
 import itertools
 import operator
@@ -36,27 +37,41 @@ def most_common(L):
     # pick the highest-count/earliest item
     return max(groups, key=_auxfun)[0]
 
-def calculate_latent_vector(model, node, data, depth, latent_vector):
+def test(node, values, latent_vector, latent_vector_id, mask, depth):
+    for i in range(mask.shape[0]):
+        if mask[i] == False or depth == 0:
+            latent_vector[i][latent_vector_id:latent_vector_id+node.n_children] = np.repeat(values[i], node.n_children)
+
+
+def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vector_id, parent_mask=None):
     values, familiar = model.is_familiar(node, data, provide_value=True)
     values = values.cpu().detach().numpy()
-    if familiar == 0:
-        return familiar, values
-    if depth == 0:
-        latent_vector += np.repeat(values, node.n_children).tolist()
-        return torch.ones_like(familiar), values
+    unfamiliar_mask = familiar.eq(0)
+    if parent_mask is not None:
+        unfamiliar_mask = torch.where(parent_mask == False, torch.tensor(False, dtype=torch.bool).cuda(), unfamiliar_mask)
+    # else:
+    #     parent_mask = copy.deepcopy(unfamiliar_mask)
+    if (familiar == False).all():
+        return values, familiar
+    test(node, values, latent_vector, latent_vector_id, unfamiliar_mask, depth)
+
+    # data = data[familiar_mask, :]
     lower_level_regions = model.divide_data_in_five(data)
+    child_unfamiliarity_mask = torch.zeros(data.shape[0], dtype=torch.bool)
     for child_node in node.child_networks:
         is_region_familiar = False
         for region in lower_level_regions:
-            is_familiar, child_values = calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
-            if is_familiar:
+            child_values, is_familiar = calculate_latent_vector(model, child_node, region, depth - 1, latent_vector, latent_vector_id, unfamiliar_mask)
+            child_unfamiliarity_mask[is_familiar == False] = torch.tensor(False, dtype=torch.bool)
+            if (is_familiar == True).all():
                 is_region_familiar = True
                 break
         if not is_region_familiar:
+            test(child_node, child_values, latent_vector, latent_vector_id, child_unfamiliarity_mask, depth)
             # latent_vector += np.repeat(child_values, child_node.n_children).tolist()
-            latent_vector += np.repeat(child_values, child_node.n_children).tolist()
+            # latent_vector += np.repeat(child_values, child_node.n_children).tolist()
 
-    return torch.ones_like(familiar), values
+    return values, torch.ones_like(familiar)
 
 
 def convert_images_to_latent_vector(images, model):
@@ -66,26 +81,29 @@ def convert_images_to_latent_vector(images, model):
     n_data = images.data.shape[0]
     batch_size = 2
     # classifier_training_batch_size = 1
-    data_loader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=False)
+    data_loader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=True)
     counter = 0
     features = np.zeros((n_data, model.models_total))
     labels = np.zeros(n_data)
     # features = []
     for batch_idx, (data, target) in enumerate(data_loader):
+        # counter += 1
+        # if counter < 4:
+        #     continue
         data = data.to(model.device)
         latent_vector = np.zeros((batch_size, model.models_total))
         # latent_vector = []
         latent_vector_id = 0
         for node in model.models:
-            familiar, values = calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector)
+            values, familiar = calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector, latent_vector_id)
             # if not familiar:
             #     latent_vector += np.repeat(values, node.n_children).tolist()
-
-            for i in range(data.shape[0]):
-                f = familiar[i]
-                if f == 0:
-                    latent_vector[i][latent_vector_id:latent_vector_id+node.n_children] = np.repeat(values, node.n_children)
-            latent_vector_id += node.n_childrenZz
+            test(node, values, latent_vector, latent_vector_id, familiar.eq(0), model.n_levels)
+            # unfamiliar_values = np.repeat(values, node.n_children)
+            # for i in range(data.shape[0]):
+            #     if familiar[i] == 0:
+            #         latent_vector[i][latent_vector_id:latent_vector_id+node.n_children] = unfamiliar_values
+            latent_vector_id += node.n_children
 
 
         target_labels = target.cpu().detach().numpy()
