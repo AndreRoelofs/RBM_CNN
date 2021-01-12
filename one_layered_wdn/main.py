@@ -18,9 +18,8 @@ import one_layered_wdn.svm as svm
 from torch import nn
 from kmeans_pytorch import kmeans, kmeans_predict
 import copy
-import wandb
-
 # import wandb
+
 
 # General
 config = None
@@ -315,7 +314,7 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     np.random.seed(0)
 
-    wandb.init(project="wdn-v1")
+    # wandb.init(project="wdn-v1")
 
     # config = wandb.config
 
