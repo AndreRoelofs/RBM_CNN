@@ -177,8 +177,8 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         for param in big_cnnc.parameters():
             param.requires_grad = False
 
-    for cluster_id in range(n_clusters):
-    # for cluster_id in range(16, 17):
+    # for cluster_id in range(n_clusters):
+    for cluster_id in range(6, 7):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
         for i in range(len(train_predictions)):
@@ -189,7 +189,7 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
 
         cluster_cnn_train_dataloader = torch.utils.data.DataLoader(
             train_data,
-            batch_size=min(100, len(train_cluster_idx)),
+            batch_size=min(500, len(train_cluster_idx)),
             # batch_size=len(train_cluster_idx),
             shuffle=False,
             sampler=SubsetRandomSampler(train_cluster_idx)
@@ -212,8 +212,8 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         big_cnnc_clone = FashionCNN()
         big_cnnc_clone.load_state_dict(copy.deepcopy(big_cnnc.state_dict()))
 
-        # for p in big_cnnc_clone.parameters():
-        #     p.requires_grad = False
+        for p in big_cnnc_clone.parameters():
+            p.requires_grad = True
 
         # for p in big_cnnc_clone.conv1.parameters():
         #     p.requires_grad = True
@@ -243,19 +243,15 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         #
         # for p in big_cnnc_clone.fc3.parameters():
         #     p.requires_grad = True
-        #
-        # for p in big_cnnc_clone.fc4.parameters():
-        #     p.requires_grad = True
 
         # big_cnnc_clone.fc3 = nn.Linear(big_cnnc_clone.fc3.in_features, big_cnnc_clone.fc3.out_features).cuda()
 
         cnnc_optimizer = torch.optim.Adam(big_cnnc_clone.parameters(), lr=1e-4, amsgrad=False)
         # cnnc_optimizer = torch.optim.SGD(big_cnnc_clone.parameters(), lr=1e-3)
-        train_classifier(big_cnnc_clone, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, accuracies, 5)
+        train_classifier(big_cnnc_clone, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, accuracies, 10)
         print("General Classifier:")
         predict_classifier(big_cnnc, cluster_cnn_test_dataloader, [])
 
-        big_cnnc_clone.cpu()
         del big_cnnc_clone
 
     print("Average accuracy over {} clusters is {}".format(n_clusters, np.sum(accuracies)))
@@ -374,15 +370,15 @@ if __name__ == "__main__":
     test_features = np.load('3_level_test_features.npy')
     test_labels = np.load('3_level_test_labels.npy')
 
-    n_clusters = 10
+    n_clusters = 20
     # print("Fit KNN")
     # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
     #
-    # np.save("3_level_train_clusters_10_cosine.npy", cluster_ids_x)
-    # np.save("3_level_test_clusters_10_cosine.npy", cluster_ids_y)
+    # np.save("3_level_train_clusters_20_cosine.npy", cluster_ids_x)
+    # np.save("3_level_test_clusters_20_cosine.npy", cluster_ids_y)
 
-    cluster_ids_x = np.load("3_level_train_clusters_10_cosine.npy")
-    cluster_ids_y = np.load("3_level_test_clusters_10_cosine.npy")
+    cluster_ids_x = np.load("3_level_train_clusters_20_cosine.npy")
+    cluster_ids_y = np.load("3_level_test_clusters_20.cosine.npy")
     print("Train predictor")
     calculate_average_accuracy_over_clusters(cluster_ids_x, cluster_ids_y, n_clusters)
     #

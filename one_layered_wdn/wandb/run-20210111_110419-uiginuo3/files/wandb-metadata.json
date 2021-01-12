@@ -1,0 +1,24 @@
+{
+    "os": "Linux-5.4.0-58-generic-x86_64-with-glibc2.29",
+    "python": "3.8.5",
+    "heartbeatAt": "2021-01-11T10:04:19.884791",
+    "startedAt": "2021-01-11T10:04:19.016005",
+    "docker": null,
+    "gpu": "GeForce GTX 1080 Ti",
+    "gpu_count": 1,
+    "cpu_count": 8,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "codePath": "one_layered_wdn/main.py",
+    "program": "/home/andre/Documents/projects/RBM_CNN/one_layered_wdn/main.py",
+    "git": {
+        "remote": "https://github.com/AndreRoelofs/RBM_CNN.git",
+        "commit": "f0a14085560267423e38c86e38b3d6b346f91877"
+    },
+    "email": "p.arroelofs@gmail.com",
+    "root": "/home/andre/Documents/projects/RBM_CNN",
+    "host": "andre-pc",
+    "username": "andre",
+    "executable": "/home/andre/Documents/projects/RBM_CNN/venv/bin/python"
+}
