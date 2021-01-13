@@ -291,3 +291,5 @@ wandb-debug.log
 __pycache__
 .ipynb_checkpoints
 .DS_Store
+
+random_erasing/
