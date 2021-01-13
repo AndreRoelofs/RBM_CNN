@@ -123,14 +123,16 @@ def load_data():
         train_data = FashionMNIST(data_path, train=True, download=True,
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
+                                      transforms.Normalize((0.1307,), (0.3081,)),
                                       # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                                      transforms.Resize((image_input_size, image_input_size)),
+                                      # transforms.Resize((image_input_size, image_input_size)),
                                   ]))
 
         test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            transforms.Resize((image_input_size, image_input_size)),
+            # transforms.Resize((image_input_size, image_input_size)),
         ]))
     if general_settings['Dataset'] == CIFAR10_DATASET:
         train_data = CIFAR10(data_path, train=True, download=True,
@@ -165,6 +167,7 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
 
     accuracies = []
     if big_cnnc is None:
+    # if True:
         cluster_cnn_train_dataloader = torch.utils.data.DataLoader(train_data,
                                                                    batch_size=100,
                                                                    shuffle=True,
@@ -173,9 +176,11 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
                                                                   )
         big_cnnc = FashionCNN()
         cnnc_optimizer = torch.optim.Adam(big_cnnc.parameters(), lr=1e-3, amsgrad=False)
-        train_classifier(big_cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, [], 10)
+        train_classifier(big_cnnc, cnnc_optimizer, cluster_cnn_train_dataloader, cluster_cnn_test_dataloader, [], 5)
         for param in big_cnnc.parameters():
             param.requires_grad = False
+        del cluster_cnn_train_dataloader
+        del cluster_cnn_test_dataloader
 
     for cluster_id in range(n_clusters):
         # for cluster_id in range(16, 17):
@@ -219,6 +224,8 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
 
         big_cnnc_clone.cpu()
         del big_cnnc_clone
+        del cluster_cnn_train_dataloader
+        del cluster_cnn_test_dataloader
 
     print("Average accuracy over {} clusters is {}".format(n_clusters, np.sum(accuracies)))
     print(accuracies)
@@ -307,12 +314,14 @@ if __name__ == "__main__":
         'log_interval': 50
 
     }
-    print("Train WDN")
-    model = train_wdn(train_data, wdn_settings)
+    # print("Train WDN")
+    # model = train_wdn(train_data, wdn_settings)
     #
-    print("Convert train images to latent vectors")
-    train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
-    exit(1)
+    # print("Convert train images to latent vectors")
+    # old_train_features = np.load('old_train_features.npy')
+    # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+    # print(old_train_features[0], train_features[0])
+    # print(old_train_features[0] == train_features[0])
     # print("Convert test images to latent vectors")
     # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
     # device = torch.device('cuda:0')
