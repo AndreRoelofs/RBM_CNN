@@ -182,8 +182,8 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
         del cluster_cnn_train_dataloader
         del cluster_cnn_test_dataloader
 
-    for cluster_id in range(n_clusters):
-        # for cluster_id in range(16, 17):
+    # for cluster_id in range(n_clusters):
+    for cluster_id in range(0, 1):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
         for i in range(len(train_predictions)):
@@ -192,9 +192,17 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
                 continue
             train_cluster_idx.append(i)
 
+
+        # for idx in train_cluster_idx[58:59]:
+        #     plt.imshow(train_data.data[idx].reshape((28, 28)).cpu().detach().numpy(), cmap='gray')
+        #     plt.show()
+        #
+        # return
+
+
         cluster_cnn_train_dataloader = torch.utils.data.DataLoader(
             train_data,
-            batch_size=min(100, len(train_cluster_idx)),
+            batch_size=min(10, len(train_cluster_idx)),
             # batch_size=len(train_cluster_idx),
             shuffle=False,
             sampler=SubsetRandomSampler(train_cluster_idx)
@@ -205,6 +213,12 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
             if cluster != cluster_id:
                 continue
             test_cluster_idx.append(i)
+
+        # for idx in test_cluster_idx[58:59]:
+        #     plt.imshow(test_data.data[idx].reshape((28, 28)).cpu().detach().numpy(), cmap='gray')
+        #     plt.show()
+        #
+        # return
 
         cluster_cnn_test_dataloader = torch.utils.data.DataLoader(
             test_data,
@@ -264,7 +278,7 @@ def train_knn(train_features, test_features, n_clusters):
     return cluster_ids_x, cluster_ids_y
 
 
-def print_cluster_ids(cluster_ids, data_labels):
+def print_cluster_ids(cluster_ids, data_labels, n_clusters=10):
     bins = np.zeros((n_clusters, 10))
     for i in range(len(cluster_ids)):
         cluster = cluster_ids[i]
@@ -314,16 +328,15 @@ if __name__ == "__main__":
         'log_interval': 50
 
     }
-    # print("Train WDN")
-    # model = train_wdn(train_data, wdn_settings)
-    #
-    # print("Convert train images to latent vectors")
-    # old_train_features = np.load('old_train_features.npy')
-    # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
-    # print(old_train_features[0], train_features[0])
-    # print(old_train_features[0] == train_features[0])
-    # print("Convert test images to latent vectors")
-    # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+    print("Train WDN")
+    model = train_wdn(train_data, wdn_settings)
+
+    old_train_features = np.load('old_train_features.npy')
+    print("Convert train images to latent vectors")
+    train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+    # train_features, _, train_labels = old_convert_images_to_latent_vector(train_data, model)
+    print("Convert test images to latent vectors")
+    test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
     # device = torch.device('cuda:0')
     # train_features = torch.tensor(train_features, dtype=torch.float, device=device)
     # train_labels = torch.tensor(train_labels, dtype=torch.int, device=device)
@@ -331,32 +344,34 @@ if __name__ == "__main__":
     # test_features = torch.tensor(test_features, dtype=torch.float, device=device)
     # test_labels = torch.tensor(test_labels, dtype=torch.int, device=device)
 
-    # print("Fitting SVM")
-    # # svc = LinearSVC(max_iter=10000, loss='hinge', random_state=0)
-    # svc = SVC(cache_size=32768, tol=1e-3, kernel='linear', random_state=0)
-    # svc.fit(train_features, train_labels)
-    # print("Predicting SVM")
-    # predictions = svc.predict(train_features)
-    # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
-    # predictions = svc.predict(test_features)
-    # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
-
-    train_features = np.load('3_level_train_features.npy')
-    train_labels = np.load('3_level_train_labels.npy')
-    test_features = np.load('3_level_test_features.npy')
-    test_labels = np.load('3_level_test_labels.npy')
-
-    n_clusters = 10
+    print("Fitting SVM")
+    # svc = LinearSVC(max_iter=10000, loss='hinge', random_state=0)
+    svc = SVC(cache_size=32768, tol=1e-3, kernel='linear', random_state=0)
+    svc.fit(train_features, train_labels)
+    print("Predicting SVM")
+    predictions = svc.predict(train_features)
+    print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
+    predictions = svc.predict(test_features)
+    print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
+    #
+    # train_features = np.load('3_level_train_features.npy')
+    # train_labels = np.load('3_level_train_labels.npy')
+    # test_features = np.load('3_level_test_features.npy')
+    # test_labels = np.load('3_level_test_labels.npy')
+    #
+    # n_clusters = 40
     # print("Fit KNN")
     # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
     #
-    # np.save("3_level_train_clusters_10_cosine.npy", cluster_ids_x)
-    # np.save("3_level_test_clusters_10_cosine.npy", cluster_ids_y)
+    # np.save("3_level_train_clusters_40_cosine.npy", cluster_ids_x)
+    # np.save("3_level_test_clusters_40_cosine.npy", cluster_ids_y)
 
-    cluster_ids_x = np.load("3_level_train_clusters_10_cosine.npy")
-    cluster_ids_y = np.load("3_level_test_clusters_10_cosine.npy")
-    print("Train predictor")
-    calculate_average_accuracy_over_clusters(cluster_ids_x, cluster_ids_y, n_clusters)
+    # exit(1)
+    #
+    # cluster_ids_x = np.load("3_level_train_clusters_10_cosine.npy")
+    # cluster_ids_y = np.load("3_level_test_clusters_10_cosine.npy")
+    # print("Train predictor")
+    # calculate_average_accuracy_over_clusters(cluster_ids_x, cluster_ids_y, n_clusters)
     #
     # print("Creating dataset of images")
     # train_dataset = UnsupervisedVectorDataset(train_features, train_labels)
@@ -371,9 +386,9 @@ if __name__ == "__main__":
     # #
     # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader, [])
 
-    print_cluster_ids(cluster_ids_x, train_labels)
-    print("_______________-")
-    print_cluster_ids(cluster_ids_y, test_labels)
+    # print_cluster_ids(cluster_ids_x, train_labels)
+    # print("_______________-")
+    # print_cluster_ids(cluster_ids_y, test_labels)
 
     # test_bins = np.zeros((n_clusters, 10))
     # for i in range(len(cluster_ids_y)):

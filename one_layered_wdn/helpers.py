@@ -49,17 +49,18 @@ def test(node, values, latent_vector, latent_vector_id, mask, depth):
 def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vector_id, parent_mask=None):
     values, familiar = model.is_familiar(node, data, provide_value=True)
     values = values.cpu().detach().numpy()
+
+
+
     unfamiliar_mask = familiar.eq(0)
     if parent_mask is not None:
         unfamiliar_mask = torch.where(parent_mask == False, torch.tensor(False, dtype=torch.bool).cuda(),
                                       unfamiliar_mask)
     else:
         parent_mask = copy.deepcopy(unfamiliar_mask)
-    if (familiar == False).all():
-        return values, familiar
     if depth == 0:
         test(node, values, latent_vector, latent_vector_id, unfamiliar_mask, depth)
-        return values, familiar
+        return values, unfamiliar_mask.eq(0)
 
     # data = data[familiar_mask, :]
     lower_level_regions = model.divide_data_in_five(data)
@@ -88,7 +89,7 @@ def convert_images_to_latent_vector(images, model):
     # global used_models
     # level_act_counter = np.zeros(model.n_levels)
     n_data = images.data.shape[0]
-    batch_size = 1
+    batch_size = min(1, len(images))
     # classifier_training_batch_size = 1
     data_loader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=False)
     counter = 0
@@ -124,60 +125,60 @@ def convert_images_to_latent_vector(images, model):
         # break
 
     return features, None, labels
+
+def old_calculate_latent_vector(model, node, data, depth, latent_vector):
+    values, familiar = model.is_familiar(node, data, provide_value=True)
+    values = values.cpu().detach().numpy()
+    if familiar == 0:
+        return False, values
+    if depth == 0:
+        latent_vector += np.repeat(values, node.n_children).tolist()
+        return True, values
+    lower_level_regions = model.divide_data_in_five(data)
+    for child_node in node.child_networks:
+        is_region_familiar = False
+        for region in lower_level_regions:
+            is_familiar, child_values = old_calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
+            if is_familiar:
+                is_region_familiar = True
+                break
+        if not is_region_familiar:
+            # latent_vector += np.repeat(child_values, child_node.n_children).tolist()
+            latent_vector += np.repeat(child_values, child_node.n_children).tolist()
+
+    return True, values
+
 #
-# def calculate_latent_vector(model, node, data, depth, latent_vector):
-#     values, familiar = model.is_familiar(node, data, provide_value=True)
-#     values = values.cpu().detach().numpy()
-#     if familiar == 0:
-#         return False, values
-#     if depth == 0:
-#         latent_vector += np.repeat(values, node.n_children).tolist()
-#         return True, values
-#     lower_level_regions = model.divide_data_in_five(data)
-#     for child_node in node.child_networks:
-#         is_region_familiar = False
-#         for region in lower_level_regions:
-#             is_familiar, child_values = calculate_latent_vector(model, child_node, region, depth - 1, latent_vector)
-#             if is_familiar:
-#                 is_region_familiar = True
-#                 break
-#         if not is_region_familiar:
-#             # latent_vector += np.repeat(child_values, child_node.n_children).tolist()
-#             latent_vector += np.repeat(child_values, child_node.n_children).tolist()
-#
-#     return True, values
-#
-#
-# def convert_images_to_latent_vector(images, model):
-#     # global level_act_counter
-#     # global used_models
-#     # level_act_counter = np.zeros(model.n_levels)
-#     n_data = images.data.shape[0]
-#     batch_size = 1
-#     # classifier_training_batch_size = 1
-#     data_loader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=False)
-#     counter = 0
-#     features = np.zeros((n_data, model.models_total))
-#     labels = np.zeros(n_data)
-#     # features = []
-#     for batch_idx, (data, target) in enumerate(data_loader):
-#         data = data.to(model.device)
-#         # latent_vector = np.zeros((batch_size, model.models_total))
-#         latent_vector = []
-#         for node in model.models:
-#             familiar, values = calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector)
-#             if not familiar:
-#                 latent_vector += np.repeat(values, node.n_children).tolist()
-#
-#         target_labels = target.cpu().detach().numpy()
-#
-#         features[batch_idx * batch_size:batch_idx * batch_size + batch_size] = latent_vector
-#         labels[batch_idx * batch_size:batch_idx * batch_size + batch_size] = target_labels
-#         counter += 1
-#         if counter % 100 == 0:
-#             print("Latent conversion iteration: ", counter)
-#         # break
-#
-#     return features, None, labels
-#
+def old_convert_images_to_latent_vector(images, model):
+    # global level_act_counter
+    # global used_models
+    # level_act_counter = np.zeros(model.n_levels)
+    n_data = images.data.shape[0]
+    batch_size = 1
+    # classifier_training_batch_size = 1
+    data_loader = torch.utils.data.DataLoader(images, batch_size=batch_size, shuffle=False)
+    counter = 0
+    features = np.zeros((n_data, model.models_total))
+    labels = np.zeros(n_data)
+    # features = []
+    for batch_idx, (data, target) in enumerate(data_loader):
+        data = data.to(model.device)
+        # latent_vector = np.zeros((batch_size, model.models_total))
+        latent_vector = []
+        for node in model.models:
+            familiar, values = old_calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector)
+            if not familiar:
+                latent_vector += np.repeat(values, node.n_children).tolist()
+
+        target_labels = target.cpu().detach().numpy()
+
+        features[batch_idx * batch_size:batch_idx * batch_size + batch_size] = latent_vector
+        labels[batch_idx * batch_size:batch_idx * batch_size + batch_size] = target_labels
+        counter += 1
+        if counter % 100 == 0:
+            print("Latent conversion iteration: ", counter)
+        # break
+
+    return features, None, labels
+
 # #

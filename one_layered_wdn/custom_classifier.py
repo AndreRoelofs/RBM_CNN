@@ -200,20 +200,21 @@ def predict_classifier(clf, test_dataset_loader, accuracies):
     correct = 0
     counter = 0
     clf.eval()
-    for batch_idx, (data, target) in enumerate(test_dataset_loader):
-        data = data.to(clf.device)
-        target = target.to(clf.device)
-        counter += data.shape[0]
-        out = clf(data)
-        test_loss += clf.loss_function(out, target.long()).item()
-        pred = out.data.max(1)[1]
-        correct += pred.eq(target.data).sum()
-    test_loss /= len(test_dataset_loader.dataset)
-    if counter > 0:
-        accuracies.append(correct.cpu().detach().numpy())
-        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-            test_loss, correct, counter,
-            100. * correct / counter))
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(test_dataset_loader):
+            data = data.to(clf.device)
+            target = target.to(clf.device)
+            counter += data.shape[0]
+            out = clf(data)
+            test_loss += clf.loss_function(out, target.long()).item()
+            pred = out.data.max(1)[1]
+            correct += pred.eq(target.data).sum()
+        test_loss /= len(test_dataset_loader.dataset)
+        if counter > 0:
+            accuracies.append(correct.cpu().detach().numpy())
+            print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+                test_loss, correct, counter,
+                100. * correct / counter))
 
 
 def train_classifier(clf, optimizer, train_dataset_loader, test_dataset_loader, accuracies, epochs=10):
