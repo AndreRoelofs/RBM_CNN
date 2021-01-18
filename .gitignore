@@ -293,3 +293,5 @@ __pycache__
 .DS_Store
 
 random_erasing/
+
+*.gz
