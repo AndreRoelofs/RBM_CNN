@@ -50,8 +50,6 @@ def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vect
     values, familiar = model.is_familiar(node, data, provide_value=True)
     values = values.cpu().detach().numpy()
 
-
-
     unfamiliar_mask = familiar.eq(0)
     if parent_mask is not None:
         unfamiliar_mask = torch.where(parent_mask == False, torch.tensor(False, dtype=torch.bool).cuda(),
@@ -59,7 +57,7 @@ def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vect
     else:
         parent_mask = copy.deepcopy(unfamiliar_mask)
     if depth == 0:
-        test(node, values, latent_vector, latent_vector_id, unfamiliar_mask, depth)
+        test(node, values, latent_vector, latent_vector_id, familiar, depth)
         return values, unfamiliar_mask.eq(0)
 
     # data = data[familiar_mask, :]
