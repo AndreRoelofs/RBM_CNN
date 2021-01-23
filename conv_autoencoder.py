@@ -2,7 +2,7 @@
 
 import torch
 import torchvision
-from torch import nn
+from torch import nn, optim
 import numpy as np
 from torch.nn import functional as F
 from torch.autograd import Variable
@@ -19,6 +19,7 @@ import os
 import sys
 from torch.utils.data.sampler import SubsetRandomSampler
 # from rbm_example.rbm_altered import RBM
+from rbm_example import custom_classifiers
 from rbm_example.rv_rbm import RV_RBM
 import rbm_example.custom_activations
 
@@ -321,6 +322,11 @@ def train_classifier():
         predict_classifier()
 
 
+# properly save the damn model
+PATH = './model.pth'
+torch.save(model.state_dict(), PATH)
+model.load_state_dict(torch.load(PATH))
+
 # %% Convert the training set to the unsupervised latent vector
 print("Converting images to latent vectors")
 classifier_training_batch_size = 1000
@@ -367,6 +373,7 @@ training_features = np.array(training_features)
 training_features_norm = preprocessing.scale(training_features)
 training_labels = np.array(training_labels, dtype=float)
 #%%
+
 train_dataset = UnsupervisedVectorDataset(training_features_norm, training_labels)
 train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=True)
 
@@ -434,3 +441,70 @@ clf = Classifier(training_features_norm.shape[1])
 optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
 
 train_classifier()
+=======
+# predictions = clf.predict(test_features)
+correct = 0
+total = 0
+
+with torch.no_grad():
+    inputs = torch.from_numpy(test_features)
+    labels = torch.from_numpy(test_labels)
+    outputs = clf(inputs)
+    _, predictions = torch.max(outputs.data, 1)
+    total += labels.size(0)
+    correct += (predictions == labels).sum().item()
+
+print('Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct / total))
+
+print('Result: %d/%d' % (sum(predictions == test_labels), test_labels.shape[0]))
+
+# exit(0)
+#
+# # %% Visualise data
+# num_images = 10
+#
+# num_row = 3
+# num_col = num_images
+#
+# images = []
+# labels = []
+# energies = []
+#
+# # for data, target in model.train_loader:
+# for data, target in model.test_loader:
+#     used_images = data[:num_images, :, :, :]
+#     used_images = used_images.to(model.device)
+#     output = model.model.encode(used_images)
+#     output_images = output
+#     rbm_input = model.model.encode(used_images)
+#     rbm_input_x = resize(rbm_input, [size, size])
+#     flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
+#     output_energies = model.model.rbm.free_energy(flat_rbm_input)
+#
+#     # for i in range(used_images.shape[0]):
+#     #     image = used_images[i]
+#     #     images.append(image[0].cpu().detach().numpy())
+#     #     energy = torch.sum(output_energies[i])
+#     #     labels.append(0)
+#
+#     for i in range(used_images.shape[0]):
+#         label = output_images[i]
+#         images.append(label[0].cpu().detach().numpy())
+#         energy = output_energies[i]
+#         labels.append(target[i].detach().numpy())
+#         energies.append(np.around(energy.cpu().detach().numpy(), 3))
+#
+#     if num_images * num_row <= len(images):
+#         images = images[:num_images * num_row]
+#         labels = labels[:num_images * num_row]
+#         energies = energies[:num_images * num_row]
+#         break
+#
+# fig, axes = plt.subplots(num_row, num_col, figsize=(1.5 * num_col, 2 * num_row))
+# for i in range(num_images * num_row):
+#     ax = axes[i // num_col, i % num_col]
+#     ax.imshow(images[i], cmap='gray')
+#     ax.set_title('L: {}, E: {}'.format(str(labels[i]), str(energies[i])))
+# plt.tight_layout()
+# plt.show()
