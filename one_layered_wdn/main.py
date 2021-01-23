@@ -321,19 +321,19 @@ if __name__ == "__main__":
         'log_interval': 50
 
     }
-    # print("Train WDN")
-    # model = train_wdn(train_data, wdn_settings)
+    print("Train WDN")
+    model = train_wdn(train_data, wdn_settings)
     # # #
     # # # old_train_features = np.load('old_train_features.npy')
-    # print("Convert train images to latent vectors")
-    # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
-    # print("Convert test images to latent vectors")
-    # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+    print("Convert train images to latent vectors")
+    train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+    print("Convert test images to latent vectors")
+    test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
     # #
-    # np.save('2_level_train_features_large', train_features)
-    # np.save('2_level_train_labels_large', train_labels)
-    # np.save('2_level_test_features_large', test_features)
-    # np.save('2_level_test_labels_large', test_labels)
+    np.save('2_level_train_features_sequential', train_features)
+    np.save('2_level_train_labels_sequential', train_labels)
+    np.save('2_level_test_features_sequential', test_features)
+    np.save('2_level_test_labels_sequential', test_labels)
     # #
     # print("Fitting SVM")
     # # svc = LinearSVC(max_iter=100, loss='hinge', random_state=0)
@@ -344,19 +344,21 @@ if __name__ == "__main__":
     # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
     # predictions = svc.predict(test_features)
     # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
+
+    # exit(1)
     # #
-    train_features = np.load('2_level_train_features_large.npy')
-    train_labels = np.load('2_level_train_labels_large.npy')
-    test_features = np.load('2_level_test_features_large.npy')
-    test_labels = np.load('2_level_test_labels_large.npy')
+    # train_features = np.load('2_level_train_features_large.npy')
+    # train_labels = np.load('2_level_train_labels_large.npy')
+    # test_features = np.load('2_level_test_features_large.npy')
+    # test_labels = np.load('2_level_test_labels_large.npy')
 
     #
     n_clusters = 40
     print("Fit KNN")
     cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
 
-    np.save('2_level_train_clusters_40_cosine_large.npy', cluster_ids_x)
-    np.save('2_level_test_clusters_40_cosine_large.npy', cluster_ids_y)
+    np.save('2_level_train_clusters_40_cosine_sequential.npy', cluster_ids_x)
+    np.save('2_level_test_clusters_40_cosine_sequential.npy', cluster_ids_y)
 
     # #
     # print("Train predictor")

@@ -41,14 +41,14 @@ parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-0, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-1, type=float,
                     metavar='LR', help='initial learning rate')
-parser.add_argument('--drop', '--dropout', default=0, type=float,
+parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
                     # default=[100, 150, 200],
-                    # default=[50, 80],
+                    # default=[80],
                     default=[],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
@@ -84,8 +84,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.6, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.5, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.4, type=float, help='aspect of erasing area')
 
 # parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
@@ -145,8 +145,8 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_20_cosine_large.npy")
     # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_20_cosine_large.npy")
 
-    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_large.npy")
-    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_large.npy")
+    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_sequential.npy")
+    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_sequential.npy")
 
     # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_10_cosine_large.npy")
     # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_10_cosine_large.npy")
@@ -162,7 +162,7 @@ def main():
     correct_preds = []
     best_acc = 0
     for cluster_id in range(40):
-    # for cluster_id in [4]:
+    # for cluster_id in [1]:
         state['lr'] = args.lr
         # for cluster_id in range(0, 1):
         print("Current cluster ", cluster_id)
@@ -173,6 +173,7 @@ def main():
                 continue
             train_cluster_idx.append(i)
 
+
         print("Train size: {}".format(len(train_cluster_idx)))
 
         trainloader = data.DataLoader(
@@ -180,7 +181,7 @@ def main():
             batch_size=min(256, len(train_cluster_idx)),
             shuffle=False,
             num_workers=args.workers,
-            sampler=SubsetRandomSampler(train_cluster_idx)
+            sampler=SubsetRandomSampler(train_cluster_idx),
         )
 
         test_cluster_idx = []

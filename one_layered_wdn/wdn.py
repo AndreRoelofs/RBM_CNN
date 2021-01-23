@@ -23,7 +23,7 @@ class WDN(nn.Module):
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
              'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 4.0,
-             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 3.0,
              'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 4.0,
@@ -93,7 +93,7 @@ class WDN(nn.Module):
         # Compare data with existing models
         return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
 
-    def train_new_network(self, data, level, target):
+    def train_new_network(self, data, level, target, provide_encoding=False):
         network = self.create_new_model(level, target)
         network.train()
 
@@ -116,7 +116,7 @@ class WDN(nn.Module):
             rbm_output = network.rbm(flat_rbm_input)
             encoder_loss = network.encoder.loss_function(rbm_input,
                                                          rbm_output.detach().clone().reshape(rbm_input.shape))
-            encoder_loss.backward()
+            encoder_loss.backward(retain_graph=True)
             encoder_optimizer.step()
 
             if i == 0:
@@ -136,6 +136,8 @@ class WDN(nn.Module):
             network.rbm.calculate_energy_threshold(flat_rbm_input)
 
         network.eval()
+        if provide_encoding:
+            return network, network.encode(data)
         return network
 
     def _joint_training(self, data, model, depth, target):
@@ -148,9 +150,9 @@ class WDN(nn.Module):
         for region in regions:
             familiar = 0
             for child_model in model.child_networks:
-                is_familiar = self.is_familiar(child_model, region)
+                is_familiar, encoded_region = self.is_familiar(child_model, region, provide_encoding=True)
                 if is_familiar:
-                    self._joint_training(region, child_model, depth - 1, target)
+                    self._joint_training(encoded_region, child_model, depth - 1, target)
                     familiar = 1
                     break
             if familiar == 0:
@@ -165,9 +167,9 @@ class WDN(nn.Module):
                     break
             if is_familiar == 1:
                 continue
-            new_model = self.train_new_network(region, level=model.level + 1, target=target)
+            new_model, encoded_region = self.train_new_network(region, level=model.level + 1, target=target, provide_encoding=True)
             new_models.append(new_model)
-            self._joint_training(region, new_model, depth - 1, target)
+            self._joint_training(encoded_region, new_model, depth - 1, target)
             model.child_networks.append(new_model)
 
     def joint_training(self):
@@ -206,10 +208,10 @@ class WDN(nn.Module):
 
             n_familiar = 0
             for m in self.models:
-                familiar = self.is_familiar(m, data)
+                familiar, encoded_data = self.is_familiar(m, data, provide_encoding=True)
                 if familiar:
                     n_familiar += 1
-                    self._joint_training(data, m, self.n_levels - 1, target)
+                    self._joint_training(encoded_data, m, self.n_levels - 1, target)
 
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
@@ -224,7 +226,7 @@ class WDN(nn.Module):
 def train_wdn(train_data, settings):
     model = WDN(settings)
 
-    for _ in range(2):
+    for _ in range(1):
         for i in range(10):
             # for i in [5]:
             print("Training digit: ", i)
