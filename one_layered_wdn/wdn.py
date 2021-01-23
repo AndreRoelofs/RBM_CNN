@@ -21,8 +21,8 @@ class WDN(nn.Module):
 
         self.levels = [
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 2.0,
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 4.0,
              'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 3.0,
              'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
@@ -30,7 +30,7 @@ class WDN(nn.Module):
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
-        self.n_levels = 4
+        self.n_levels = 2
         self.debug = False
         self.models_total = 0
 
@@ -65,7 +65,8 @@ class WDN(nn.Module):
         new_size = np.floor(original_size / 2).astype(np.int64)
         new_size = max(new_size, 2)
 
-        return five_crop(data, [new_size, new_size])
+        # return five_crop(data, [new_size, new_size])
+        return ten_crop(data, [new_size, new_size])
 
     def _calculate_number_of_children(self, network):
         if len(network.child_networks) == 0:
@@ -223,17 +224,18 @@ class WDN(nn.Module):
 def train_wdn(train_data, settings):
     model = WDN(settings)
 
-    for i in range(10):
-        # for i in [5]:
-        print("Training digit: ", i)
-        subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
-        model.train_loader = torch.utils.data.DataLoader(
-            train_data,
-            batch_size=1,
-            shuffle=False,
-            sampler=SubsetRandomSampler(subset_indices)
-        )
-        model.joint_training()
+    for _ in range(2):
+        for i in range(10):
+            # for i in [5]:
+            print("Training digit: ", i)
+            subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
+            model.train_loader = torch.utils.data.DataLoader(
+                train_data,
+                batch_size=1,
+                shuffle=False,
+                sampler=SubsetRandomSampler(subset_indices)
+            )
+            model.joint_training()
     model.calculate_number_of_children()
 
     models_counter = np.zeros(model.n_levels, dtype=np.int)
