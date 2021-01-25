@@ -282,4 +282,21 @@ crashlytics-build.properties
 fabric.properties
 
 data/
+*.npy
 
+*.swp
+.python-version
+wandb
+wandb-debug.log
+__pycache__
+.ipynb_checkpoints
+.DS_Store
+
+
+*.gz
+*.zip
+*.tar
+*.pdf
+*.jpg
+*.png
+*.gif

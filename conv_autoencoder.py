@@ -6,13 +6,13 @@ from torch import nn, optim
 import numpy as np
 from torch.nn import functional as F
 from torch.autograd import Variable
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn import preprocessing
 from torchvision import transforms
 from torchvision.utils import save_image
-from torchvision.transforms.functional import resize
+from torchvision.transforms.functional import resize, center_crop, gaussian_blur
 from torchvision.datasets import MNIST, CIFAR10
 import matplotlib.pyplot as plt
 import os
@@ -26,119 +26,48 @@ import rbm_example.custom_activations
 np.set_printoptions(threshold=sys.maxsize)
 
 # %%
-train_batch_size = 1000
+node_train_batch_size = 10
 test_batch_size = 100
 one_shot_classifier = False
 if one_shot_classifier:
-    train_batch_size = 1
+    node_train_batch_size = 1
 epochs = 1
-rbm_epochs = 1
-ae_epochs = 0
-use_relu = False
-rbm_epochs_single = 1
-target_digit = 0
-# RBM_VISIBLE_UNITS = 128 * 7 * 7
-# RBM_VISIBLE_UNITS = 64 * 14 * 14
-filters = 8
-# RBM_VISIBLE_UNITS = filters * 14**2
+use_relu = True
+filters = 1
+channels = 1
 size = 14
 RBM_VISIBLE_UNITS = filters * size ** 2
-MAX_THRESHOLD = 1
-# RBM_VISIBLE_UNITS = 1 * 28 * 28
+MIN_FAMILIARITY_THRESHOLD = 10
 variance = 0.07
-RBM_HIDDEN_UNITS = 5
+RBM_HIDDEN_UNITS = 1
 torch.manual_seed(0)
 np.random.seed(0)
 
+
+class GaussianNoise(object):
+    def __init__(self, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+
+    def __call__(self, tensor):
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
 # %% Load data
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-     # transforms.Normalize(0.5, 0.5),
-     transforms.RandomResizedCrop((14,14)),
-     transforms.RandomAffine(15, translate=(0, 1), scale=(0.7, 1.0)),
-     transforms.RandomVerticalFlip(),
-     transforms.RandomHorizontalFlip(),
-     ])
-# train_data = MNIST('./data', train=True, download=True,
-#                    transform=transform)
 train_data = MNIST('./data', train=True, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor()]))
-
-subset_indices = (
-    (torch.tensor(train_data.targets) == target_digit)
-    # + (torch.tensor(train_data.targets) == 8)
-).nonzero().view(-1)
-# subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
-
-
-# mask = train_data.targets == target_digit
-# indices = torch.nonzero(mask)
-#
-# train_data.data = train_data.data[indices]
-# train_data.targets = train_data.targets[indices]
-
-# mask = target == target_digit
-# indices = torch.nonzero(target[mask])
-# target = target[indices]
+                     transform=transforms.Compose([
+                         transforms.ToTensor(),
+                         transforms.CenterCrop(size),
+                         GaussianNoise(0., 0.25)
+                     ]))
 
 test_data = MNIST('./data', train=False, transform=transforms.Compose([
-    transforms.ToTensor()]))
-
-
-# %%
-def run_test():
-    to_output = []
-
-    for data, target in model.test_loader:
-        data = data.to(model.device)
-        rbm_input = model.model.encode(data)
-        rbm_input_x = resize(rbm_input, [size, size])
-        flat_rbm_input = rbm_input_x.view(len(rbm_input_x), RBM_VISIBLE_UNITS)
-        output_energies = model.model.rbm.free_energy(flat_rbm_input)
-        target = target.cpu().detach()
-        data = data.cpu().detach()
-
-        for i in range(data.shape[0]):
-            t = target[i]
-            energy = output_energies[i]
-
-            to_output.append([t.numpy(), torch.mean(energy).numpy(), data[i].numpy()])
-
-    to_output = np.array(to_output, dtype=object)
-    to_output = to_output[to_output[:, 1].argsort()]
-
-    markers = ['o', '.', 'x', '+', 'v', '^', '<', '>', 's', 'd']
-
-    for i in [
-        # 0,
-        # 1,
-        # 2,
-        # 3,
-        # 4,
-        # 5,
-        # 6,
-        # 7,
-        # 8,
-        # 9,
-        target_digit
-    ]:
-        x = [e[1] for j, e in enumerate(to_output) if int(e[0]) == i]
-        # x = [e[1] for j, e in enumerate(to_output) if int(e[0]) == i]
-        # x = [(j + 1) ** 0.1 for j, e in enumerate(to_output[:500]) if int(e[0]) == i]
-        plt.plot(x, np.random.uniform(-20, 20, len(x)), markers[i], label="{}".format(i))
-    plt.legend(numpoints=1)
-    plt.show()
-
-    # target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == 6 or int(e[0]) == 8 or int(e[0]) == 9]
-    target_digit_indices = [i for i, e in enumerate(to_output) if int(e[0]) == target_digit]
-
-    # print(target_digit_indices)
-
-    print("{} test: {}".format(len(target_digit_indices), target_digit_indices[-1] - len(target_digit_indices)))
-    print("500 test: {}".format(target_digit_indices[500] - 500))
-    print("100 test: {}".format(target_digit_indices[100] - 100))
+    transforms.ToTensor(),
+    transforms.CenterCrop(size),
+    GaussianNoise(0., 0.1)
+]))
 
 
 # %% Define encoder
@@ -146,17 +75,17 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(1, filters, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(channels, filters, (3, 3), stride=1, padding=1)
 
-        nn.init.normal_(self.conv1.weight, 0, 0.07)
-        # nn.init.normal_(self.conv1.weight, 0, 0.0007)
-        # nn.init.xavier_normal_(self.conv1.weight, 0.007)
-        # nn.init.xavier_normal_(self.conv1.weight, 20.0)
+        nn.init.xavier_normal_(self.conv1.weight, 1.0)
 
         if use_relu:
             self.act = nn.ReLU()
         else:
             self.act = nn.SELU()
+
+        for p in self.parameters():
+            p.data.clamp_(0)
 
     def forward(self, x):
         x = self.act(self.conv1(x))
@@ -170,7 +99,7 @@ class Network(nn.Module):
         super().__init__()
         self.encoder = Encoder()
         self.rbm = RV_RBM(RBM_VISIBLE_UNITS, RBM_HIDDEN_UNITS,
-                          learning_rate=1e-20,
+                          learning_rate=1e-3,
                           momentum_coefficient=0.0,
                           weight_decay=0.00,
                           use_cuda=True,
@@ -179,21 +108,72 @@ class Network(nn.Module):
     def encode(self, x):
         return self.encoder(x)
 
-    def train_rbm(self, x, update_weights=True):
-        x = resize(x, [size, size])
-        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
 
-        error = 0
+# %%
+class Classifier(nn.Module):
+    def __init__(self, n_features):
+        super().__init__()
+        self.device = torch.device("cuda")
 
-        for i in range(rbm_epochs_single):
-            error += self.rbm.contrastive_divergence(flat_x, update_weights=update_weights)
-        return error
+        self.fc1 = nn.Linear(n_features, 400)
+        self.fc2 = nn.Linear(400, 200)
+        self.fc3 = nn.Linear(200, 100)
+        self.fc4 = nn.Linear(100, 10)
 
-    def get_rbm(self, x):
-        x = resize(x, [size, size])
-        flat_x = x.view(len(x), RBM_VISIBLE_UNITS)
-        return self.rbm.contrastive_divergence(flat_x, update_weights=False)
+        self.fc1_bn = nn.BatchNorm1d(400)
+        self.fc2_bn = nn.BatchNorm1d(200)
+        self.fc3_bn = nn.BatchNorm1d(100)
+        self.fc4_bn = nn.BatchNorm1d(10)
 
+        self.act = nn.SELU()
+        # self.act = nn.ReLU()
+
+        # if use_relu:
+        #     self.act = nn.ReLU()
+        # else:
+        #     self.act = nn.SELU()
+
+        self.to(self.device)
+
+    def forward(self, x):
+        x = self.fc1_bn(self.fc1(x))
+        x = self.act(x)
+        x = self.fc2_bn(self.fc2(x))
+        x = self.act(x)
+        x = self.fc3_bn(self.fc3(x))
+        x = self.act(x)
+        x = self.fc4(x)
+        x = self.fc4_bn(x)
+
+        return F.log_softmax(x, dim=1)
+
+    def loss_function(self, x, y):
+        # return F.nll_loss(x, y)
+        return F.kl_div(x, y)
+        # return F.mse_loss(x, y)
+
+
+# %%
+
+class UnsupervisedVectorDataset(Dataset):
+    def __init__(self, features, labels):
+        # self.features = torch.from_numpy(features, dtype=torch.long)
+        # self.labels = torch.from_numpy(labels, dtype=torch.long)
+
+        self.features = torch.tensor(features, dtype=torch.float)
+        self.labels = torch.tensor(labels, dtype=torch.float)
+
+    def __len__(self):
+        return self.features.shape[0]
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        return [self.features[idx], self.labels[idx]]
+
+
+# %%
 
 class WDN(nn.Module):
     def __init__(self):
@@ -222,7 +202,7 @@ class WDN(nn.Module):
         return F.mse_loss(x, recon_x)
         # return F.binary_cross_entropy(recon_x, x, reduction='sum')
 
-    def joint_training(self):
+    def joint_training(self, MIN_FAMILIARITY_THRESHOLD):
         # torch.autograd.set_detect_anomaly(True)
         counter = 0
         for batch_idx, (data, _) in enumerate(self.train_loader):
@@ -235,14 +215,9 @@ class WDN(nn.Module):
             if counter % 25 == 0:
                 print("Iteration: ", counter)
                 print("n_models", a_n_models)
-            # if a_n_models >= 40:
-            #     break
-            #
-            # if counter >= 100:
-            #     break
 
             n_familiar = 0
-            familiar_threshold = MAX_THRESHOLD
+            model_counter = 0
             for m in self.models:
                 # Encode the image
                 rbm_input = m.encode(data)
@@ -251,11 +226,15 @@ class WDN(nn.Module):
                 flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
                 # Compare data with existing models
-                if m.rbm.is_familiar(flat_rbm_input, provide_value=False):
+                familiarity = m.rbm.is_familiar(flat_rbm_input, provide_value=False)
+                if familiarity > node_train_batch_size / 2:
                     n_familiar += 1
-                if n_familiar >= familiar_threshold:
+                if n_familiar >= MIN_FAMILIARITY_THRESHOLD or n_familiar + (
+                        a_n_models - model_counter) < MIN_FAMILIARITY_THRESHOLD:
                     break
-            if n_familiar >= familiar_threshold:
+                model_counter += 1
+            if n_familiar >= MIN_FAMILIARITY_THRESHOLD:
+                # break
                 continue
 
             # If data is unfamiliar, create a new network
@@ -263,39 +242,85 @@ class WDN(nn.Module):
             self.model = network
             self.model.train()
 
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-15)
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
-            for i in range(2):
+            for i in range(50):
                 # Encode the image
                 rbm_input = self.model.encode(data)
                 # Resize and flatten input for RBM
                 rbm_input = resize(rbm_input, [size, size])
                 flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
+                familiarity = self.model.rbm.is_familiar(flat_rbm_input, provide_value=False)
+                if familiarity == node_train_batch_size:
+                    self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+                    break
                 # Train RBM
                 rbm_error = self.model.rbm.contrastive_divergence(flat_rbm_input, update_weights=True)
 
-            # Sample RBM
-            hidden = self.model.rbm.sample_hidden(flat_rbm_input)
-            visible = self.model.rbm.sample_visible(hidden).reshape((data.shape[0], filters, size, size))
-
-            # Train Encoder
-            loss = self.loss_function(visible, rbm_input)
-            loss.backward()
-
-            self.model.rbm.calculate_energy_threshold(flat_rbm_input)
+                hidden = self.model.rbm.sample_hidden(flat_rbm_input)
+                visible = self.model.rbm.sample_visible(hidden).reshape((data.shape[0], filters, size, size))
+                loss = self.loss_function(visible, rbm_input)
+                loss.backward(retain_graph=True)
+                self.model.rbm.calculate_energy_threshold(flat_rbm_input)
 
 
 # %% Instantiate the model
 
 model = WDN()
-# run_test()
 
-for epoch in range(epochs):
-    print("Epoch: ", epoch)
-    model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=train_batch_size, shuffle=True)
-    model.joint_training()
-    # run_test()
+# %% Train the model
+for i in range(10):
+    print("Training digit: ", i)
+    subset_indices = (torch.tensor(train_data.targets) == i).nonzero().view(-1)
+    for epoch in range(epochs):
+        print("Epoch: ", epoch)
+        subset_indices = subset_indices[torch.randperm(subset_indices.size()[0])]
+        model.train_loader = torch.utils.data.DataLoader(train_data, batch_size=node_train_batch_size, shuffle=False,
+                                                         sampler=SubsetRandomSampler(subset_indices))
+        model.joint_training(MIN_FAMILIARITY_THRESHOLD)
+
+
+# %%
+
+def predict_classifier():
+    print("Making predictions")
+    test_loss = 0
+    correct = 0
+    clf.eval()
+    for batch_idx, (data, target) in enumerate(test_dataset_loader):
+        data = data.to(clf.device)
+        target = target.to(clf.device)
+        out = clf(data)
+        test_loss += clf.loss_function(out, target).item()
+        pred = out.data.max(1)[1]
+        target_pred = target.data.max(1)[1]
+        correct += pred.eq(target_pred).sum()
+        # correct += pred.eq(target.data).sum()
+    test_loss /= len(test_dataset_loader.dataset)
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        test_loss, correct, len(test_dataset_loader.dataset),
+        100. * correct / len(test_dataset_loader.dataset)))
+
+
+def train_classifier():
+    clf.train()
+    for epoch in range(10):
+        for batch_idx, (data, target) in enumerate(train_dataset_loader):
+            data = data.to(clf.device)
+            target = target.to(clf.device)
+            optimizer.zero_grad()
+            out = clf(data)
+            loss = clf.loss_function(out, target)
+            loss.backward()
+            optimizer.step()
+
+            if batch_idx % 50 == 0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    epoch, batch_idx * len(data), len(train_dataset_loader.dataset),
+                           100.0 * batch_idx / len(train_dataset_loader), loss.item()))
+        predict_classifier()
+
 
 # properly save the damn model
 PATH = './model.pth'
@@ -303,16 +328,16 @@ torch.save(model.state_dict(), PATH)
 model.load_state_dict(torch.load(PATH))
 
 # %% Convert the training set to the unsupervised latent vector
-print("Doing training")
+print("Converting images to latent vectors")
 classifier_training_batch_size = 1000
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=classifier_training_batch_size, shuffle=False)
 counter = 0
 training_features = []
 training_labels = []
+new_dataset = []
 for batch_idx, (data, target) in enumerate(train_loader):
     data = data.to(model.device)
     latent_vector = []
-    familiar = False
     for m in model.models:
         # Encode the image
         rbm_input = m.encode(data)
@@ -321,61 +346,39 @@ for batch_idx, (data, target) in enumerate(train_loader):
         flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
         # Compare data with existing models
-        latent_vector.append(m.rbm.is_familiar(flat_rbm_input).cpu().detach().numpy())
-        # if m.rbm.is_familiar(flat_rbm_input):
-        #     latent_vector.append(1)
-        # else:
-        #     latent_vector.append(0)
+        values = m.rbm.is_familiar(flat_rbm_input)
+
+        # subset_indices = (is_familiar == 0).nonzero().view(-1)
+        # values[subset_indices] = -20
+
+        values = values.cpu().detach().numpy()
+
+        latent_vector.append(values)
 
     latent_vector = np.array(latent_vector)
     target_labels = target.cpu().detach().numpy()
     for i in range(classifier_training_batch_size):
-        # test_target = np.zeros(10)
-        # test_target[target_labels[i]] = 1
+        test_target = np.zeros(10, dtype=float)
+        test_target[target_labels[i]] = 1.0
+        # training_features.append(latent_vector[:, i])
         training_features.append(latent_vector[:, i])
-        training_labels.append(target_labels[i] == target_digit)
-
-    # for i in range(len(latent_vector)):
-    # new_dataset.append([latent_vector, target_labels[i]])
+        # training_labels.append(target_labels[i])
+        training_labels.append(test_target)
 
     counter += 1
     if counter % 100 == 0:
         print("Training iteration: ", counter)
-
+# new_dataset = np.array(new_dataset, dtype=float)
 training_features = np.array(training_features)
-training_features = preprocessing.scale(training_features)
-training_labels = np.array(training_labels)
-
+training_features_norm = preprocessing.scale(training_features)
+training_labels = np.array(training_labels, dtype=float)
 #%%
-# clf = MLPClassifier(hidden_layer_sizes=(500,), activation='selu', solver='adam', batch_size=100)
-clf = custom_classifiers.ClassifierV1()
-# clf = LogisticRegression()
-# clf.fit(training_features, training_labels)
-# predictions = clf.predict(training_features)
-# print('Result: %d/%d' % (sum(predictions == training_labels), training_labels.shape[0]))
-optimizer = optim.Adam(clf.parameters(), lr=0.001)
 
-for epoch in range(epochs):
-    running_loss = 0.0
-    inputs = training_features
-    labels = training_labels
-    for i in range(len(labels)):
-        # get the inputs; data is a list of [inputs, labels]
-
-        inp = Variable(torch.from_numpy(inputs[i,:]))
-        lab = labels[i]
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward + backward + optimize
-        outputs = clf(inp)
-        optimizer.step()
-
-
+train_dataset = UnsupervisedVectorDataset(training_features_norm, training_labels)
+train_dataset_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=True)
 
 # %%
-print("Doing testing")
+print("Converting test images to latent vectors")
 test_batch_size = 1000
 test_loader = torch.utils.data.DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
 counter = 0
@@ -395,19 +398,23 @@ for batch_idx, (data, target) in enumerate(test_loader):
         flat_rbm_input = rbm_input.view(len(rbm_input), RBM_VISIBLE_UNITS)
 
         # Compare data with existing models
-        latent_vector.append(m.rbm.is_familiar(flat_rbm_input).cpu().detach().numpy())
-        # if m.rbm.is_familiar(flat_rbm_input):
-        #     latent_vector.append(1)
-        # else:
-        #     latent_vector.append(0)
+        values = m.rbm.is_familiar(flat_rbm_input)
+
+        # subset_indices = (is_familiar == 0).nonzero().view(-1)
+        # values[subset_indices] = 0
+
+        values = values.cpu().detach().numpy()
+
+        latent_vector.append(values)
 
     latent_vector = np.array(latent_vector)
     target_labels = target.cpu().detach().numpy()
     for i in range(test_batch_size):
-        # test_target = np.zeros(10)
-        # test_target[target_labels[i]] = 1
+        test_target = np.zeros(10, dtype=float)
+        test_target[target_labels[i]] = 1
         test_features.append(latent_vector[:, i])
-        test_labels.append(target_labels[i] == target_digit)
+        # test_labels.append(target_labels[i])
+        test_labels.append(test_target)
 
     # latent_vector.append(t)
     # new_dataset.append(latent_vector)
@@ -420,9 +427,21 @@ for batch_idx, (data, target) in enumerate(test_loader):
 # new_dataset = np.array(new_dataset)
 
 test_features = np.array(test_features)
-test_features = preprocessing.scale(test_features)
+test_features_norm = preprocessing.scale(test_features)
 test_labels = np.array(test_labels)
 #%%
+test_dataset = UnsupervisedVectorDataset(test_features_norm, test_labels)
+test_dataset_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
+
+# %% Training classifier
+print("Training classifier")
+clf = Classifier(training_features_norm.shape[1])
+# criterion = nn.NLLLoss()
+# criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(clf.parameters(), lr=1e-3, amsgrad=True)
+
+train_classifier()
+=======
 # predictions = clf.predict(test_features)
 correct = 0
 total = 0

@@ -5,8 +5,8 @@ import numpy as np
 
 # Real valued RBM using Rectified Linear Units
 class RV_RBM():
-    lowest_energy = None
-    highest_energy = None
+    lowest_energy = 10000
+    highest_energy = -10000
     energy_threshold = None
 
     def __init__(self, num_visible, num_hidden, learning_rate=1e-5, momentum_coefficient=0.5, weight_decay=1e-4,
@@ -32,18 +32,20 @@ class RV_RBM():
         # nn.init.xavier_normal_(self.weights, 2.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
         # nn.init.xavier_normal_(self.weights, 25.0)
-        nn.init.xavier_normal_(self.weights, 0.007)
+        nn.init.xavier_normal_(self.weights, 0.07)
         # nn.init.normal_(self.weights, 0, 0.07)
         #
         self.visible_bias = torch.zeros(num_visible)
-        # self.visible_bias = torch.zeros(num_visible)
-        self.hidden_bias = torch.ones(num_hidden)
+        # self.visible_bias = torch.ones(num_visible)
+        # self.hidden_bias = torch.ones(num_hidden)
+        self.hidden_bias = torch.zeros(num_hidden)
 
         self.weights_momentum = torch.zeros(num_visible, num_hidden)
         self.visible_bias_momentum = torch.zeros(num_visible)
         self.hidden_bias_momentum = torch.zeros(num_hidden)
 
         if self.use_cuda:
+            self.device = torch.device("cuda")
             self.weights = self.weights.cuda()
             self.visible_bias = self.visible_bias.cuda()
             self.hidden_bias = self.hidden_bias.cuda()
@@ -67,8 +69,12 @@ class RV_RBM():
 
     def is_familiar(self, v0, provide_value=True):
         if self.energy_threshold is None:
-            return False
+            return 0
         energy = self.free_energy(v0)
+
+        if torch.isinf(energy).any():
+            print("Infinite energy")
+            exit(1)
 
         # if energy < self.energy_threshold:
         #     return True
@@ -77,11 +83,10 @@ class RV_RBM():
         # print(self.energy_threshold - energy)
         # return self.energy_threshold - energy
         if provide_value:
-            return abs(self.energy_threshold - energy)
+            # return self.energy_threshold - energy
+            return energy - self.lowest_energy
         else:
-            # return self.energy_threshold > energy.max()
-            return self.energy_threshold >= energy.min()
-
+            return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
 
     def contrastive_divergence(self, v0, update_weights=True):
         batch_size = v0.shape[0]
@@ -93,7 +98,6 @@ class RV_RBM():
 
             positive_grad = torch.matmul(v0.t(), h0)
             negative_grad = torch.matmul(v1.t(), h1)
-            # TODO: use recon_error_sum for weights delta?
             recon_error = v0 - v1
             recon_error_sum = torch.mean(recon_error ** 2, dim=1)
             if update_weights:
@@ -118,34 +122,42 @@ class RV_RBM():
 
     def calculate_energy_threshold(self, v0):
         energy = self.free_energy(v0)
-        energy_min = energy.min()
-        energy_max = energy.max()
-        self.lowest_energy = energy_min
-        self.highest_energy = energy_max
-        # self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
-        self.energy_threshold = energy_min
+        self.lowest_energy = min(energy.min(), self.lowest_energy)
+        self.highest_energy = max(energy.max(), self.highest_energy)
+        self.energy_threshold = (self.highest_energy + self.lowest_energy)/2
+        # self.energy_threshold = energy_min
         # print("MIN: ", energy_min)
         # print("MAX: ", energy_max)
         # print(self.energy_threshold)
 
     def free_energy(self, input_data):
-        np_input_data = input_data.cpu().detach().numpy()
-        np_weights = self.weights.cpu().detach().numpy()
-        np_hidden_bias = self.hidden_bias.cpu().detach().numpy()
-        np_visible_bias = self.visible_bias.cpu().detach().numpy()
+        wx_b = torch.mm(input_data, self.weights) + self.hidden_bias
+        vbias_term = torch.sum(input_data * self.visible_bias, axis=1)
+        hidden_term = torch.sum(torch.log(1 + torch.exp(wx_b)), axis=1)
+        return -hidden_term - vbias_term
+        # self.test(input_data[0])
+        # np_input_data = input_data.cpu().detach().numpy()
+        # np_weights = self.weights.cpu().detach().numpy()
+        # np_hidden_bias = self.hidden_bias.cpu().detach().numpy()
+        # np_visible_bias = self.visible_bias.cpu().detach().numpy()
 
-        wx_b = np.dot(np_input_data, np_weights) + np_hidden_bias
-        vbias_term = np.dot(np_input_data, np_visible_bias)
-        hidden_term = np.sum(np.log(1 + np.exp(wx_b)), axis=1)
-
-        # wx_b = torch.mm(input_data, self.weights) + self.hidden_bias
-        # vbias_term = torch.mm(input_data, self.visible_bias)
-        # hidden_term = torch.sum(torch.log(1 + torch.exp(wx_b)), dim=1)
-        return torch.Tensor(-hidden_term - vbias_term)
+        #
+        # wx_b = np.dot(np_input_data, np_weights) + np_hidden_bias
+        # vbias_term = np.dot(np_input_data, np_visible_bias)
+        # hidden_term = np.sum(np.log(1 + np.exp(wx_b)), axis=1)
+        #
+        # # wx_b = torch.mm(input_data, self.weights) + self.hidden_bias
+        # # vbias_term = torch.mm(input_data, self.visible_bias)
+        # # hidden_term = torch.sum(torch.log(1 + torch.exp(wx_b)), dim=1)
+        # return torch.Tensor(-hidden_term - vbias_term)
 
     def random_selu_noise(self, shape):
-        return (-2 * torch.rand(shape) + 1).cuda()
+        noise = (-2 * torch.rand(shape) + 1).cuda()
+        # noise = torch.where(noise < 0.0, torch.tensor(-0.0, dtype=torch.float).cuda(), noise)
+        # noise = torch.where(noise >= 0.0, torch.tensor(0.0, dtype=torch.float).cuda(), noise)
+
+        return noise
+
 
     def random_relu_noise(self, shape):
         return torch.rand(shape).cuda()
-
