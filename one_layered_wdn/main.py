@@ -152,8 +152,8 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        train_data.data = train_data.data[:10]
-        train_data.targets = train_data.targets[:10]
+        train_data.data = train_data.data[:1000]
+        train_data.targets = train_data.targets[:1000]
 
         test_data.data = test_data.data[:100]
         test_data.targets = test_data.targets[:100]
@@ -250,24 +250,24 @@ def train_knn(train_features, test_features, n_clusters):
     # device = torch.device('cpu')
     tr_features = torch.tensor(train_features, dtype=torch.float)
 
-    tr_features -= tr_features.min(0, keepdim=True)[0]
-    tr_features /= tr_features.max(0, keepdim=True)[0]
+    # tr_features -= tr_features.min(0, keepdim=True)[0]
+    # tr_features /= tr_features.max(0, keepdim=True)[0]
 
     te_features = torch.tensor(test_features, dtype=torch.float)
     #
-    te_features -= te_features.min(0, keepdim=True)[0]
-    te_features /= te_features.max(0, keepdim=True)[0]
+    # te_features -= te_features.min(0, keepdim=True)[0]
+    # te_features /= te_features.max(0, keepdim=True)[0]
 
     cluster_ids_x, cluster_centers = kmeans(
         X=tr_features, num_clusters=n_clusters,
-        # distance='euclidean',
-        distance='cosine',
+        distance='euclidean',
+        # distance='cosine',
         device=device
     )
 
     cluster_ids_y = kmeans_predict(te_features, cluster_centers,
-                                   # distance='euclidean',
-                                   distance='cosine',
+                                   distance='euclidean',
+                                   # distance='cosine',
                                    device=device)
 
     # kmeans = KMeans(n_clusters=n_clusters, random_state=0, max_iter=100, algorithm='elkan', n_jobs=-1).fit(
@@ -293,7 +293,7 @@ def print_cluster_ids(cluster_ids, data_labels, n_clusters=10):
             bin_string += str(int(amount))
         print(bin_counter, bin_string)
         bin_counter += 1
-
+    return bins
 
 if __name__ == "__main__":
     torch.manual_seed(0)
@@ -344,24 +344,26 @@ if __name__ == "__main__":
     # test_features = torch.tensor(test_features, dtype=torch.float, device=device)
     # test_labels = torch.tensor(test_labels, dtype=torch.int, device=device)
 
-    print("Fitting SVM")
-    # svc = LinearSVC(max_iter=10000, loss='hinge', random_state=0)
-    svc = SVC(cache_size=32768, tol=1e-3, kernel='linear', random_state=0)
-    svc.fit(train_features, train_labels)
-    print("Predicting SVM")
-    predictions = svc.predict(train_features)
-    print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
-    predictions = svc.predict(test_features)
-    print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
+    # print("Fitting SVM")
+    # # svc = LinearSVC(max_iter=10000, loss='hinge', random_state=0)
+    # svc = SVC(cache_size=32768, tol=1e-3, kernel='linear', random_state=0)
+    # svc.fit(train_features, train_labels)
+    # print("Predicting SVM")
+    # predictions = svc.predict(train_features)
+    # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
+    # predictions = svc.predict(test_features)
+    # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
+    #
+    # exit(1)
     #
     # train_features = np.load('3_level_train_features.npy')
     # train_labels = np.load('3_level_train_labels.npy')
     # test_features = np.load('3_level_test_features.npy')
     # test_labels = np.load('3_level_test_labels.npy')
     #
-    # n_clusters = 40
-    # print("Fit KNN")
-    # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+    n_clusters = 40
+    print("Fit KNN")
+    cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
     #
     # np.save("3_level_train_clusters_40_cosine.npy", cluster_ids_x)
     # np.save("3_level_test_clusters_40_cosine.npy", cluster_ids_y)
@@ -386,9 +388,19 @@ if __name__ == "__main__":
     # #
     # train_classifier(fcnc, fcnc_optimizer, train_dataset_loader, test_dataset_loader, [])
 
-    # print_cluster_ids(cluster_ids_x, train_labels)
-    # print("_______________-")
-    # print_cluster_ids(cluster_ids_y, test_labels)
+    train_bins = print_cluster_ids(cluster_ids_x, train_labels, n_clusters=n_clusters)
+    print("_______________-")
+    test_bins = print_cluster_ids(cluster_ids_y, test_labels, n_clusters=n_clusters)
+
+    error_counter = 0
+    for i in range(train_bins.shape[0]):
+        tr_bin = train_bins[i]
+        te_bin = test_bins[i]
+
+        for j in range(tr_bin.shape[0]):
+            if tr_bin[j] == 0 and te_bin[j] > 0:
+                error_counter += te_bin[j]
+    print("Errors: {}".format(error_counter))
 
     # test_bins = np.zeros((n_clusters, 10))
     # for i in range(len(cluster_ids_y)):

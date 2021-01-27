@@ -46,32 +46,13 @@ class RV_RBM(nn.Module):
 
     def v_to_h(self, v):
         p_h = (F.linear(v, self.W, self.h_bias))
-        length_output = p_h.size()[0] * p_h.size()[1]
-        if length_output == 196:
-            plot_v = p_h.cpu().detach().reshape(14,14,1)
-            plot_v = transforms.Normalize(1,0.5)(plot_v)
-            plt.imshow(plot_v.cpu().detach().reshape(14, 14, 1))
-            plt.show()
-        elif length_output == 784:
-            plot_v = p_h.cpu().detach().reshape(28,28,1)
-            plot_v = transforms.Normalize(1,0.5)(plot_v)
-            plt.imshow(plot_v.cpu().detach().reshape(28, 28, 1))
-            plt.show()
-        elif length_output == 289:
-            plot_v = p_h.cpu().detach().clone()
-            plot_v = plot_v.reshape(17,17,1)
-            plot_v -= plot_v.min()
-            plot_v /= plot_v.max()
-            plot_v = transforms.Normalize(1,0.5)(plot_v)
-            plt.imshow(plot_v.cpu().detach().reshape(17, 17, 1))
-            plt.show()
-        p_h = torch.sigmoid(p_h)
+        # p_h = torch.sigmoid(p_h)
         sample_h = self.sample_from_p(p_h)
         return p_h, sample_h
 
     def h_to_v(self, h):
         p_v = (F.linear(h, self.W.t(), self.v_bias))
-        p_v = torch.sigmoid(p_v)
+        # p_v = torch.sigmoid(p_v)
         sample_v = self.sample_from_p(p_v)
         return p_v, sample_v
 
@@ -88,6 +69,7 @@ class RV_RBM(nn.Module):
         vbias_term = v.mv(self.v_bias)
         wx_b = F.linear(v, self.W, self.h_bias)
         hidden_term = torch.clamp(wx_b, -88, 88).exp().add(1).log().sum(1)
+        # hidden_term = wx_b.exp().add(1).log().sum(1)
         return -hidden_term - vbias_term
 
     def calculate_energy_threshold(self, v0):

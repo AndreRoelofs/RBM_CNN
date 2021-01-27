@@ -26,7 +26,8 @@ class Encoder(nn.Module):
     def forward(self, x):
         x = self.act(self.conv1(x))
         # x = self.act(self.conv2(x))
-        return torch.sigmoid(x)
+        # return torch.sigmoid(x)
+        return x
 
     def loss_function(self, x, recon_x):
         return F.mse_loss(x, recon_x)
