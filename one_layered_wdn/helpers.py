@@ -38,8 +38,8 @@ def most_common(L):
     # pick the highest-count/earliest item
     return max(groups, key=_auxfun)[0]
 
-def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vector_id, parent_mask=None):
 
+def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vector_id, parent_mask=None):
     if depth == 0:
         return model.is_familiar(node, data, provide_value=True)[0]
 
@@ -85,8 +85,10 @@ def convert_images_to_latent_vector(images, model):
         latent_vector_id = 0
         for node in model.models:
             encoded_data = node.encode(data)
-            calculate_latent_vector(model, node, encoded_data, model.n_levels - 1, latent_vector,
-                                    latent_vector_id)
+            values = calculate_latent_vector(model, node, encoded_data, model.n_levels - 1, latent_vector,
+                                             latent_vector_id)
+            if model.n_levels == 1:
+                latent_vector[:, latent_vector_id] = values.cpu().detach().numpy()
             # if not familiar:
             #     latent_vector += np.repeat(values, node.n_children).tolist()
             # unfamiliar_values = np.repeat(values, node.n_children)
