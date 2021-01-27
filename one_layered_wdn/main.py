@@ -331,7 +331,7 @@ if __name__ == "__main__":
     print("Train WDN")
     model = train_wdn(train_data, wdn_settings)
 
-    old_train_features = np.load('old_train_features.npy')
+    #old_train_features = np.load('old_train_features.npy')
     print("Convert train images to latent vectors")
     train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
     # train_features, _, train_labels = old_convert_images_to_latent_vector(train_data, model)

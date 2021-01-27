@@ -1,3 +1,5 @@
+import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -8,7 +10,6 @@ import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
 from one_layered_wdn.node import Node
 from one_layered_wdn.helpers import *
-
 
 class WDN(nn.Module):
     def __init__(self, model_settings):
@@ -21,13 +22,13 @@ class WDN(nn.Module):
 
         self.levels = [
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
+             'rbm_hidden_units': 289, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 500},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 4.0,
-             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
+             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 500},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 3.0,
-             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 4.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
         self.n_levels = 2
@@ -108,6 +109,11 @@ class WDN(nn.Module):
             rbm_input = network.encode(data)
             # rbm_input = data
             # Flatten input for RBM
+
+            plt.imshow(data.cpu().detach().permute(2,3,1,0).squeeze(3))
+            plt.show()
+            plt.imshow(rbm_input.cpu().detach().permute(2,3,1,0).squeeze(3))
+            plt.show()
             flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
                                                              (self.levels[level]['rbm_visible_units'] ** 2) *
                                                              self.levels[level]['encoder_channels'])
