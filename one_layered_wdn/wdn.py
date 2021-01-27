@@ -20,7 +20,7 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 10.0,
              'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 4.0,
              'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
@@ -30,7 +30,7 @@ class WDN(nn.Module):
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
-        self.n_levels = 2
+        self.n_levels = 1
         self.debug = False
         self.models_total = 0
 

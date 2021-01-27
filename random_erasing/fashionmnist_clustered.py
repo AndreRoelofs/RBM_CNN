@@ -22,6 +22,7 @@ import random_erasing.transforms as transforms
 import matplotlib.pyplot as plt
 import numpy as np
 from random_erasing.utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
+from ImbalancedDatasetSampler import ImbalancedDatasetSampler
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -33,25 +34,25 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--train-batch', default=128, type=int, metavar='N',
+parser.add_argument('--train-batch', default=64, type=int, metavar='N',
                     help='train batchsize')
-parser.add_argument('--test-batch', default=100, type=int, metavar='N',
+parser.add_argument('--test-batch', default=200, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-1, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
-                    # default=[100, 150, 200],
-                    # default=[80],
-                    default=[],
+                    # default=[20, 40],
+                    default=[100],
+                    # default=[],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -84,8 +85,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.5, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.4, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.9, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.8, type=float, help='aspect of erasing area')
 
 # parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
@@ -104,6 +105,7 @@ use_cuda = torch.cuda.is_available()
 if args.manualSeed is None:
     args.manualSeed = random.randint(1, 10000)
 random.seed(args.manualSeed)
+np.random.seed(args.manualSeed)
 torch.manual_seed(args.manualSeed)
 if use_cuda:
     torch.cuda.manual_seed_all(args.manualSeed)
@@ -145,14 +147,29 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_20_cosine_large.npy")
     # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_20_cosine_large.npy")
 
-    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_sequential.npy")
-    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_sequential.npy")
+    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_2_cosine_sequential.npy")
+    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_2_cosine_sequential.npy")
+
+    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_large.npy")
+    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_large.npy")
+
+    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_large.npy")
+    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_large.npy")
+
+    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_cosine_simple.npy")
+    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_cosine_simple.npy")
+
+    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_sequential.npy")
+    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_sequential.npy")
 
     # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_10_cosine_large.npy")
     # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_10_cosine_large.npy")
+
+    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_10_cosine_sequential.npy")
+    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_10_cosine_sequential.npy")
     #
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine.npy")
+    # train_predictions = np.load("../one_layered_wdn/4_level_train_clusters_40_cosine.npy")
+    # test_predictions = np.load("../one_layered_wdn/4_level_test_clusters_40_cosine.npy")
 
     # train_predictions = np.load("../one_layered_wdn/3_level_train_clusters_10.npy")
     # test_predictions = np.load("../one_layered_wdn/3_level_test_clusters_10.npy")
@@ -162,7 +179,7 @@ def main():
     correct_preds = []
     best_acc = 0
     for cluster_id in range(40):
-    # for cluster_id in [1]:
+    # for cluster_id in [2]:
         state['lr'] = args.lr
         # for cluster_id in range(0, 1):
         print("Current cluster ", cluster_id)
@@ -178,10 +195,12 @@ def main():
 
         trainloader = data.DataLoader(
             trainset,
-            batch_size=min(256, len(train_cluster_idx)),
+            batch_size=min(args.train_batch, len(train_cluster_idx)),
+            # batch_size=min(64, len(train_cluster_idx)),
             shuffle=False,
             num_workers=args.workers,
-            sampler=SubsetRandomSampler(train_cluster_idx),
+            # sampler=SubsetRandomSampler(train_cluster_idx),
+            sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
         )
 
         test_cluster_idx = []
@@ -195,7 +214,7 @@ def main():
 
         testloader = data.DataLoader(
             testset,
-            batch_size=min(10, len(test_cluster_idx)),
+            batch_size=min(args.test_batch, len(test_cluster_idx)),
             shuffle=False,
             num_workers=args.workers,
             sampler=SubsetRandomSampler(test_cluster_idx)
@@ -236,15 +255,18 @@ def main():
         # start_epoch = checkpoint['epoch']
         start_epoch = 0
         model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        # optimizer.load_state_dict(checkpoint['optimizer'])
+        # for param_group in optimizer.param_groups:
+        #     param_group['lr'] = args.lr
 
         # logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
 
-        # train_loss, train_acc = test(trainloader, model, criterion, 0, use_cuda)
-        # print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
+        train_loss, train_acc = test(trainloader, model, criterion, 0, use_cuda)
+        print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
         test_loss, test_acc = test(testloader, model, criterion, 0, use_cuda)
         print("Original Test Accuracy: {} Loss: {}".format(test_acc, test_loss))
         best_acc = test_acc
+        og_acc = test_acc
 
         # Train and val
         for epoch in range(start_epoch, args.epochs):
@@ -278,6 +300,8 @@ def main():
 
         print('Best acc:')
         print(best_acc)
+        print("Og Acc Diff:")
+        print(best_acc-og_acc)
         correct_preds.append(int((best_acc / 100) * len(test_cluster_idx)))
         # best_accuracies.append(best_acc)
     print("Total of correct preds: {}".format(np.sum(correct_preds)))
