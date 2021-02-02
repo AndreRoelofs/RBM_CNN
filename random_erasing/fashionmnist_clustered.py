@@ -85,8 +85,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.9, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.8, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
 
 # parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
@@ -153,8 +153,11 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_large.npy")
     # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_large.npy")
 
-    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_large.npy")
-    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_large.npy")
+    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_large.npy")
+    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_large.npy")
+
+    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_large_fixed.npy")
+    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_large_fixed.npy")
 
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_cosine_simple.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_cosine_simple.npy")
@@ -179,8 +182,9 @@ def main():
     correct_preds = []
     best_acc = 0
     for cluster_id in range(40):
-    # for cluster_id in [2]:
+    # for cluster_id in [1]:
         state['lr'] = args.lr
+
         # for cluster_id in range(0, 1):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []

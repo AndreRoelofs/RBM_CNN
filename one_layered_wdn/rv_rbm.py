@@ -1,8 +1,12 @@
+import math
+
 import torch
 from torch import nn
 import numpy as np
+import matplotlib.pyplot as plt
 from torch.nn import functional as F
 from torch.autograd import Variable
+from torchvision import transforms
 
 
 class RV_RBM(nn.Module):
@@ -41,12 +45,14 @@ class RV_RBM(nn.Module):
         return F.relu(torch.sign(p - Variable(torch.rand(p.size()).cuda())))
 
     def v_to_h(self, v):
-        p_h = torch.sigmoid(F.linear(v, self.W, self.h_bias))
+        p_h = (F.linear(v, self.W, self.h_bias))
+        # p_h = torch.sigmoid(p_h)
         sample_h = self.sample_from_p(p_h)
         return p_h, sample_h
 
     def h_to_v(self, h):
-        p_v = torch.sigmoid(F.linear(h, self.W.t(), self.v_bias))
+        p_v = (F.linear(h, self.W.t(), self.v_bias))
+        # p_v = torch.sigmoid(p_v)
         sample_v = self.sample_from_p(p_v)
         return p_v, sample_v
 
@@ -57,13 +63,13 @@ class RV_RBM(nn.Module):
         for _ in range(self.k):
             pre_v_, v_ = self.h_to_v(h_)
             pre_h_, h_ = self.v_to_h(v_)
-
         return v_
 
     def free_energy(self, v):
         vbias_term = v.mv(self.v_bias)
         wx_b = F.linear(v, self.W, self.h_bias)
         hidden_term = torch.clamp(wx_b, -88, 88).exp().add(1).log().sum(1)
+        # hidden_term = wx_b.exp().add(1).log().sum(1)
         return -hidden_term - vbias_term
 
     def calculate_energy_threshold(self, v0):
@@ -71,5 +77,4 @@ class RV_RBM(nn.Module):
         self.lowest_energy = energy.min()
         self.highest_energy = energy.max()
         self.energy_threshold = (self.highest_energy + self.lowest_energy) / 2
-
 

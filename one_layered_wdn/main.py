@@ -323,22 +323,23 @@ if __name__ == "__main__":
 
     }
     # model_type = 'simple'
-    model_type = 'large'
+    # model_type = 'large'
+    model_type = 'large_fixed'
     # model_type = 'sequential'
     n_clusters = 40
     # print("Train WDN")
     # model = train_wdn(train_data, wdn_settings)
-    # # # #
-    # # # # old_train_features = np.load('old_train_features.npy')
+    # # # # #
+    # # # # # old_train_features = np.load('old_train_features.npy')
     # print("Convert train images to latent vectors")
     # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
     # print("Convert test images to latent vectors")
     # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
-    # # #
-    # np.save('1_level_train_features_{}'.format(model_type), train_features)
-    # np.save('1_level_train_labels_{}'.format(model_type), train_labels)
-    # np.save('1_level_test_features_{}'.format(model_type), test_features)
-    # np.save('1_level_test_labels_{}'.format(model_type), test_labels)
+    # # # #
+    # np.save('2_level_train_features_{}'.format(model_type), train_features)
+    # np.save('2_level_train_labels_{}'.format(model_type), train_labels)
+    # np.save('2_level_test_features_{}'.format(model_type), test_features)
+    # np.save('2_level_test_labels_{}'.format(model_type), test_labels)
     # #
     # print("Fitting SVM")
     # # svc = LinearSVC(max_iter=100, loss='hinge', random_state=0)
@@ -353,22 +354,21 @@ if __name__ == "__main__":
     # exit(1)
     # #
 
-
-
+    #
     train_features = np.load('2_level_train_features_{}.npy'.format(model_type))
     train_labels = np.load('2_level_train_labels_{}.npy'.format(model_type))
     test_features = np.load('2_level_test_features_{}.npy'.format(model_type))
     test_labels = np.load('2_level_test_labels_{}.npy'.format(model_type))
 
     #
-    # print("Fit KNN")
-    # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+    print("Fit KNN")
+    cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
 
-    # np.save('2_level_train_clusters_{}_{}.npy'.format(n_clusters, model_type), cluster_ids_x)
-    # np.save('2_level_test_clusters_{}_{}.npy'.format(n_clusters, model_type), cluster_ids_y)
+    np.save('2_level_train_clusters_{}_{}.npy'.format(n_clusters, model_type), cluster_ids_x)
+    np.save('2_level_test_clusters_{}_{}.npy'.format(n_clusters, model_type), cluster_ids_y)
     #
-    cluster_ids_x = np.load('2_level_train_clusters_{}_{}.npy'.format(n_clusters, model_type))
-    cluster_ids_y = np.load('2_level_test_clusters_{}_{}.npy'.format(n_clusters, model_type))
+    # cluster_ids_x = np.load('2_level_train_clusters_{}_{}.npy'.format(n_clusters, model_type))
+    # cluster_ids_y = np.load('2_level_test_clusters_{}_{}.npy'.format(n_clusters, model_type))
 
     # cluster_ids_x = np.load('4_level_train_clusters_40_cosine.npy')
     # cluster_ids_y = np.load('4_level_test_clusters_40_cosine.npy')
@@ -406,7 +406,6 @@ if __name__ == "__main__":
             if tr_bin[j] == 0 and te_bin[j] > 0:
                 error_counter += te_bin[j]
     print("Errors: {}".format(error_counter))
-
 
     # np.save('2_level_train_bins_{}_cosine_large'.format(n_clusters), train_bins)
     # np.save('2_level_test_bins_{}_cosine_large'.format(n_clusters), test_bins)

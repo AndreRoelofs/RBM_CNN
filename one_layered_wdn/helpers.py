@@ -102,7 +102,7 @@ def convert_images_to_latent_vector(images, model):
         features[batch_idx * batch_size:batch_idx * batch_size + batch_size] = latent_vector
         labels[batch_idx * batch_size:batch_idx * batch_size + batch_size] = target_labels
         counter += 1
-        if counter % 100 == 0:
+        if counter % 10 == 0:
             print("Latent conversion iteration: ", counter)
         # break
 

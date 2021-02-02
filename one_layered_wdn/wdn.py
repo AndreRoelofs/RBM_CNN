@@ -1,3 +1,5 @@
+import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -9,7 +11,6 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from one_layered_wdn.node import Node
 from one_layered_wdn.helpers import *
 
-
 class WDN(nn.Module):
     def __init__(self, model_settings):
         super().__init__()
@@ -20,17 +21,17 @@ class WDN(nn.Module):
         # self.create_new_model()
 
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 10.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
+             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 5},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 4.0,
-             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 5},
+             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 5},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 3.0,
-             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 4.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-1, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
-        self.n_levels = 1
+        self.n_levels = 2
         self.debug = False
         self.models_total = 0
 
@@ -108,18 +109,23 @@ class WDN(nn.Module):
             rbm_input = network.encode(data)
             # rbm_input = data
             # Flatten input for RBM
+
             flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
                                                              (self.levels[level]['rbm_visible_units'] ** 2) *
                                                              self.levels[level]['encoder_channels'])
 
             # Train RBM
             rbm_output = network.rbm(flat_rbm_input)
+
+            # plt.imshow(rbm_output[0].reshape((28, 28)).cpu().detach().numpy())
+            # plt.show()
             encoder_loss = network.encoder.loss_function(rbm_input,
                                                          rbm_output.detach().clone().reshape(rbm_input.shape))
             encoder_loss.backward(retain_graph=True)
             encoder_optimizer.step()
 
-            if i == 0:
+            # if i == 0:
+            if True:
                 rbm_loss = network.rbm.free_energy(flat_rbm_input).mean() - network.rbm.free_energy(rbm_output).mean()
                 rbm_optimizer.zero_grad()
                 rbm_loss.backward()
@@ -136,6 +142,18 @@ class WDN(nn.Module):
             network.rbm.calculate_energy_threshold(flat_rbm_input)
 
         network.eval()
+
+        # plt.imshow(rbm_input[0].reshape((28, 28)).cpu().detach().numpy())
+        # plt.show()
+        #
+        # plt.imshow(rbm_output.reshape((28, 28)).cpu().detach().numpy())
+        # plt.show()
+
+        # plt.imshow(data.cpu().detach().permute(2, 3, 1, 0).squeeze(3))
+        # plt.show()
+        # plt.imshow(rbm_input.cpu().detach().permute(2, 3, 1, 0).squeeze(3))
+        # plt.show()
+
         if provide_encoding:
             return network, network.encode(data)
         return network
@@ -150,9 +168,9 @@ class WDN(nn.Module):
         for region in regions:
             familiar = 0
             for child_model in model.child_networks:
-                is_familiar, encoded_region = self.is_familiar(child_model, region, provide_encoding=True)
+                is_familiar = self.is_familiar(child_model, region)
                 if is_familiar:
-                    self._joint_training(encoded_region, child_model, depth - 1, target)
+                    self._joint_training(region, child_model, depth - 1, target)
                     familiar = 1
                     break
             if familiar == 0:
@@ -167,9 +185,9 @@ class WDN(nn.Module):
                     break
             if is_familiar == 1:
                 continue
-            new_model, encoded_region = self.train_new_network(region, level=model.level + 1, target=target, provide_encoding=True)
+            new_model = self.train_new_network(region, level=model.level + 1, target=target)
             new_models.append(new_model)
-            self._joint_training(encoded_region, new_model, depth - 1, target)
+            self._joint_training(region, new_model, depth - 1, target)
             model.child_networks.append(new_model)
 
     def joint_training(self):
@@ -208,10 +226,10 @@ class WDN(nn.Module):
 
             n_familiar = 0
             for m in self.models:
-                familiar, encoded_data = self.is_familiar(m, data, provide_encoding=True)
+                familiar = self.is_familiar(m, data)
                 if familiar:
                     n_familiar += 1
-                    self._joint_training(encoded_data, m, self.n_levels - 1, target)
+                    self._joint_training(data, m, self.n_levels - 1, target)
 
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
                     break
