@@ -15,11 +15,12 @@ class Node(nn.Module):
                  level=0,
                  ):
         super().__init__()
-        self.encoder = Encoder(image_channels, encoder_channels, encoder_weight_variance, use_relu=False)
+        self.encoder = Encoder(image_channels, encoder_channels, encoder_weight_variance, use_relu=True)
         self.rbm = RV_RBM(
             rbm_visible_units,
             rbm_hidden_units,
-            weight_variance=encoder_weight_variance/4
+            weight_variance=encoder_weight_variance/10,
+            use_relu=True,
         )
         self.child_networks = []
         self.level = level

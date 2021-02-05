@@ -23,15 +23,15 @@ class WDN(nn.Module):
         self.levels = [
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
              'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 5},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 4.0,
-             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 5},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 3.0,
-             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 1.0,
+             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
+            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 5.0,
+             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
             {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 4.0,
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
-        self.n_levels = 2
+        self.n_levels = 1
         self.debug = False
         self.models_total = 0
 
@@ -101,7 +101,7 @@ class WDN(nn.Module):
         encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
                                              lr=self.levels[network.level]['encoder_learning_rate'])
         # rbm_optimizer = torch.optim.SGD(network.rbm.parameters(), lr=1e-1)
-        rbm_optimizer = torch.optim.Adam(network.rbm.parameters(), lr=self.levels[network.level]['rbm_learning_rate'])
+        # rbm_optimizer = torch.optim.Adam(network.rbm.parameters(), lr=self.levels[network.level]['rbm_learning_rate'])
         # plt.imshow(data[0].cpu().detach().numpy().reshape((28, 28)), cmap='gray')
         # plt.show()
         for i in range(self.levels[level]['n_training']):
@@ -114,39 +114,26 @@ class WDN(nn.Module):
                                                              (self.levels[level]['rbm_visible_units'] ** 2) *
                                                              self.levels[level]['encoder_channels'])
 
-            # Train RBM
-            rbm_output = network.rbm(flat_rbm_input)
 
-            # plt.imshow(rbm_output[0].reshape((28, 28)).cpu().detach().numpy())
-            # plt.show()
+
+            if i == 0:
+            # if True:
+                network.rbm.contrastive_divergence(flat_rbm_input)
+
+            # Train encoder
+            rbm_output = network.rbm(flat_rbm_input)
             encoder_loss = network.encoder.loss_function(rbm_input,
                                                          rbm_output.detach().clone().reshape(rbm_input.shape))
             encoder_loss.backward(retain_graph=True)
             encoder_optimizer.step()
 
-            # if i == 0:
-            if True:
-                rbm_loss = network.rbm.free_energy(flat_rbm_input).mean() - network.rbm.free_energy(rbm_output).mean()
-                rbm_optimizer.zero_grad()
-                rbm_loss.backward()
-                rbm_optimizer.step()
-
-            # Encode the image
-
-            # Train encoder
-            # plt.imshow(rbm_input.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
-            # plt.show()
-            # plt.imshow(rbm_output.cpu().detach().numpy().reshape((28, 28)), cmap='gray')
-            # plt.show()
-
             network.rbm.calculate_energy_threshold(flat_rbm_input)
 
         network.eval()
 
-        # plt.imshow(rbm_input[0].reshape((28, 28)).cpu().detach().numpy())
+        # plt.imshow(rbm_input[0].reshape((28, 28)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
-        #
-        # plt.imshow(rbm_output.reshape((28, 28)).cpu().detach().numpy())
+        # plt.imshow(rbm_output.reshape((28, 28)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
 
         # plt.imshow(data.cpu().detach().permute(2, 3, 1, 0).squeeze(3))

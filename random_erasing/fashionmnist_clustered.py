@@ -38,9 +38,9 @@ parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--train-batch', default=64, type=int, metavar='N',
+parser.add_argument('--train-batch', default=256, type=int, metavar='N',
                     help='train batchsize')
-parser.add_argument('--test-batch', default=200, type=int, metavar='N',
+parser.add_argument('--test-batch', default=10, type=int, metavar='N',
                     help='test batchsize')
 parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
@@ -144,45 +144,25 @@ def main():
     trainset = dataloader(root='./data', train=True, download=True, transform=transform_train)
     testset = dataloader(root='./data', train=False, download=False, transform=transform_test)
 
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_20_cosine_large.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_20_cosine_large.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_2_cosine_sequential.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_2_cosine_sequential.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_large.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_large.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_large.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_large.npy")
-
-    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_large_fixed.npy")
-    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_large_fixed.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_cosine_simple.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_cosine_simple.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_40_cosine_sequential.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_40_cosine_sequential.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_10_cosine_large.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_10_cosine_large.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_10_cosine_sequential.npy")
-    # test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_10_cosine_sequential.npy")
+    # trainset.data = trainset.data[:10000]
+    # trainset.targets = trainset.targets[:10000]
     #
-    # train_predictions = np.load("../one_layered_wdn/4_level_train_clusters_40_cosine.npy")
-    # test_predictions = np.load("../one_layered_wdn/4_level_test_clusters_40_cosine.npy")
+    # testset.data = testset.data[:1000]
+    # testset.targets = testset.targets[:1000]
 
-    # train_predictions = np.load("../one_layered_wdn/3_level_train_clusters_10.npy")
-    # test_predictions = np.load("../one_layered_wdn/3_level_test_clusters_10.npy")
+    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_large_rbm_fixed_max_rbm.npy")
+    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_large_rbm_fixed_max_rbm.npy")
+
+    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_80_large.npy")
+    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_80_large.npy")
+
     title = 'fashionmnist-' + args.arch
     logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
     logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
     correct_preds = []
     best_acc = 0
-    for cluster_id in range(40):
-    # for cluster_id in [1]:
+    for cluster_id in range(80):
+    # for cluster_id in [0]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
@@ -206,6 +186,8 @@ def main():
             # sampler=SubsetRandomSampler(train_cluster_idx),
             sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
         )
+
+        print("Train batch: ", args.train_batch)
 
         test_cluster_idx = []
         for i in range(len(test_predictions)):
@@ -274,15 +256,15 @@ def main():
 
         # Train and val
         for epoch in range(start_epoch, args.epochs):
-            adjust_learning_rate(optimizer, epoch)
             if best_acc == 100:
                 break
+            adjust_learning_rate(optimizer, epoch)
 
             # print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
 
             train_loss, train_acc = train(trainloader, model, criterion, optimizer, epoch, use_cuda)
             test_loss, test_acc = test(testloader, model, criterion, epoch, use_cuda)
-            print('\nEpoch: [%d | %d] LR: %f Best Accuracy: %f Test Accuracy: %f' % (epoch + 1, args.epochs, state['lr'], best_acc, test_acc))
+            print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Test Accuracy: %f' % (epoch + 1, args.epochs, state['lr'], best_acc, test_acc))
 
             # append logger file
             logger.append([state['lr'], train_loss, test_loss, train_acc, test_acc])
@@ -381,6 +363,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
 
     end = time.time()
     bar = Bar('Processing', max=len(testloader))
+    incorrect_classes = []
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             # measure data loading time
@@ -393,6 +376,11 @@ def test(testloader, model, criterion, epoch, use_cuda):
             # compute output
             outputs = model(inputs)
             loss = criterion(outputs, targets)
+
+            _, pred = outputs.topk(1, 1, True, True)
+            incorrect_indices = (pred.t()[0] != targets).nonzero().t()[0]
+            if incorrect_indices.shape[0] > 0:
+                incorrect_classes += pred[incorrect_indices].cpu().detach().numpy().flatten().tolist()
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, targets.data, topk=(1, 5))
@@ -418,6 +406,10 @@ def test(testloader, model, criterion, epoch, use_cuda):
             )
             bar.next()
     bar.finish()
+    incorrect_classes.sort()
+    if len(incorrect_classes) > 0:
+        print("Incorrect classes: ", incorrect_classes)
+    # print(top1.avg)
     return (losses.avg, top1.avg)
 
 
@@ -429,6 +421,10 @@ def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoin
 
 
 def adjust_learning_rate(optimizer, epoch):
+    # global args
+    # if epoch in args.schedule:
+    #     args.train_batch *= args.gamma
+    #     args.train_batch = int(args.train_batch)
     global state
     if epoch in args.schedule:
         state['lr'] *= args.gamma
