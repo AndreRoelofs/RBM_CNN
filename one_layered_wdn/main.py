@@ -141,10 +141,12 @@ def load_data():
         train_data = CIFAR10(data_path, train=True, download=True,
                              transform=transforms.Compose([
                                  transforms.ToTensor(),
+                                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                              ]))
 
         test_data = CIFAR10(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ]))
 
     if fast_training:
@@ -320,6 +322,13 @@ if __name__ == "__main__":
 
     load_data()
 
+    # model_type = 'simple'
+    # model_type = 'large'
+    model_type = 'cifar10_large_rbm_fixed_2'
+    # model_type = 'large_fixed'
+    # model_type = 'sequential'
+    n_clusters = 20
+    n_levels = 1
     wdn_settings = {
         'image_input_size': image_input_size,
         'image_channels': input_filters,
@@ -335,29 +344,31 @@ if __name__ == "__main__":
 
         'min_familiarity_threshold': min_familiarity_threshold,
 
-        'log_interval': 50
+        'log_interval': 50,
+        'n_levels': n_levels
 
     }
-    # model_type = 'simple'
-    model_type = 'large'
-    # model_type = 'large_rbm_fixed_max_rbm'
-    # model_type = 'large_fixed'
-    # model_type = 'sequential'
-    n_clusters = 80
-    # print("Train WDN")
-    # model = train_wdn(train_data, wdn_settings)
-    # print("Convert train images to latent vectors")
-    # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
-    # print("Convert test images to latent vectors")
-    # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
-    # # #
-    # np.save('1_level_train_features_{}'.format(model_type), train_features)
-    # np.save('1_level_train_labels_{}'.format(model_type), train_labels)
-    # np.save('1_level_test_features_{}'.format(model_type), test_features)
-    # np.save('1_level_test_labels_{}'.format(model_type), test_labels)
+
+    print("Train WDN")
+    model = train_wdn(train_data, wdn_settings)
+    print("Convert train images to latent vectors")
+    train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+    print("Convert test images to latent vectors")
+    test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+    # #
+    np.save('{}_level_train_features_{}'.format(n_levels, model_type), train_features)
+    np.save('{}_level_train_labels_{}'.format(n_levels, model_type), train_labels)
+    np.save('{}_level_test_features_{}'.format(n_levels, model_type), test_features)
+    np.save('{}_level_test_labels_{}'.format(n_levels, model_type), test_labels)
+
+    #
+    # train_features = np.load('{}_level_train_features_{}.npy'.format(n_levels, model_type))
+    # train_labels = np.load('{}_level_train_labels_{}.npy'.format(n_levels, model_type))
+    # test_features = np.load('{}_level_test_features_{}.npy'.format(n_levels, model_type))
+    # test_labels = np.load('{}_level_test_labels_{}.npy'.format(n_levels, model_type))
     #
     # print("Fitting SVM")
-    # svc = LinearSVC(max_iter=100, loss='hinge', random_state=0)
+    # # svc = LinearSVC(max_iter=100, loss='hinge', random_state=0)
     # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
     # svc.fit(train_features, train_labels)
     # print("Predicting SVM")
@@ -365,15 +376,8 @@ if __name__ == "__main__":
     # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
     # predictions = svc.predict(test_features)
     # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
-    #
-    # exit(1)
     # #
-
-    #
-    train_features = np.load('2_level_train_features_{}.npy'.format(model_type))
-    train_labels = np.load('2_level_train_labels_{}.npy'.format(model_type))
-    test_features = np.load('2_level_test_features_{}.npy'.format(model_type))
-    test_labels = np.load('2_level_test_labels_{}.npy'.format(model_type))
+    # exit(1)
 
     #
     # print("Calculate Max RBM")
@@ -381,8 +385,8 @@ if __name__ == "__main__":
     print("Fit KNN")
     cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
 
-    np.save('2_level_train_clusters_{}_{}.npy'.format(n_clusters, model_type), cluster_ids_x)
-    np.save('2_level_test_clusters_{}_{}.npy'.format(n_clusters, model_type), cluster_ids_y)
+    np.save('{}_level_train_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type), cluster_ids_x)
+    np.save('{}_level_test_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type), cluster_ids_y)
     #
     # cluster_ids_x = np.load('2_level_train_clusters_{}_{}.npy'.format(n_clusters, model_type))
     # cluster_ids_y = np.load('2_level_test_clusters_{}_{}.npy'.format(n_clusters, model_type))

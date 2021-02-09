@@ -18,7 +18,7 @@ class RV_RBM(nn.Module):
                  num_visible,
                  num_hidden,
                  weight_variance,
-                 k=10,
+                 k=1,
                  learning_rate=1e-3,
                  momentum_coefficient=0.5,
                  weight_decay=1e-4,

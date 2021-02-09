@@ -153,16 +153,16 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_large_rbm_fixed_max_rbm.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_large_rbm_fixed_max_rbm.npy")
 
-    train_predictions = np.load("../one_layered_wdn/2_level_train_clusters_80_large.npy")
-    test_predictions = np.load("../one_layered_wdn/2_level_test_clusters_80_large.npy")
+    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_20_large_rbm_fixed_2.npy")
+    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_20_large_rbm_fixed_2.npy")
 
     title = 'fashionmnist-' + args.arch
     logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
     logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
     correct_preds = []
     best_acc = 0
-    for cluster_id in range(80):
-    # for cluster_id in [0]:
+    for cluster_id in range(20):
+    # for cluster_id in [1]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
@@ -380,7 +380,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
             _, pred = outputs.topk(1, 1, True, True)
             incorrect_indices = (pred.t()[0] != targets).nonzero().t()[0]
             if incorrect_indices.shape[0] > 0:
-                incorrect_classes += pred[incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                incorrect_classes += targets[incorrect_indices].cpu().detach().numpy().flatten().tolist()
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, targets.data, topk=(1, 5))
