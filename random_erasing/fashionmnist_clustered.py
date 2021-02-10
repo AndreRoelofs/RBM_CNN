@@ -8,7 +8,7 @@ import os
 import shutil
 import time
 import random
-
+from sam import SAM
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -34,7 +34,7 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=400, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -42,17 +42,17 @@ parser.add_argument('--train-batch', default=256, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=10, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-1, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
                     # default=[20, 40],
-                    default=[100],
+                    default=[100, 250, 300, 350],
                     # default=[],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -153,16 +153,16 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_large_rbm_fixed_max_rbm.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_large_rbm_fixed_max_rbm.npy")
 
-    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_20_large_rbm_fixed_2.npy")
-    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_20_large_rbm_fixed_2.npy")
+    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_large_rbm_fixed_3.npy")
+    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_large_rbm_fixed_3.npy")
 
     title = 'fashionmnist-' + args.arch
     logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
     logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
     correct_preds = []
     best_acc = 0
-    for cluster_id in range(20):
-    # for cluster_id in [1]:
+    # for cluster_id in range(80):
+    for cluster_id in [71]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
@@ -229,6 +229,10 @@ def main():
         criterion = nn.CrossEntropyLoss()
         # optimizer = optim.Adam(model.parameters(), lr=1e-4)
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+        # base_optimizer = optim.SGD
+        # optimizer = SAM(model.parameters(), base_optimizer, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
 
         # Resume
         # Load checkpoint.

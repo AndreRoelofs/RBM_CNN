@@ -31,6 +31,17 @@ class WDN(nn.Module):
              'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
+        # self.levels = [
+        #     {'input_channels': 3, 'encoder_channels': 1, 'rbm_visible_units': 32, 'encoder_weight_variance': 1.0,
+        #      'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
+        #     {'input_channels': 3, 'encoder_channels': 1, 'rbm_visible_units': 16, 'encoder_weight_variance': 1.0,
+        #      'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
+        #     {'input_channels': 3, 'encoder_channels': 1, 'rbm_visible_units': 8, 'encoder_weight_variance': 5.0,
+        #      'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
+        #     {'input_channels': 3, 'encoder_channels': 1, 'rbm_visible_units': 4, 'encoder_weight_variance': 4.0,
+        #      'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+        # ]
+
         self.n_levels = self.model_settings['n_levels']
         self.debug = False
         self.models_total = 0

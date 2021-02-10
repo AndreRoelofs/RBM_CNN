@@ -324,10 +324,10 @@ if __name__ == "__main__":
 
     # model_type = 'simple'
     # model_type = 'large'
-    model_type = 'cifar10_large_rbm_fixed_2'
+    model_type = 'large_rbm_fixed_3'
     # model_type = 'large_fixed'
     # model_type = 'sequential'
-    n_clusters = 20
+    n_clusters = 80
     n_levels = 1
     wdn_settings = {
         'image_input_size': image_input_size,

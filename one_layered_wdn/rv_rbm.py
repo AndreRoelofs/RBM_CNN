@@ -166,8 +166,6 @@ class RV_RBM(nn.Module):
             exit(1)
 
         if provide_value:
-            # return torch.where(self.energy_threshold >= energy, 1, 0)
-            # return self.energy_threshold - energy, torch.where(self.energy_threshold >= energy, 1, 0)
             return self.energy_threshold - energy, torch.where(self.energy_threshold >= energy, 1, 0)
         else:
             return torch.sum(torch.where(self.energy_threshold >= energy, 1, 0))
