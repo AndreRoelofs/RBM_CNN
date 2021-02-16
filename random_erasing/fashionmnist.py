@@ -53,10 +53,10 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 # Checkpoints
-parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metavar='PATH',
-                    help='path to save checkpoint (default: checkpoint)')
+parser.add_argument('-c', '--ae_checkpoint', default='ae_checkpoint', type=str, metavar='PATH',
+                    help='path to save ae_checkpoint (default: ae_checkpoint)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
+                    help='path to latest ae_checkpoint (default: none)')
 # Architecture
 parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                     choices=model_names,
@@ -208,7 +208,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     bar.finish()
     return (losses.avg, top1.avg)
 
-def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, checkpoint='ae_checkpoint', filename='ae_checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
     if is_best:
@@ -223,7 +223,7 @@ def adjust_learning_rate(optimizer, epoch):
 
 def main():
     global best_acc
-    start_epoch = args.start_epoch  # start from epoch 0 or last checkpoint epoch
+    start_epoch = args.start_epoch  # start from epoch 0 or last ae_checkpoint epoch
 
     if not os.path.isdir(args.checkpoint):
         mkdir_p(args.checkpoint)
@@ -276,9 +276,9 @@ def main():
     # Resume
     title = 'fashionmnist-' + args.arch
     if args.resume:
-        # Load checkpoint.
-        print('==> Resuming from checkpoint..')
-        assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
+        # Load ae_checkpoint.
+        print('==> Resuming from ae_checkpoint..')
+        assert os.path.isfile(args.resume), 'Error: no ae_checkpoint directory found!'
         args.checkpoint = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
         best_acc = checkpoint['best_acc']

@@ -16,7 +16,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data as data
 import torchvision.datasets as datasets
-import random_erasing.models.fashion as models
+import random_erasing.models.cifar as models
 from torch.utils.data.sampler import SubsetRandomSampler
 import random_erasing.transforms as transforms
 import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch Fashion-MNIST Training')
 # Datasets
-parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
+parser.add_argument('-d', '--dataset', default='cifar10', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
@@ -58,16 +58,16 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 # Checkpoints
-parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metavar='PATH',
-                    help='path to save checkpoint (default: checkpoint)')
-# parser.add_argument('--resume', default='checkpoint/checkpoint.pth.tar', type=str, metavar='PATH',
-#                     help='path to latest checkpoint (default: none)')
-# parser.add_argument('--resume', default='checkpoint/model_best.pth.tar', type=str, metavar='PATH',
-#                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--resume', default='checkpoint/model_best_og.pth.tar', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
+parser.add_argument('-c', '--ae_checkpoint', default='ae_checkpoint', type=str, metavar='PATH',
+                    help='path to save ae_checkpoint (default: ae_checkpoint)')
+# parser.add_argument('--resume', default='ae_checkpoint/ae_checkpoint.pth.tar', type=str, metavar='PATH',
+#                     help='path to latest ae_checkpoint (default: none)')
+# parser.add_argument('--resume', default='ae_checkpoint/model_best.pth.tar', type=str, metavar='PATH',
+#                     help='path to latest ae_checkpoint (default: none)')
+parser.add_argument('--resume', default='ae_checkpoint/model_best_og.pth.tar', type=str, metavar='PATH',
+                    help='path to latest ae_checkpoint (default: none)')
 # parser.add_argument('--resume', default='', type=str, metavar='PATH',
-#                     help='path to latest checkpoint (default: none)')
+#                     help='path to latest ae_checkpoint (default: none)')
 # Architecture
 parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                     choices=model_names,
@@ -97,8 +97,7 @@ parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing are
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
 
-# Validate dataset
-assert args.dataset == 'fashionmnist'
+assert args.dataset == 'cifar10' or args.dataset == 'cifar100', 'Dataset can only be cifar10 or cifar100.'
 
 # Use CUDA
 use_cuda = torch.cuda.is_available()
@@ -125,23 +124,26 @@ def main():
     # Data
     print('==> Preparing dataset %s' % args.dataset)
     transform_train = transforms.Compose([
-        transforms.RandomCrop(28, padding=4),
+        transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         # transforms.GaussianBlur(3),
         # transforms.RandomRotation(1),
         # transforms.RandomVerticalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
-        transforms.RandomErasing(probability=args.p, sh=args.sh, r1=args.r1, mean=[0.4914]),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.RandomErasing(probability=args.p, sh=args.sh, r1=args.r1, ),
     ])
     transform_test = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
 
-    if args.dataset == 'fashionmnist':
-        dataloader = datasets.FashionMNIST
+    if args.dataset == 'cifar10':
+        dataloader = datasets.CIFAR10
         num_classes = 10
+    else:
+        dataloader = datasets.CIFAR100
+        num_classes = 100
 
     trainset = dataloader(root='./data', train=True, download=True, transform=transform_train)
     testset = dataloader(root='./data', train=False, download=False, transform=transform_test)
@@ -160,20 +162,16 @@ def main():
 
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_2_large_rbm_fixed_3.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_2_large_rbm_fixed_3.npy")
-
-    train_predictions = np.load("../autoencoder/fashion_mnist_ae_392_train_clusters_80.npy")
-    test_predictions = np.load("../autoencoder/fashion_mnist_ae_392_test_clusters_80.npy")
     #
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_rbm_fixed_5.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_rbm_fixed_5.npy")
-
-    title = 'fashionmnist-' + args.arch
+    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_CIFAR_10_rbm_fixed_5.npy")
+    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_CIFAR_10_rbm_fixed_5.npy")
+    title = 'cifar-10-' + args.arch
     logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
     logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
     correct_preds = []
     best_acc = 0
     for cluster_id in range(80):
-    # for cluster_id in [67]:
+    # for cluster_id in [1]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):

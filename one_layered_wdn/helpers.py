@@ -2,14 +2,14 @@ import torch
 import numpy as np
 from sklearn import preprocessing
 import copy
-
+from torchvision.transforms.functional import hflip
 import itertools
 import operator
 
 # Constants
 MNIST_DATASET = "MNIST"
 FASHIONMNIST_DATASET = "Fashion_MNIST"
-CIFAR10_DATASET = "CIFAR-10"
+CIFAR10_DATASET = "CIFAR_10"
 
 RELU_ACTIVATION = "RELU"
 SELU_ACTIVATION = "SELU"
@@ -58,7 +58,9 @@ def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vect
 
         if depth == 1:
             max_values = max_values.cpu().detach().numpy()
-            latent_vector[:, latent_vector_id + child_counter] = np.where(latent_vector[:, latent_vector_id + child_counter] > max_values, latent_vector[:, latent_vector_id + child_counter], max_values)
+            latent_vector[:, latent_vector_id + child_counter] = np.where(
+                latent_vector[:, latent_vector_id + child_counter] > max_values,
+                latent_vector[:, latent_vector_id + child_counter], max_values)
 
         child_counter += 1
     return None
@@ -86,16 +88,13 @@ def convert_images_to_latent_vector(images, model):
         latent_vector_id = 0
         for node in model.models:
             # encoded_data = node.encode(data)
-            values = calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector,
-                                             latent_vector_id)
             if model.n_levels == 1:
+                values = calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector,
+                                                 latent_vector_id)
                 latent_vector[:, latent_vector_id] = values.cpu().detach().numpy()
-            # if not familiar:
-            #     latent_vector += np.repeat(values, node.n_children).tolist()
-            # unfamiliar_values = np.repeat(values, node.n_children)
-            # for i in range(data.shape[0]):
-            #     if familiar[i] == 0:
-            #         update_latent_vector(node, values, latent_vector, latent_vector_id, familiar.eq(0), model.n_levels)
+            else:
+                calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector,
+                                        latent_vector_id)
             latent_vector_id += node.n_children
 
         target_labels = target.cpu().detach().numpy()
@@ -108,6 +107,5 @@ def convert_images_to_latent_vector(images, model):
         # break
 
     return features, None, labels
-
 
 # #

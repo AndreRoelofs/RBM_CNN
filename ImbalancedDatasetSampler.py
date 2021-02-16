@@ -45,12 +45,20 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
             return self.callback_get_label(dataset, idx)
         elif isinstance(dataset, torchvision.datasets.MNIST):
             return dataset.targets[idx].item()
+        elif isinstance(dataset, torchvision.datasets.CIFAR10):
+            return dataset.targets[idx]
         elif isinstance(dataset, torchvision.datasets.ImageFolder):
             return dataset.imgs[idx][1]
         elif isinstance(dataset, torch.utils.data.Subset):
             return dataset.dataset.imgs[idx][1]
         else:
             raise NotImplementedError
+
+    def _get_label(self, dataset, idx):
+        label = dataset.targets[idx]
+        if not isinstance(label, int):
+            return label.item()
+        return label
 
     def __iter__(self):
         return (self.indices[i] for i in torch.multinomial(

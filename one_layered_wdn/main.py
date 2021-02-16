@@ -16,6 +16,7 @@ from one_layered_wdn.custom_dataset import UnsupervisedVectorDataset
 from one_layered_wdn.custom_classifier import FullyConnectedClassifier, train_classifier, predict_classifier, FashionCNN
 import one_layered_wdn.svm as svm
 from torch import nn
+# from one_layered_wdn.kmeans import kmeans, kmeans_predict
 from kmeans_pytorch import kmeans, kmeans_predict
 import copy
 
@@ -111,14 +112,14 @@ def load_data():
                                transforms.ToTensor(),
                                transforms.Normalize((0.1307,), (0.3081,)),
                                # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                               transforms.Resize((image_input_size, image_input_size)),
+                               # transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,)),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            transforms.Resize((image_input_size, image_input_size)),
+            # transforms.Resize((image_input_size, image_input_size)),
         ]))
 
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
@@ -142,11 +143,13 @@ def load_data():
                              transform=transforms.Compose([
                                  transforms.ToTensor(),
                                  transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                                 # transforms.Grayscale(),
                              ]))
 
         test_data = CIFAR10(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            # transforms.Grayscale(),
         ]))
 
     if fast_training:
@@ -157,16 +160,19 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        train_data.data = train_data.data[:1000]
-        train_data.targets = train_data.targets[:1000]
+        # np.random.seed(0)
+        train_indices = np.random.randint(0, train_data.data.shape[0], 100)
+        train_data.data = train_data.data[train_indices]
+        train_data.targets = np.array(train_data.targets)[train_indices]
 
-        test_data.data = test_data.data[:100]
-        test_data.targets = test_data.targets[:100]
+        test_indices = np.random.randint(0, test_data.data.shape[0], 100)
+        test_data.data = test_data.data[test_indices]
+        test_data.targets = np.array(test_data.targets)[test_indices]
 
 
 def calculate_average_accuracy_over_clusters(train_predictions, test_predictions, n_clusters):
-    np.random.seed(0)
-    torch.manual_seed(0)
+    # np.random.seed(0)
+    # torch.manual_seed(0)
 
     global big_cnnc
 
@@ -242,9 +248,18 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
 
 
 def train_knn(train_features, test_features, n_clusters):
-    device = torch.device('cuda:0')
+    # device = torch.device('cuda:0')
+    device = torch.device('cpu')
     tr_features = torch.tensor(train_features, dtype=torch.float)
+    #
+    # tr_features -= tr_features.min(0, keepdim=True)[0]
+    # tr_features /= tr_features.max(0, keepdim=True)[0]
+
     te_features = torch.tensor(test_features, dtype=torch.float)
+
+    # te_features -= te_features.min(0, keepdim=True)[0]
+    # te_features /= te_features.max(0, keepdim=True)[0]
+
 
     cluster_ids_x, cluster_centers = kmeans(
         X=tr_features, num_clusters=n_clusters,
@@ -306,10 +321,9 @@ def print_cluster_ids(cluster_ids, data_labels, n_clusters=10):
         bin_counter += 1
     return bins
 
-
 if __name__ == "__main__":
-    torch.manual_seed(0)
-    np.random.seed(0)
+    # torch.manual_seed(0)
+    # np.random.seed(0)
 
     # wandb.init(project="wdn-v1")
 
@@ -324,11 +338,13 @@ if __name__ == "__main__":
 
     # model_type = 'simple'
     # model_type = 'large'
-    model_type = 'large_rbm_fixed_3'
+    # model_type = 'rbm_fixed_5'
+    # model_type = '{}_large_rbm_fixed_3'.format(config['GENERAL']['Dataset'])
+    model_type = '{}_rbm_fixed_5'.format(config['GENERAL']['Dataset'])
     # model_type = 'large_fixed'
     # model_type = 'sequential'
     n_clusters = 80
-    n_levels = 1
+    n_levels = 2
     wdn_settings = {
         'image_input_size': image_input_size,
         'image_channels': input_filters,
@@ -348,14 +364,14 @@ if __name__ == "__main__":
         'n_levels': n_levels
 
     }
-
+    #
     print("Train WDN")
     model = train_wdn(train_data, wdn_settings)
     print("Convert train images to latent vectors")
     train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
     print("Convert test images to latent vectors")
     test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
-    # #
+    #
     np.save('{}_level_train_features_{}'.format(n_levels, model_type), train_features)
     np.save('{}_level_train_labels_{}'.format(n_levels, model_type), train_labels)
     np.save('{}_level_test_features_{}'.format(n_levels, model_type), test_features)
@@ -368,28 +384,30 @@ if __name__ == "__main__":
     # test_labels = np.load('{}_level_test_labels_{}.npy'.format(n_levels, model_type))
     #
     # print("Fitting SVM")
-    # # svc = LinearSVC(max_iter=100, loss='hinge', random_state=0)
-    # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
+    # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
+    # # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
     # svc.fit(train_features, train_labels)
     # print("Predicting SVM")
     # predictions = svc.predict(train_features)
     # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
     # predictions = svc.predict(test_features)
     # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
-    # #
+    #
+    #
+    # test = 0
     # exit(1)
 
-    #
+
     # print("Calculate Max RBM")
     # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
     print("Fit KNN")
     cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
-
+    #
     np.save('{}_level_train_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type), cluster_ids_x)
     np.save('{}_level_test_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type), cluster_ids_y)
     #
-    # cluster_ids_x = np.load('2_level_train_clusters_{}_{}.npy'.format(n_clusters, model_type))
-    # cluster_ids_y = np.load('2_level_test_clusters_{}_{}.npy'.format(n_clusters, model_type))
+    # cluster_ids_x = np.load('{}_level_train_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type))
+    # cluster_ids_y = np.load('{}_level_test_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type))
 
     train_bins = print_cluster_ids(cluster_ids_x, train_labels, n_clusters)
     print("________________")

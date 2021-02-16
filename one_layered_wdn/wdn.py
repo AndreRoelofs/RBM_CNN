@@ -10,6 +10,8 @@ import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
 from one_layered_wdn.node import Node
 from one_layered_wdn.helpers import *
+import random
+
 
 class WDN(nn.Module):
     def __init__(self, model_settings):
@@ -20,15 +22,25 @@ class WDN(nn.Module):
         self.model_settings = model_settings
         # self.create_new_model()
 
+        input_channels = self.model_settings['image_channels']
+        image_size = self.model_settings['image_input_size']
+
         self.levels = [
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 28, 'encoder_weight_variance': 1.0,
-             'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 14, 'encoder_weight_variance': 1.0,
-             'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 7, 'encoder_weight_variance': 5.0,
-             'rbm_hidden_units': 10, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 2},
-            {'input_channels': 1, 'encoder_channels': 1, 'rbm_visible_units': 3, 'encoder_weight_variance': 4.0,
-             'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3, 'encoder_learning_rate': 1e-3, 'n_training': 1},
+            {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': image_size,
+             'encoder_weight_variance': 0.07, 'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3,
+             'encoder_learning_rate': 1e-3, 'n_training': 2},
+
+            {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': int(image_size / 2),
+             'encoder_weight_variance': 0.07, 'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3,
+             'encoder_learning_rate': 1e-3, 'n_training': 2},
+
+            {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': int(image_size / 4),
+             'encoder_weight_variance': 1.0, 'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3,
+             'encoder_learning_rate': 1e-3, 'n_training': 2},
+
+            {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': 3,
+             'encoder_weight_variance': 4.0, 'rbm_hidden_units': 5, 'rbm_learning_rate': 1e-3,
+             'encoder_learning_rate': 1e-3, 'n_training': 1},
         ]
 
         # self.levels = [
@@ -77,8 +89,8 @@ class WDN(nn.Module):
         new_size = np.floor(original_size / 2).astype(np.int64)
         new_size = max(new_size, 2)
 
-        # return five_crop(data, [new_size, new_size])
-        return ten_crop(data, [new_size, new_size])
+        return five_crop(data, [new_size, new_size])
+        # return ten_crop(data, [new_size, new_size])
 
     def _calculate_number_of_children(self, network):
         if len(network.child_networks) == 0:
@@ -109,12 +121,15 @@ class WDN(nn.Module):
         network = self.create_new_model(level, target)
         network.train()
 
-        encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
+        # encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
+        #                                      lr=self.levels[network.level]['encoder_learning_rate'])
+        encoder_optimizer = torch.optim.SGD(network.encoder.parameters(),
                                              lr=self.levels[network.level]['encoder_learning_rate'])
         # rbm_optimizer = torch.optim.SGD(network.rbm.parameters(), lr=1e-1)
         # rbm_optimizer = torch.optim.Adam(network.rbm.parameters(), lr=self.levels[network.level]['rbm_learning_rate'])
         # plt.imshow(data[0].cpu().detach().numpy().reshape((28, 28)), cmap='gray')
         # plt.show()
+        flat_rbm_input = None
         for i in range(self.levels[level]['n_training']):
             # Encode the image
             rbm_input = network.encode(data)
@@ -124,8 +139,6 @@ class WDN(nn.Module):
             flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
                                                              (self.levels[level]['rbm_visible_units'] ** 2) *
                                                              self.levels[level]['encoder_channels'])
-
-
 
             if i == 0:
             # if True:
@@ -138,13 +151,21 @@ class WDN(nn.Module):
             encoder_loss.backward(retain_graph=True)
             encoder_optimizer.step()
 
-            network.rbm.calculate_energy_threshold(flat_rbm_input)
+        # if flat_rbm_input is None:
+        #     rbm_input = network.encode(data)
+        #     flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
+        #                                                      (self.levels[level]['rbm_visible_units'] ** 2) *
+        #                                                      self.levels[level]['encoder_channels'])
+        network.rbm.calculate_energy_threshold(flat_rbm_input)
 
         network.eval()
 
-        # plt.imshow(rbm_input[0].reshape((28, 28)).cpu().detach().numpy(), cmap='gray')
+        #
+        # plt.imshow(data[0].reshape((32,32)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
-        # plt.imshow(rbm_output.reshape((28, 28)).cpu().detach().numpy(), cmap='gray')
+        # plt.imshow(rbm_input[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
+        # plt.show()
+        # plt.imshow(rbm_output[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
 
         # plt.imshow(data.cpu().detach().permute(2, 3, 1, 0).squeeze(3))
@@ -222,11 +243,29 @@ class WDN(nn.Module):
                     print("Level {}: {}".format(i + 1, models_counter[i]))
                 print("______________")
 
+            # for current_data in [data, hflip(data)]:
+            #     n_familiar = 0
+            #     for m in self.models:
+            #         familiar = self.is_familiar(m, current_data)
+            #         if familiar:
+            #             n_familiar += 1
+            #             self._joint_training(current_data, m, self.n_levels - 1, target)
+            #
+            #         if n_familiar >= self.model_settings['min_familiarity_threshold']:
+            #             break
+            #     if n_familiar >= self.model_settings['min_familiarity_threshold']:
+            #         continue
+            #
+            #     model = self.train_new_network(current_data, level=0, target=target)
+            #     self.models.append(model)
+            #     self._joint_training(current_data, model, self.n_levels - 1, target)
+
             n_familiar = 0
             for m in self.models:
                 familiar = self.is_familiar(m, data)
                 if familiar:
                     n_familiar += 1
+                    # for current_data in [data, hflip(data)]:
                     self._joint_training(data, m, self.n_levels - 1, target)
 
                 if n_familiar >= self.model_settings['min_familiarity_threshold']:
@@ -235,8 +274,25 @@ class WDN(nn.Module):
                 continue
 
             model = self.train_new_network(data, level=0, target=target)
-            self.models.append(model)
+            self.models.insert(0, model)
+            # self.models.append(model)
             self._joint_training(data, model, self.n_levels - 1, target)
+
+            # n_familiar = 0
+            # for m in self.models:
+            #     familiar = self.is_familiar(m, data)
+            #     if familiar:
+            #         n_familiar += 1
+            #         self._joint_training(data, m, self.n_levels - 1, target)
+            #
+            #     if n_familiar >= self.model_settings['min_familiarity_threshold']:
+            #         break
+            # if n_familiar >= self.model_settings['min_familiarity_threshold']:
+            #     continue
+
+            # model = self.train_new_network(data, level=0, target=target)
+            # self.models.append(model)
+            # self._joint_training(data, model, self.n_levels - 1, target)
 
 
 def train_wdn(train_data, settings):
@@ -254,6 +310,8 @@ def train_wdn(train_data, settings):
                 sampler=SubsetRandomSampler(subset_indices)
             )
             model.joint_training()
+            # random.shuffle(model.models)
+
     model.calculate_number_of_children()
 
     models_counter = np.zeros(model.n_levels, dtype=np.int)

@@ -8,7 +8,7 @@ class Encoder(nn.Module):
     def __init__(self, channels, filters, weight_variance, use_relu=False):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(channels, filters, (3, 3), stride=1, padding=1)
+        self.conv1 = nn.Conv2d(channels, filters, kernel_size=3, stride=1, padding=1)
         # self.conv2 = nn.Conv2d(filters, filters, (3, 3), stride=1, padding=1)
 
         nn.init.xavier_normal_(self.conv1.weight, weight_variance)
