@@ -36,11 +36,14 @@ model_type = 'large_rbm_fixed_3'
 # model_type = 'sequential'
 n_levels = 1
 
-train_features = np.load('one_layered_wdn/{}_level_train_features_{}.npy'.format(n_levels, model_type))
-train_labels = np.load('one_layered_wdn/{}_level_train_labels_{}.npy'.format(n_levels, model_type))
+# train_features = np.load('one_layered_wdn/{}_level_train_features_{}.npy'.format(n_levels, model_type))
+# train_labels = np.load('one_layered_wdn/{}_level_train_labels_{}.npy'.format(n_levels, model_type))
 
 # train_features = np.load('autoencoder/fashion_mnist_train_features_ae_392.npy'.format(n_levels, model_type))
 # train_labels = np.load('autoencoder/fashion_mnist_train_labels_ae_392.npy'.format(n_levels, model_type))
+
+train_features = np.load('autoencoder/cifar_10_train_features_ae_512.npy'.format(n_levels, model_type))
+train_labels = np.load('autoencoder/cifar_10_train_labels_ae_512.npy'.format(n_levels, model_type))
 
 train_features -= train_features.min(0)
 train_features /= train_features.max(0)
@@ -56,6 +59,6 @@ plt.setp(ax, xticks=[], yticks=[])
 cbar = plt.colorbar(boundaries=np.arange(11) - 0.5)
 cbar.set_ticks(np.arange(10))
 cbar.set_ticklabels(classes)
-plt.title('Fashion MNIST Embedded via UMAP')
-# plt.title('CIFAR 10 Embedded via UMAP')
+# plt.title('Fashion MNIST Embedded via UMAP')
+plt.title('CIFAR 10 Embedded via UMAP')
 plt.show()

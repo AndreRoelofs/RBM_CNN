@@ -127,6 +127,7 @@ def load_data():
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
                                       transforms.Normalize((0.1307,), (0.3081,)),
+                                      # transforms.RandomHorizontalFlip(),
                                       # transforms.RandomCrop(28, padding=4),
                                       # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
                                       # transforms.Resize((image_input_size, image_input_size)),
@@ -160,8 +161,8 @@ def load_data():
         test_data.targets = test_data.targets[:1000]
 
     if fastest_training:
-        # np.random.seed(0)
-        train_indices = np.random.randint(0, train_data.data.shape[0], 100)
+        np.random.seed(0)
+        train_indices = np.random.randint(0, train_data.data.shape[0], 1000)
         train_data.data = train_data.data[train_indices]
         train_data.targets = np.array(train_data.targets)[train_indices]
 
@@ -260,7 +261,6 @@ def train_knn(train_features, test_features, n_clusters):
     # te_features -= te_features.min(0, keepdim=True)[0]
     # te_features /= te_features.max(0, keepdim=True)[0]
 
-
     cluster_ids_x, cluster_centers = kmeans(
         X=tr_features, num_clusters=n_clusters,
         distance='euclidean',
@@ -321,9 +321,10 @@ def print_cluster_ids(cluster_ids, data_labels, n_clusters=10):
         bin_counter += 1
     return bins
 
+
 if __name__ == "__main__":
-    # torch.manual_seed(0)
-    # np.random.seed(0)
+    torch.manual_seed(0)
+    np.random.seed(0)
 
     # wandb.init(project="wdn-v1")
 
@@ -340,11 +341,11 @@ if __name__ == "__main__":
     # model_type = 'large'
     # model_type = 'rbm_fixed_5'
     # model_type = '{}_large_rbm_fixed_3'.format(config['GENERAL']['Dataset'])
-    model_type = '{}_rbm_fixed_5'.format(config['GENERAL']['Dataset'])
+    model_type = '{}_rbm_fixed_6'.format(config['GENERAL']['Dataset'])
     # model_type = 'large_fixed'
     # model_type = 'sequential'
     n_clusters = 80
-    n_levels = 2
+    n_levels = 1
     wdn_settings = {
         'image_input_size': image_input_size,
         'image_channels': input_filters,
@@ -367,6 +368,8 @@ if __name__ == "__main__":
     #
     print("Train WDN")
     model = train_wdn(train_data, wdn_settings)
+    # model = train_wdn(train_data, wdn_settings, model)
+    # model = train_wdn(test_data, wdn_settings, model)
     print("Convert train images to latent vectors")
     train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
     print("Convert test images to latent vectors")
@@ -384,8 +387,8 @@ if __name__ == "__main__":
     # test_labels = np.load('{}_level_test_labels_{}.npy'.format(n_levels, model_type))
     #
     # print("Fitting SVM")
-    # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
-    # # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
+    # # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
+    # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
     # svc.fit(train_features, train_labels)
     # print("Predicting SVM")
     # predictions = svc.predict(train_features)
@@ -396,7 +399,6 @@ if __name__ == "__main__":
     #
     # test = 0
     # exit(1)
-
 
     # print("Calculate Max RBM")
     # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)

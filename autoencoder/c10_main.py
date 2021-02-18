@@ -8,20 +8,20 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ExponentialLR
 import torch
 from torch import nn
-from autoencoder.model import Autoencoder
+from autoencoder.c10_model import Autoencoder
 from torchvision.datasets import MNIST, CIFAR10, FashionMNIST
 from torchvision import transforms
 
 data_path = '../data'
 
 # Load data
-train_data = FashionMNIST(data_path, train=True, download=True,
-                          transform=transforms.Compose([
-                              transforms.ToTensor(),
-                              # transforms.Normalize((0.1307,), (0.3081,)),
-                          ]))
+train_data = CIFAR10(data_path, train=True, download=True,
+                     transform=transforms.Compose([
+                         transforms.ToTensor(),
+                         # transforms.Normalize((0.1307,), (0.3081,)),
+                     ]))
 
-test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
+test_data = CIFAR10(data_path, train=False, transform=transforms.Compose([
     transforms.ToTensor(),
     # transforms.Normalize((0.1307,), (0.3081,)),
 ]))
@@ -45,7 +45,6 @@ test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
 
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=100, shuffle=True)
 val_loader = torch.utils.data.DataLoader(test_data, batch_size=100, shuffle=False)
-
 
 # Train
 model = Autoencoder()
@@ -100,15 +99,12 @@ for epoch in range(500):
     tb_writer.add_scalar("Training Loss", np.mean(loss_tr), epoch)
     tb_writer.add_scalar("Learning Rate", scheduler.get_lr()[0], epoch)
     img_grid = torchvision.utils.make_grid(images_raw[:4].cpu().detach())
-    tb_writer.add_image('orig_fashion_mnist_images', img_grid)
+    tb_writer.add_image('orig_cifar_10_images', img_grid)
     img_grid = torchvision.utils.make_grid(p[:4].cpu().detach())
-    tb_writer.add_image('recons_fashion_mnist_images', img_grid)
+    tb_writer.add_image('recons_cifar_10_images', img_grid)
     tb_writer.flush()
 
-    torch.save(model, "fm_ae_checkpoint/checkpoint.pth.tar")
+    torch.save(model, "c10_ae_checkpoint/checkpoint.pth.tar")
     if test_loss < best_loss:
-        torch.save(model, "fm_ae_checkpoint/model_best.pth.tar")
+        torch.save(model, "c10_ae_checkpoint/model_best.pth.tar")
         best_loss = test_loss
-
-
-

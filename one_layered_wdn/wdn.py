@@ -27,7 +27,7 @@ class WDN(nn.Module):
 
         self.levels = [
             {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': image_size,
-             'encoder_weight_variance': 0.07, 'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3,
+             'encoder_weight_variance': 0.07, 'rbm_hidden_units': 700, 'rbm_learning_rate': 1e-3,
              'encoder_learning_rate': 1e-3, 'n_training': 2},
 
             {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': int(image_size / 2),
@@ -100,8 +100,15 @@ class WDN(nn.Module):
             self._calculate_number_of_children(child_network)
             network.n_children += child_network.n_children
 
+    def _reset_number_of_children(self, network):
+        for child in network.child_networks:
+            self._reset_number_of_children(child)
+        network.n_children = 0
+
     def calculate_number_of_children(self):
+        self.models_total = 0
         for m in self.models:
+            self._reset_number_of_children(m)
             self._calculate_number_of_children(m)
             self.models_total += m.n_children
 
@@ -140,8 +147,9 @@ class WDN(nn.Module):
                                                              (self.levels[level]['rbm_visible_units'] ** 2) *
                                                              self.levels[level]['encoder_channels'])
 
-            if i == 0:
-            # if True:
+            # if i == 0:
+            # if i % 5 == 0:
+            if True:
                 network.rbm.contrastive_divergence(flat_rbm_input)
 
             # Train encoder
@@ -243,23 +251,6 @@ class WDN(nn.Module):
                     print("Level {}: {}".format(i + 1, models_counter[i]))
                 print("______________")
 
-            # for current_data in [data, hflip(data)]:
-            #     n_familiar = 0
-            #     for m in self.models:
-            #         familiar = self.is_familiar(m, current_data)
-            #         if familiar:
-            #             n_familiar += 1
-            #             self._joint_training(current_data, m, self.n_levels - 1, target)
-            #
-            #         if n_familiar >= self.model_settings['min_familiarity_threshold']:
-            #             break
-            #     if n_familiar >= self.model_settings['min_familiarity_threshold']:
-            #         continue
-            #
-            #     model = self.train_new_network(current_data, level=0, target=target)
-            #     self.models.append(model)
-            #     self._joint_training(current_data, model, self.n_levels - 1, target)
-
             n_familiar = 0
             for m in self.models:
                 familiar = self.is_familiar(m, data)
@@ -272,6 +263,19 @@ class WDN(nn.Module):
                     break
             if n_familiar >= self.model_settings['min_familiarity_threshold']:
                 continue
+
+            # n_familiar = 0
+            # for m in self.models:
+            #     familiar = self.is_familiar(m, data)
+            #     if familiar:
+            #         n_familiar += 1
+            #         # for current_data in [data, hflip(data)]:
+            #         self._joint_training(data, m, self.n_levels - 1, target)
+            #
+            #     if n_familiar >= self.model_settings['min_familiarity_threshold']:
+            #         break
+            # if n_familiar >= self.model_settings['min_familiarity_threshold']:
+            #     continue
 
             model = self.train_new_network(data, level=0, target=target)
             self.models.insert(0, model)
@@ -295,8 +299,9 @@ class WDN(nn.Module):
             # self._joint_training(data, model, self.n_levels - 1, target)
 
 
-def train_wdn(train_data, settings):
-    model = WDN(settings)
+def train_wdn(train_data, settings, model=None):
+    if model is None:
+        model = WDN(settings)
 
     for _ in range(1):
         for i in range(10):

@@ -123,8 +123,8 @@ if __name__ == '__main__':
 
     # Example: logger monitor
     paths = {
-    'WRN-28-10':'ae_checkpoint/cifar100/log_erasing_erasing_0_wrn_28.txt',
-    'WRN-28-10+Ours':'ae_checkpoint/cifar100/log_erasing_erasing_1_wrn_28.txt',
+    'WRN-28-10':'fm_ae_checkpoint/cifar100/log_erasing_erasing_0_wrn_28.txt',
+    'WRN-28-10+Ours':'fm_ae_checkpoint/cifar100/log_erasing_erasing_1_wrn_28.txt',
     }
 
     field = ['Valid Acc.']

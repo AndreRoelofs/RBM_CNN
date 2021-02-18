@@ -117,7 +117,7 @@ best_acc = 0  # best test accuracy
 
 def main():
     global best_acc
-    start_epoch = args.start_epoch  # start from epoch 0 or last ae_checkpoint epoch
+    start_epoch = args.start_epoch  # start from epoch 0 or last fm_ae_checkpoint epoch
 
     if not os.path.isdir(args.checkpoint):
         mkdir_p(args.checkpoint)
@@ -245,21 +245,21 @@ def main():
 
 
         # Resume
-        # Load ae_checkpoint.
-        print('==> Resuming from ae_checkpoint..')
-        assert os.path.isfile(args.resume), 'Error: no ae_checkpoint directory found!'
+        # Load fm_ae_checkpoint.
+        print('==> Resuming from fm_ae_checkpoint..')
+        assert os.path.isfile(args.resume), 'Error: no fm_ae_checkpoint directory found!'
         args.checkpoint = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
-        # best_acc = ae_checkpoint['best_acc']
+        # best_acc = fm_ae_checkpoint['best_acc']
         best_acc = 0
-        # start_epoch = ae_checkpoint['epoch']
+        # start_epoch = fm_ae_checkpoint['epoch']
         start_epoch = 0
         model.load_state_dict(checkpoint['state_dict'])
-        # optimizer.load_state_dict(ae_checkpoint['optimizer'])
+        # optimizer.load_state_dict(fm_ae_checkpoint['optimizer'])
         # for param_group in optimizer.param_groups:
         #     param_group['lr'] = args.lr
 
-        # logger = Logger(os.path.join(args.ae_checkpoint, 'log.txt'), title=title, resume=True)
+        # logger = Logger(os.path.join(args.fm_ae_checkpoint, 'log.txt'), title=title, resume=True)
 
         train_loss, train_acc = test(trainloader, model, criterion, 0, use_cuda)
         print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
@@ -296,7 +296,7 @@ def main():
 
         # logger.close()
         # logger.plot()
-        # savefig(os.path.join(args.ae_checkpoint, 'log.eps'))
+        # savefig(os.path.join(args.fm_ae_checkpoint, 'log.eps'))
 
         print('Best acc:')
         print(best_acc)
@@ -437,7 +437,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     return (losses.avg, top1.avg)
 
 
-def save_checkpoint(state, is_best, checkpoint='ae_checkpoint', filename='ae_checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, checkpoint='fm_ae_checkpoint', filename='fm_ae_checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
     if is_best:

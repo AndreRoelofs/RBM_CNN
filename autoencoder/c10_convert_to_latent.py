@@ -1,4 +1,4 @@
-from autoencoder.model import Autoencoder
+from autoencoder.c10_model import Autoencoder
 import numpy as np
 import torch
 from torchvision.datasets import MNIST, CIFAR10, FashionMNIST
@@ -7,30 +7,28 @@ from one_layered_wdn.main import train_knn, print_cluster_ids
 
 data_path = '../data'
 
-latent_vector_size = 392
+latent_vector_size = 512
 batch_size = 100
 n_clusters = 80
 
-train_size = 60000
+train_size = 50000
 test_size = 10000
 
 # train_size = 100
 # test_size = 100
 
 # model = Autoencoder()
-model = torch.load('ae_checkpoint/model_best.pth.tar')
-# checkpoint =
-# model.load_state_dict(checkpoint)
+model = torch.load('c10_ae_checkpoint/model_best.pth.tar')
 
 device = torch.device('cuda:0')
 model.to(device)
 
-train_data = FashionMNIST(data_path, train=True, download=True,
-                          transform=transforms.Compose([
-                              transforms.ToTensor(),
-                          ]))
+train_data = CIFAR10(data_path, train=True, download=True,
+                     transform=transforms.Compose([
+                         transforms.ToTensor(),
+                     ]))
 
-test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
+test_data = CIFAR10(data_path, train=False, transform=transforms.Compose([
     transforms.ToTensor(),
 ]))
 
@@ -69,17 +67,17 @@ for step, (images_raw, labels) in enumerate(test_loader):
 
     counter += batch_size
 
-np.save('fashion_mnist_train_features_ae_{}.npy'.format(latent_vector_size), train_features)
-np.save('fashion_mnist_train_labels_ae_{}.npy'.format(latent_vector_size), train_labels)
+np.save('cifar_10_train_features_ae_{}.npy'.format(latent_vector_size), train_features)
+np.save('cifar_10_train_labels_ae_{}.npy'.format(latent_vector_size), train_labels)
 
-np.save('fashion_mnist_test_features_ae_{}.npy'.format(latent_vector_size), test_features)
-np.save('fashion_mnist_test_labels_ae_{}.npy'.format(latent_vector_size), test_labels)
+np.save('cifar_10_test_features_ae_{}.npy'.format(latent_vector_size), test_features)
+np.save('cifar_10_test_labels_ae_{}.npy'.format(latent_vector_size), test_labels)
 
 print("Fit KNN")
 cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
 
-np.save('fashion_mnist_ae_{}_train_clusters_{}.npy'.format(latent_vector_size, n_clusters), cluster_ids_x)
-np.save('fashion_mnist_ae_{}_test_clusters_{}.npy'.format(latent_vector_size, n_clusters), cluster_ids_y)
+np.save('cifar_10_ae_{}_train_clusters_{}.npy'.format(latent_vector_size, n_clusters), cluster_ids_x)
+np.save('cifar_10_ae_{}_test_clusters_{}.npy'.format(latent_vector_size, n_clusters), cluster_ids_y)
 #
 # cluster_ids_x = np.load('{}_level_train_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type))
 # cluster_ids_y = np.load('{}_level_test_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type))
