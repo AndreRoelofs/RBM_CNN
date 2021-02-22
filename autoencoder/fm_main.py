@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ExponentialLR
 import torch
 from torch import nn
-from autoencoder.fm_model import Autoencoder
+from autoencoder.model import Autoencoder
 from torchvision.datasets import MNIST, CIFAR10, FashionMNIST
 from torchvision import transforms
 

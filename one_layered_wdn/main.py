@@ -123,22 +123,24 @@ def load_data():
         ]))
 
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
+        indices = np.load('../random_erasing/fashion_mnist_training_indices.npy')
+        train_indices = indices[:50000]
+        val_indices = indices[50000:]
         train_data = FashionMNIST(data_path, train=True, download=True,
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
                                       transforms.Normalize((0.1307,), (0.3081,)),
-                                      # transforms.RandomHorizontalFlip(),
-                                      # transforms.RandomCrop(28, padding=4),
-                                      # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-                                      # transforms.Resize((image_input_size, image_input_size)),
                                   ]))
+        train_data.data = train_data.data[train_indices]
+        train_data.targets = train_data.targets[train_indices]
 
-        test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
+        test_data = FashionMNIST(data_path, train=True, transform=transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,)),
-            # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
-            # transforms.Resize((image_input_size, image_input_size)),
         ]))
+
+        test_data.data = test_data.data[val_indices]
+        test_data.targets = test_data.targets[val_indices]
     if general_settings['Dataset'] == CIFAR10_DATASET:
         train_data = CIFAR10(data_path, train=True, download=True,
                              transform=transforms.Compose([
@@ -340,8 +342,9 @@ if __name__ == "__main__":
     # model_type = 'simple'
     # model_type = 'large'
     # model_type = 'rbm_fixed_5'
+    # model_type = 'large_rbm_fixed_3'
     # model_type = '{}_large_rbm_fixed_3'.format(config['GENERAL']['Dataset'])
-    model_type = '{}_rbm_fixed_6'.format(config['GENERAL']['Dataset'])
+    model_type = '{}_rbm_fixed_7_val'.format(config['GENERAL']['Dataset'])
     # model_type = 'large_fixed'
     # model_type = 'sequential'
     n_clusters = 80
@@ -366,25 +369,28 @@ if __name__ == "__main__":
 
     }
     #
-    print("Train WDN")
-    model = train_wdn(train_data, wdn_settings)
+    # print("Train WDN")
+    # model = train_wdn(train_data, wdn_settings)
+    # torch.save('{}_level_train_clusters_{}_checkpoint.pth.tar'.format(n_levels, model_type), model)
+
+
     # model = train_wdn(train_data, wdn_settings, model)
     # model = train_wdn(test_data, wdn_settings, model)
-    print("Convert train images to latent vectors")
-    train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
-    print("Convert test images to latent vectors")
-    test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+    # print("Convert train images to latent vectors")
+    # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+    # print("Convert test images to latent vectors")
+    # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
     #
-    np.save('{}_level_train_features_{}'.format(n_levels, model_type), train_features)
-    np.save('{}_level_train_labels_{}'.format(n_levels, model_type), train_labels)
-    np.save('{}_level_test_features_{}'.format(n_levels, model_type), test_features)
-    np.save('{}_level_test_labels_{}'.format(n_levels, model_type), test_labels)
-
+    # np.save('{}_level_train_features_{}'.format(n_levels, model_type), train_features)
+    # np.save('{}_level_train_labels_{}'.format(n_levels, model_type), train_labels)
+    # np.save('{}_level_test_features_{}'.format(n_levels, model_type), test_features)
+    # np.save('{}_level_test_labels_{}'.format(n_levels, model_type), test_labels)
     #
-    # train_features = np.load('{}_level_train_features_{}.npy'.format(n_levels, model_type))
-    # train_labels = np.load('{}_level_train_labels_{}.npy'.format(n_levels, model_type))
-    # test_features = np.load('{}_level_test_features_{}.npy'.format(n_levels, model_type))
-    # test_labels = np.load('{}_level_test_labels_{}.npy'.format(n_levels, model_type))
+    #
+    train_features = np.load('{}_level_train_features_{}.npy'.format(n_levels, model_type))
+    train_labels = np.load('{}_level_train_labels_{}.npy'.format(n_levels, model_type))
+    test_features = np.load('{}_level_test_features_{}.npy'.format(n_levels, model_type))
+    test_labels = np.load('{}_level_test_labels_{}.npy'.format(n_levels, model_type))
     #
     # print("Fitting SVM")
     # # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
@@ -396,8 +402,6 @@ if __name__ == "__main__":
     # predictions = svc.predict(test_features)
     # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
     #
-    #
-    # test = 0
     # exit(1)
 
     # print("Calculate Max RBM")

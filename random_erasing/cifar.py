@@ -64,7 +64,7 @@ parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 
 parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
 parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
 # Miscs
-parser.add_argument('--manualSeed', type=int, help='manual seed')
+parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 
@@ -87,6 +87,7 @@ if args.manualSeed is None:
     args.manualSeed = random.randint(1, 10000)
 random.seed(args.manualSeed)
 torch.manual_seed(args.manualSeed)
+np.random.seed(args.manualSeed)
 if use_cuda:
     torch.cuda.manual_seed_all(args.manualSeed)
 
@@ -200,7 +201,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     bar.finish()
     return (losses.avg, top1.avg)
 
-def save_checkpoint(state, is_best, checkpoint='fm_ae_checkpoint', filename='fm_ae_checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
     if is_best:
@@ -215,7 +216,7 @@ def adjust_learning_rate(optimizer, epoch):
 
 def main():
     global best_acc
-    start_epoch = args.start_epoch  # start from epoch 0 or last fm_ae_checkpoint epoch
+    start_epoch = args.start_epoch  # start from epoch 0 or last checkpoint epoch
 
     if not os.path.isdir(args.checkpoint):
         mkdir_p(args.checkpoint)
@@ -272,9 +273,9 @@ def main():
     # Resume
     title = 'cifar-10-' + args.arch
     if args.resume:
-        # Load fm_ae_checkpoint.
-        print('==> Resuming from fm_ae_checkpoint..')
-        assert os.path.isfile(args.resume), 'Error: no fm_ae_checkpoint directory found!'
+        # Load checkpoint.
+        print('==> Resuming from checkpoint..')
+        assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
         args.checkpoint = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
         best_acc = checkpoint['best_acc']

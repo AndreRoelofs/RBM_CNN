@@ -19,7 +19,7 @@ class Node(nn.Module):
         self.rbm = RV_RBM(
             rbm_visible_units,
             rbm_hidden_units,
-            weight_variance=encoder_weight_variance/4,
+            weight_variance=encoder_weight_variance/20,
             use_relu=False,
         )
         self.child_networks = []

@@ -42,7 +42,7 @@ parser.add_argument('--train-batch', default=256, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=10, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-2, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
@@ -52,7 +52,7 @@ parser.add_argument('--schedule', type=int, nargs='+',
                     default=[100],
                     # default=[],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -76,8 +76,8 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                          ' (default: resnet20)')
 # parser.add_argument('--depth', type=int, default=28, help='Model depth.')
 # parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
-parser.add_argument('--depth', type=int, default=28, help='Model depth.')
-parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
+parser.add_argument('--depth', type=int, default=40, help='Model depth.')
+parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
 parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
 parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
 # Miscs
@@ -117,7 +117,7 @@ best_acc = 0  # best test accuracy
 
 def main():
     global best_acc
-    start_epoch = args.start_epoch  # start from epoch 0 or last fm_ae_checkpoint epoch
+    start_epoch = args.start_epoch  # start from epoch 0 or last checkpoint epoch
 
     if not os.path.isdir(args.checkpoint):
         mkdir_p(args.checkpoint)
@@ -155,14 +155,14 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_large_rbm_fixed_max_rbm.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_large_rbm_fixed_max_rbm.npy")
 
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_large_rbm_fixed_3.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_large_rbm_fixed_3.npy")
+    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_large_rbm_fixed_3.npy")
+    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_large_rbm_fixed_3.npy")
 
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_2_large_rbm_fixed_3.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_2_large_rbm_fixed_3.npy")
 
-    train_predictions = np.load("../autoencoder/fashion_mnist_ae_392_train_clusters_80.npy")
-    test_predictions = np.load("../autoencoder/fashion_mnist_ae_392_test_clusters_80.npy")
+    # train_predictions = np.load("../autoencoder/fashion_mnist_ae_392_train_clusters_80.npy")
+    # test_predictions = np.load("../autoencoder/fashion_mnist_ae_392_test_clusters_80.npy")
     #
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_rbm_fixed_5.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_rbm_fixed_5.npy")
@@ -245,21 +245,25 @@ def main():
 
 
         # Resume
-        # Load fm_ae_checkpoint.
-        print('==> Resuming from fm_ae_checkpoint..')
-        assert os.path.isfile(args.resume), 'Error: no fm_ae_checkpoint directory found!'
+        # Load checkpoint.
+        print('==> Resuming from checkpoint..')
+        assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
         args.checkpoint = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
-        # best_acc = fm_ae_checkpoint['best_acc']
+        # best_acc = checkpoint['best_acc']
         best_acc = 0
-        # start_epoch = fm_ae_checkpoint['epoch']
+        # start_epoch = checkpoint['epoch']
         start_epoch = 0
         model.load_state_dict(checkpoint['state_dict'])
-        # optimizer.load_state_dict(fm_ae_checkpoint['optimizer'])
+        for param in model.parameters():
+            param.requires_grad = False
+
+        model.fc = nn.Linear(1, 10)
+        # optimizer.load_state_dict(checkpoint['optimizer'])
         # for param_group in optimizer.param_groups:
         #     param_group['lr'] = args.lr
 
-        # logger = Logger(os.path.join(args.fm_ae_checkpoint, 'log.txt'), title=title, resume=True)
+        # logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
 
         train_loss, train_acc = test(trainloader, model, criterion, 0, use_cuda)
         print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
@@ -296,7 +300,7 @@ def main():
 
         # logger.close()
         # logger.plot()
-        # savefig(os.path.join(args.fm_ae_checkpoint, 'log.eps'))
+        # savefig(os.path.join(args.checkpoint, 'log.eps'))
 
         print('Best acc:')
         print(best_acc)
@@ -325,7 +329,7 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
 
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
-        inputs, targets = torch.autograd.Variable(inputs), torch.autograd.Variable(targets)
+        inputs, targets = torch.autograd.Variable(inputs, requires_grad=True), torch.autograd.Variable(targets)
 
         # compute output
         outputs = model(inputs)
@@ -437,7 +441,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     return (losses.avg, top1.avg)
 
 
-def save_checkpoint(state, is_best, checkpoint='fm_ae_checkpoint', filename='fm_ae_checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
     if is_best:

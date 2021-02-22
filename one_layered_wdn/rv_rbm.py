@@ -45,8 +45,8 @@ class RV_RBM(nn.Module):
         self.visible_bias_momentum = torch.zeros(self.num_visible)
         self.hidden_bias_momentum = torch.zeros(self.num_hidden)
 
-        nn.init.xavier_normal_(self.weights, weight_variance)
-        # nn.init.xavier_normal_(self.weights, 0.007)
+        # nn.init.xavier_normal_(self.weights, weight_variance)
+        nn.init.normal_(self.weights, 0, weight_variance)
 
         if self.use_cuda:
             self.weights = self.weights.cuda()

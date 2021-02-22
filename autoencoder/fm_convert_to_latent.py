@@ -9,7 +9,7 @@ data_path = '../data'
 
 latent_vector_size = 392
 batch_size = 100
-n_clusters = 80
+n_clusters = 10
 
 train_size = 60000
 test_size = 10000

@@ -27,7 +27,7 @@ class WDN(nn.Module):
 
         self.levels = [
             {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': image_size,
-             'encoder_weight_variance': 0.07, 'rbm_hidden_units': 700, 'rbm_learning_rate': 1e-3,
+             'encoder_weight_variance': 0.07, 'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3,
              'encoder_learning_rate': 1e-3, 'n_training': 2},
 
             {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': int(image_size / 2),
@@ -147,9 +147,9 @@ class WDN(nn.Module):
                                                              (self.levels[level]['rbm_visible_units'] ** 2) *
                                                              self.levels[level]['encoder_channels'])
 
-            # if i == 0:
+            if i == 0:
             # if i % 5 == 0:
-            if True:
+            # if True:
                 network.rbm.contrastive_divergence(flat_rbm_input)
 
             # Train encoder
