@@ -21,6 +21,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import random_erasing.transforms as transforms
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 from random_erasing.utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 from ImbalancedDatasetSampler import ImbalancedDatasetSampler
 
@@ -42,7 +43,7 @@ parser.add_argument('--train-batch', default=256, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=10, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-2, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
@@ -52,7 +53,7 @@ parser.add_argument('--schedule', type=int, nargs='+',
                     default=[100],
                     # default=[],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -74,10 +75,10 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet20)')
-# parser.add_argument('--depth', type=int, default=28, help='Model depth.')
-# parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
-parser.add_argument('--depth', type=int, default=40, help='Model depth.')
-parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
+parser.add_argument('--depth', type=int, default=28, help='Model depth.')
+parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
+# parser.add_argument('--depth', type=int, default=40, help='Model depth.')
+# parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
 parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
 parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
 # Miscs
@@ -89,7 +90,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
 parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
 parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
-#
+
 # parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
 # parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
@@ -155,8 +156,11 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_large_rbm_fixed_max_rbm.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_large_rbm_fixed_max_rbm.npy")
 
-    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_large_rbm_fixed_3.npy")
-    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_large_rbm_fixed_3.npy")
+    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_large_rbm_fixed_3.npy")
+    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_large_rbm_fixed_3.npy")
+
+    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_7.npy")
+    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_Fashion_MNIST_rbm_fixed_7.npy")
 
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_2_large_rbm_fixed_3.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_2_large_rbm_fixed_3.npy")
@@ -233,6 +237,13 @@ def main():
                 depth=args.depth,
             )
 
+        fc_clone = copy.deepcopy(model.fc)
+
+        for param in model.parameters():
+            param.requires_grad = False
+
+        model.fc = fc_clone
+
         model = torch.nn.DataParallel(model).cuda()
         cudnn.benchmark = True
         print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters()) / 1000000.0))
@@ -255,33 +266,32 @@ def main():
         # start_epoch = checkpoint['epoch']
         start_epoch = 0
         model.load_state_dict(checkpoint['state_dict'])
-        for param in model.parameters():
-            param.requires_grad = False
 
-        model.fc = nn.Linear(1, 10)
         # optimizer.load_state_dict(checkpoint['optimizer'])
         # for param_group in optimizer.param_groups:
         #     param_group['lr'] = args.lr
 
         # logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
 
-        train_loss, train_acc = test(trainloader, model, criterion, 0, use_cuda)
+        train_loss, train_acc, _ = test(trainloader, model, criterion, 0, use_cuda)
         print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
-        test_loss, test_acc = test(testloader, model, criterion, 0, use_cuda)
+        test_loss, test_acc, _ = test(testloader, model, criterion, 0, use_cuda)
         print("Original Test Accuracy: {} Loss: {}".format(test_acc, test_loss))
         best_acc = test_acc
         og_acc = test_acc
+        min_incorrect = 100000
 
         # Train and val
         for epoch in range(start_epoch, args.epochs):
-            if best_acc == 100:
+            if best_acc >= 100:
                 break
             adjust_learning_rate(optimizer, epoch)
 
             # print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
 
             train_loss, train_acc = train(trainloader, model, criterion, optimizer, epoch, use_cuda)
-            test_loss, test_acc = test(testloader, model, criterion, epoch, use_cuda)
+            test_loss, test_acc, incorrect_classes = test(testloader, model, criterion, epoch, use_cuda)
+            min_incorrect = min(min_incorrect, incorrect_classes)
             print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Test Accuracy: %f' % (epoch + 1, args.epochs, state['lr'], best_acc, test_acc))
 
             # append logger file
@@ -302,11 +312,15 @@ def main():
         # logger.plot()
         # savefig(os.path.join(args.checkpoint, 'log.eps'))
 
+        if min_incorrect == 100000:
+            min_incorrect = 0
+
         print('Best acc:')
         print(best_acc)
         print("Og Acc Diff:")
         print(best_acc-og_acc)
-        correct_preds.append(int((best_acc / 100) * len(test_cluster_idx)))
+        # correct_preds.append(int((best_acc / 100) * len(test_cluster_idx)))
+        correct_preds.append(len(test_cluster_idx) - min_incorrect)
         # best_accuracies.append(best_acc)
     print("Total of correct preds: {}".format(np.sum(correct_preds)))
 
@@ -329,7 +343,7 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
 
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
-        inputs, targets = torch.autograd.Variable(inputs, requires_grad=True), torch.autograd.Variable(targets)
+        inputs, targets = torch.autograd.Variable(inputs), torch.autograd.Variable(targets)
 
         # compute output
         outputs = model(inputs)
@@ -438,7 +452,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     if len(incorrect_classes) > 0:
         print("Incorrect classes: ", incorrect_classes)
     # print(top1.avg)
-    return (losses.avg, top1.avg)
+    return (losses.avg, top1.avg, len(incorrect_classes))
 
 
 def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoint.pth.tar'):

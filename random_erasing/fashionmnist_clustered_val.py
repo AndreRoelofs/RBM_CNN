@@ -35,13 +35,13 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=10, type=int, metavar='N',
+parser.add_argument('--epochs', default=1, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--train-batch', default=128, type=int, metavar='N',
+parser.add_argument('--train-batch', default=256, type=int, metavar='N',
                     help='train batchsize')
-parser.add_argument('--test-batch', default=100, type=int, metavar='N',
+parser.add_argument('--test-batch', default=10, type=int, metavar='N',
                     help='test batchsize')
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     metavar='LR', help='initial learning rate')
@@ -88,12 +88,12 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 # parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+# parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
+# parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
 #
 parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
-# parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
-# parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -165,6 +165,7 @@ def main():
     # test_predictions = np.load("../autoencoder/fashion_mnist_ae_392_test_clusters_80.npy")
 
     train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
+    val_predictions = np.load("../one_layered_wdn/1_level_val_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
     test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
     #
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_rbm_fixed_5.npy")
@@ -176,30 +177,21 @@ def main():
     test_correct_preds = []
     val_correct_preds = []
     best_acc = 0
-    # for cluster_id in range(80):
-    for cluster_id in [43]:
+    for cluster_id in range(80):
+    # for cluster_id in [71]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
-        val_cluster_idx = []
+
         for i in range(len(train_predictions)):
             cluster = train_predictions[i]
             if cluster != cluster_id:
                 continue
-
-            train_cluster_idx.append(i)
-
-            # if i in train_indices:
-            #     train_cluster_idx.append(np.where(train_indices == i)[0][0])
-                # train_cluster_idx.append(i)
-            # else:
-            #     val_cluster_idx.append(np.where(val_indices == i)[0][0])
-                # val_cluster_idx.append(i)
+            train_cluster_idx.append(train_indices[i])
 
         print("Train size: {}".format(len(train_cluster_idx)))
-        print("Val size: {}".format(len(val_cluster_idx)))
 
         trainloader = data.DataLoader(
             trainset,
@@ -211,13 +203,24 @@ def main():
             sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
         )
 
+        val_cluster_idx = []
+        for i in range(len(val_predictions)):
+            cluster = val_predictions[i]
+            if cluster != cluster_id:
+                continue
+
+            # val_cluster_idx.append(i)
+            val_cluster_idx.append(val_indices[i])
+        print("Val size: {}".format(len(val_cluster_idx)))
 
         valloader = data.DataLoader(
             valset,
             batch_size=min(args.test_batch, len(val_cluster_idx)),
             shuffle=False,
             num_workers=args.workers,
-            sampler=SubsetRandomSampler(val_cluster_idx)
+            sampler=SubsetRandomSampler(val_cluster_idx),
+            # sampler=ImbalancedDatasetSampler(dataset=valset, indices=val_cluster_idx),
+
         )
 
         test_cluster_idx = []
@@ -254,7 +257,7 @@ def main():
             )
 
         fc_clone = copy.deepcopy(model.fc)
-        #
+
         for param in model.parameters():
             param.requires_grad = False
 
@@ -316,11 +319,10 @@ def main():
             # print("Test classes:")
             test_loss, test_acc, _ = test(testloader, model, criterion, 0, use_cuda)
             print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Valid Accuracy: %f Test Accuracy: %f' % (
-            epoch + 1, args.epochs, state['lr'], best_acc, val_acc, test_acc))
+                epoch + 1, args.epochs, state['lr'], best_acc, val_acc, test_acc))
 
             # append logger file
             logger.append([state['lr'], train_loss, val_loss, train_acc, val_acc])
-
 
             # save model
             # is_best = test_acc > best_acc + 0.00001

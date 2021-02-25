@@ -35,7 +35,7 @@ class WDN(nn.Module):
              'encoder_learning_rate': 1e-3, 'n_training': 2},
 
             {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': int(image_size / 4),
-             'encoder_weight_variance': 1.0, 'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3,
+             'encoder_weight_variance': 0.07, 'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3,
              'encoder_learning_rate': 1e-3, 'n_training': 2},
 
             {'input_channels': input_channels, 'encoder_channels': 1, 'rbm_visible_units': 3,
