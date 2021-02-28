@@ -160,6 +160,9 @@ def main():
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_CIFAR_10_large_rbm_fixed_3.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_CIFAR_10_large_rbm_fixed_3.npy")
 
+    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_CIFAR_10_rbm_fix ed_7.npy")
+    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_CIFAR_10_rbm_fix ed_7.npy")
+
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_2_large_rbm_fixed_3.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_2_large_rbm_fixed_3.npy")
     #

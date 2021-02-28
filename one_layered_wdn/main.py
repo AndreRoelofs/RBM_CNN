@@ -138,13 +138,13 @@ def load_data():
         train_data = CIFAR10(data_path, train=True, download=True,
                              transform=transforms.Compose([
                                  transforms.ToTensor(),
-                                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                                 # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                                  # transforms.Grayscale(),
                              ]))
 
         test_data = CIFAR10(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             # transforms.Grayscale(),
         ]))
 
@@ -341,7 +341,7 @@ if __name__ == "__main__":
     # model_type = 'large_fixed'
     # model_type = 'sequential'
     n_clusters = 80
-    n_levels = 2
+    n_levels = 1
     wdn_settings = {
         'image_input_size': image_input_size,
         'image_channels': input_filters,
@@ -372,10 +372,10 @@ if __name__ == "__main__":
     print("Convert test images to latent vectors")
     test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
     #
-    # np.save('{}_level_train_features_{}'.format(n_levels, model_type), train_features)
-    # np.save('{}_level_train_labels_{}'.format(n_levels, model_type), train_labels)
-    # np.save('{}_level_test_features_{}'.format(n_levels, model_type), test_features)
-    # np.save('{}_level_test_labels_{}'.format(n_levels, model_type), test_labels)
+    np.save('{}_level_train_features_{}'.format(n_levels, model_type), train_features)
+    np.save('{}_level_train_labels_{}'.format(n_levels, model_type), train_labels)
+    np.save('{}_level_test_features_{}'.format(n_levels, model_type), test_features)
+    np.save('{}_level_test_labels_{}'.format(n_levels, model_type), test_labels)
     #
     #
     # train_features = np.load('{}_level_train_features_{}.npy'.format(n_levels, model_type))
@@ -383,17 +383,17 @@ if __name__ == "__main__":
     # test_features = np.load('{}_level_test_features_{}.npy'.format(n_levels, model_type))
     # test_labels = np.load('{}_level_test_labels_{}.npy'.format(n_levels, model_type))
     #
-    print("Fitting SVM")
-    # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
-    svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
-    svc.fit(train_features, train_labels)
-    print("Predicting SVM")
-    predictions = svc.predict(train_features)
-    print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
-    predictions = svc.predict(test_features)
-    print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
-
-    exit(1)
+    # print("Fitting SVM")
+    # # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
+    # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
+    # svc.fit(train_features, train_labels)
+    # print("Predicting SVM")
+    # predictions = svc.predict(train_features)
+    # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
+    # predictions = svc.predict(test_features)
+    # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
+    #
+    # exit(1)
 
     # print("Calculate Max RBM")
     # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
