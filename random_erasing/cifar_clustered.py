@@ -8,7 +8,9 @@ import os
 import shutil
 import time
 import random
+import copy
 from sam import SAM
+from sys import exit
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -23,6 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from random_erasing.utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 from ImbalancedDatasetSampler import ImbalancedDatasetSampler
+import wandb
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -38,9 +41,9 @@ parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--train-batch', default=256, type=int, metavar='N',
+parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
-parser.add_argument('--test-batch', default=1, type=int, metavar='N',
+parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
 parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
@@ -89,7 +92,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
 parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
 parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
-#
+
 # parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
 # parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
@@ -103,13 +106,13 @@ assert args.dataset == 'cifar10' or args.dataset == 'cifar100', 'Dataset can onl
 use_cuda = torch.cuda.is_available()
 
 # Random seed
-if args.manualSeed is None:
-    args.manualSeed = random.randint(1, 10000)
-random.seed(args.manualSeed)
-np.random.seed(args.manualSeed)
-torch.manual_seed(args.manualSeed)
-if use_cuda:
-    torch.cuda.manual_seed_all(args.manualSeed)
+# if args.manualSeed is None:
+#     args.manualSeed = random.randint(1, 10000)
+# random.seed(args.manualSeed)
+# np.random.seed(args.manualSeed)
+# torch.manual_seed(args.manualSeed)
+# if use_cuda:
+#     torch.cuda.manual_seed_all(args.manualSeed)
 
 best_acc = 0  # best test accuracy
 
@@ -145,170 +148,162 @@ def main():
         dataloader = datasets.CIFAR100
         num_classes = 100
 
-    trainset = dataloader(root='./data', train=True, download=True, transform=transform_train)
-    testset = dataloader(root='./data', train=False, download=False, transform=transform_test)
+    trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
+    testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
-    # trainset.data = trainset.data[:10000]
-    # trainset.targets = trainset.targets[:10000]
-    #
-    # testset.data = testset.data[:1000]
-    # testset.targets = testset.targets[:1000]
+    n_clusters = 80
 
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_large_rbm_fixed_max_rbm.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_large_rbm_fixed_max_rbm.npy")
+    for model_number in range(2, 6):
+        wandb.init(project="Clusters_CIFAR_10_old_rbm_cnn_levels_2_clusters_{}".format(n_clusters),
+                   reinit=True)
 
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_CIFAR_10_large_rbm_fixed_3.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_CIFAR_10_large_rbm_fixed_3.npy")
+        train_predictions = np.load(
+            "../one_layered_wdn/train_clusters_CIFAR_10_old_rbm_cnn_levels_2_{}_{}.npy".format(model_number,
+                                                                                                    n_clusters))
+        test_predictions = np.load(
+            "../one_layered_wdn/test_clusters_CIFAR_10_old_rbm_cnn_levels_2_{}_{}.npy".format(model_number,
+                                                                                                   n_clusters))
 
-    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_CIFAR_10_rbm_fix ed_7.npy")
-    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_CIFAR_10_rbm_fix ed_7.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_2_large_rbm_fixed_3.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_2_large_rbm_fixed_3.npy")
-    #
-    # train_predictions = np.load("../autoencoder/cifar_10_ae_512_train_clusters_80.npy")
-    # test_predictions = np.load("../autoencoder/cifar_10_ae_512_test_clusters_80.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_6.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_Fashion_MNIST_rbm_fixed_6.npy")
-
-    title = 'cifar-10-' + args.arch
-    logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
-    logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
-    correct_preds = []
-    best_acc = 0
-    for cluster_id in range(80):
-        # for cluster_id in [1]:
-        state['lr'] = args.lr
-
-        # for cluster_id in range(0, 1):
-        print("Current cluster ", cluster_id)
-        train_cluster_idx = []
-        for i in range(len(train_predictions)):
-            cluster = train_predictions[i]
-            if cluster != cluster_id:
-                continue
-            train_cluster_idx.append(i)
-
-        print("Train size: {}".format(len(train_cluster_idx)))
-
-        trainloader = data.DataLoader(
-            trainset,
-            batch_size=min(args.train_batch, len(train_cluster_idx)),
-            # batch_size=min(64, len(train_cluster_idx)),
-            shuffle=False,
-            num_workers=args.workers,
-            # sampler=SubsetRandomSampler(train_cluster_idx),
-            sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
-        )
-
-        print("Train batch: ", args.train_batch)
-
-        test_cluster_idx = []
-        for i in range(len(test_predictions)):
-            cluster = test_predictions[i]
-            if cluster != cluster_id:
-                continue
-            test_cluster_idx.append(i)
-
-        print("Test size: {}".format(len(test_cluster_idx)))
-
-        testloader = data.DataLoader(
-            testset,
-            batch_size=min(args.test_batch, len(test_cluster_idx)),
-            shuffle=False,
-            num_workers=args.workers,
-            sampler=SubsetRandomSampler(test_cluster_idx)
-
-        )
-
-        # Model
-        print("==> creating model '{}'".format(args.arch))
-        if args.arch.startswith('wrn'):
-            model = models.__dict__[args.arch](
-                num_classes=num_classes,
-                depth=args.depth,
-                widen_factor=args.widen_factor,
-                dropRate=args.drop,
-            )
-        elif args.arch.endswith('resnet'):
-            model = models.__dict__[args.arch](
-                num_classes=num_classes,
-                depth=args.depth,
-            )
-
-        model = torch.nn.DataParallel(model).cuda()
-        cudnn.benchmark = True
-        print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters()) / 1000000.0))
-
-        criterion = nn.CrossEntropyLoss()
-        # optimizer = optim.Adam(model.parameters(), lr=1e-4)
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-        # base_optimizer = optim.SGD
-        # optimizer = SAM(model.parameters(), base_optimizer, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-
-        # Resume
-        # Load checkpoint.
-        print('==> Resuming from checkpoint..')
-        assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
-        args.checkpoint = os.path.dirname(args.resume)
-        checkpoint = torch.load(args.resume)
-        # best_acc = checkpoint['best_acc']
+        title = 'cifar-10-' + args.arch
+        logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
+        logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
+        correct_preds = []
         best_acc = 0
-        # start_epoch = checkpoint['epoch']
-        start_epoch = 0
-        model.load_state_dict(checkpoint['state_dict'])
-        # optimizer.load_state_dict(checkpoint['optimizer'])
-        # for param_group in optimizer.param_groups:
-        #     param_group['lr'] = args.lr
+        for cluster_id in range(80):
+        # for cluster_id in [3]:
+            state['lr'] = args.lr
 
-        # logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
+            # for cluster_id in range(0, 1):
+            print("Current cluster ", cluster_id)
+            train_cluster_idx = []
+            for i in range(len(train_predictions)):
+                cluster = train_predictions[i]
+                if cluster != cluster_id:
+                    continue
+                train_cluster_idx.append(i)
 
-        train_loss, train_acc = test(trainloader, model, criterion, 0, use_cuda)
-        print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
-        test_loss, test_acc = test(testloader, model, criterion, 0, use_cuda)
-        print("Original Test Accuracy: {} Loss: {}".format(test_acc, test_loss))
-        best_acc = test_acc
-        og_acc = test_acc
+            print("Train size: {}".format(len(train_cluster_idx)))
 
-        # Train and val
-        for epoch in range(start_epoch, args.epochs):
-            if best_acc == 100:
-                break
-            adjust_learning_rate(optimizer, epoch)
+            trainloader = data.DataLoader(
+                trainset,
+                batch_size=min(args.train_batch, len(train_cluster_idx)),
+                # batch_size=min(64, len(train_cluster_idx)),
+                shuffle=False,
+                num_workers=args.workers,
+                # sampler=SubsetRandomSampler(train_cluster_idx),
+                sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+            )
 
-            # print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
+            print("Train batch: ", args.train_batch)
 
-            train_loss, train_acc = train(trainloader, model, criterion, optimizer, epoch, use_cuda)
-            test_loss, test_acc = test(testloader, model, criterion, epoch, use_cuda)
-            print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Test Accuracy: %f' % (
-            epoch + 1, args.epochs, state['lr'], best_acc, test_acc))
+            test_cluster_idx = []
+            for i in range(len(test_predictions)):
+                cluster = test_predictions[i]
+                if cluster != cluster_id:
+                    continue
+                test_cluster_idx.append(i)
 
-            # append logger file
-            logger.append([state['lr'], train_loss, test_loss, train_acc, test_acc])
+            print("Test size: {}".format(len(test_cluster_idx)))
 
-            # save model
-            is_best = test_acc > best_acc
-            best_acc = max(test_acc, best_acc)
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'acc': test_acc,
-                'best_acc': best_acc,
-                'optimizer': optimizer.state_dict(),
-            }, is_best, checkpoint=args.checkpoint)
+            testloader = data.DataLoader(
+                testset,
+                batch_size=min(args.test_batch, len(test_cluster_idx)),
+                shuffle=False,
+                num_workers=args.workers,
+                sampler=SubsetRandomSampler(test_cluster_idx)
 
-        # logger.close()
-        # logger.plot()
-        # savefig(os.path.join(args.checkpoint, 'log.eps'))
+            )
 
-        print('Best acc:')
-        print(best_acc)
-        print("Og Acc Diff:")
-        print(best_acc - og_acc)
-        correct_preds.append(int((best_acc / 100) * len(test_cluster_idx)))
-        # best_accuracies.append(best_acc)
-    print("Total of correct preds: {}".format(np.sum(correct_preds)))
+            # Model
+            print("==> creating model '{}'".format(args.arch))
+            if args.arch.startswith('wrn'):
+                model = models.__dict__[args.arch](
+                    num_classes=num_classes,
+                    depth=args.depth,
+                    widen_factor=args.widen_factor,
+                    dropRate=args.drop,
+                )
+            elif args.arch.endswith('resnet'):
+                model = models.__dict__[args.arch](
+                    num_classes=num_classes,
+                    depth=args.depth,
+                )
+
+            # fc_clone = copy.deepcopy(model.fc)
+            #
+            # for param in model.parameters():
+            #     param.requires_grad = False
+            #
+            # model.fc = fc_clone
+
+            model = torch.nn.DataParallel(model).cuda()
+            cudnn.benchmark = True
+            print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters()) / 1000000.0))
+
+            criterion = nn.CrossEntropyLoss()
+            optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+            # Resume
+            # Load checkpoint.
+            print('==> Resuming from checkpoint..')
+            assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
+            args.checkpoint = os.path.dirname(args.resume)
+            checkpoint = torch.load(args.resume)
+            best_acc = 0
+            start_epoch = 0
+            model.load_state_dict(checkpoint['state_dict'])
+
+            train_loss, train_acc, _ = test(trainloader, model, criterion, 0, use_cuda)
+            print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
+            test_loss, test_acc, og_incorrect = test(testloader, model, criterion, 0, use_cuda)
+            print("Original Test Accuracy: {} Loss: {}".format(test_acc, test_loss))
+            best_acc = test_acc
+            og_acc = test_acc
+            min_incorrect = og_incorrect
+
+            # Train and val
+            incorrect_array = np.zeros(args.epochs) + og_incorrect
+            for epoch in range(start_epoch, args.epochs):
+                if best_acc >= 100:
+                    break
+                adjust_learning_rate(optimizer, epoch)
+
+                train_loss, train_acc = train(trainloader, model, criterion, optimizer, epoch, use_cuda)
+                test_loss, test_acc, incorrect_classes = test(testloader, model, criterion, epoch, use_cuda)
+                min_incorrect = min(min_incorrect, incorrect_classes)
+                print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Test Accuracy: %f' % (
+                epoch + 1, args.epochs, state['lr'], best_acc, test_acc))
+
+                incorrect_array[epoch] = incorrect_classes
+
+                # append logger file
+                logger.append([state['lr'], train_loss, test_loss, train_acc, test_acc])
+
+                # save model
+                is_best = test_acc > best_acc
+                best_acc = max(test_acc, best_acc)
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                    'acc': test_acc,
+                    'best_acc': best_acc,
+                    'optimizer': optimizer.state_dict(),
+                }, is_best, checkpoint=args.checkpoint)
+
+            print('Best acc:')
+            print(best_acc)
+            print("Og Acc Diff:")
+            print(best_acc - og_acc)
+            correct_preds.append(len(test_cluster_idx) - min_incorrect)
+            log_dict = {}
+            log_dict['min_incorrect_first'] = incorrect_array[:100].min()
+            log_dict['min_incorrect_first_improvement'] = log_dict['min_incorrect_first'] - min_incorrect
+            log_dict['min_incorrect_second'] = incorrect_array[100:].min()
+            log_dict['min_incorrect_second_improvement'] = log_dict['min_incorrect_second'] - min_incorrect
+            wandb.log(log_dict)
+        print("Total of correct preds: {}".format(np.sum(correct_preds)))
+        log_dict = {"max_accuracy": np.sum(correct_preds), 'improvement': np.sum(correct_preds)-9704}
+        wandb.log(log_dict)
 
 
 def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
@@ -438,7 +433,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     if len(incorrect_classes) > 0:
         print("Incorrect classes: ", incorrect_classes)
     # print(top1.avg)
-    return (losses.avg, top1.avg)
+    return (losses.avg, top1.avg, len(incorrect_classes))
 
 
 def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoint.pth.tar'):

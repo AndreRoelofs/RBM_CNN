@@ -35,25 +35,25 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=1, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--train-batch', default=256, type=int, metavar='N',
+parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
-parser.add_argument('--test-batch', default=10, type=int, metavar='N',
+parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
-                    # default=[50],
-                    default=[50, 75],
+                    default=[100],
+                    # default=[50, 75],
                     # default=[],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -87,13 +87,13 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 
 # Random Erasing
-# parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-# parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-# parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
-#
-parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
+parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
+parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+
+# parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
+# parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
+# parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -256,12 +256,12 @@ def main():
                 depth=args.depth,
             )
 
-        fc_clone = copy.deepcopy(model.fc)
-
-        for param in model.parameters():
-            param.requires_grad = False
-
-        model.fc = fc_clone
+        # fc_clone = copy.deepcopy(model.fc)
+        #
+        # for param in model.parameters():
+        #     param.requires_grad = False
+        #
+        # model.fc = fc_clone
         # model.fc = nn.Linear(64*args.widen_factor, 10)
         # print(nn.Linear(64*args.widen_factor, 10).weight)
         # exit(1)

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from sklearn.svm import SVC, LinearSVC
 from torchvision import transforms
-from torchvision.datasets import MNIST, CIFAR10, FashionMNIST
+from torchvision.datasets import MNIST, CIFAR10, CIFAR100, FashionMNIST
 from torch.utils.data.sampler import SubsetRandomSampler
 import configparser
 from sklearn.cluster import KMeans
@@ -20,8 +20,7 @@ from torch import nn
 from kmeans_pytorch import kmeans, kmeans_predict
 import copy
 
-# import wandb
-
+import wandb
 
 # General
 config = None
@@ -63,6 +62,8 @@ def process_settings():
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
         input_filters = 1
     if general_settings['Dataset'] == CIFAR10_DATASET:
+        input_filters = 3
+    if general_settings['Dataset'] == CIFAR100_DATASET:
         input_filters = 3
 
     fast_training = general_settings['FastTraining'] == 'True'
@@ -143,6 +144,20 @@ def load_data():
                              ]))
 
         test_data = CIFAR10(data_path, train=False, transform=transforms.Compose([
+            transforms.ToTensor(),
+            # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            # transforms.Grayscale(),
+        ]))
+
+    if general_settings['Dataset'] == CIFAR100_DATASET:
+        train_data = CIFAR100(data_path, train=True, download=True,
+                              transform=transforms.Compose([
+                                  transforms.ToTensor(),
+                                  # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                                  # transforms.Grayscale(),
+                              ]))
+
+        test_data = CIFAR100(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             # transforms.Grayscale(),
@@ -318,144 +333,106 @@ def print_cluster_ids(cluster_ids, data_labels, n_clusters=10):
 
 
 if __name__ == "__main__":
-    torch.manual_seed(0)
-    np.random.seed(0)
-
-    # wandb.init(project="wdn-v1")
-
-    # config = wandb.config
-
     config = configparser.ConfigParser()
     config.read('config.ini')
 
     process_settings()
 
     load_data()
-
-    # model_type = 'simple'
-    # model_type = 'large'
-    # model_type = 'rbm_fixed_5'
-    # model_type = 'large_rbm_fixed_3'
-    # model_type = '{}_large_rbm_fixed_3'.format(config['GENERAL']['Dataset'])
-    model_type = '{}_rbm_fixed_7'.format(config['GENERAL']['Dataset'])
-    # model_type = 'large_fixed'
-    # model_type = 'sequential'
-    n_clusters = 80
+    n_clusters = 10
     n_levels = 1
-    wdn_settings = {
-        'image_input_size': image_input_size,
-        'image_channels': input_filters,
+    model_name = '{}_rbm_cnn_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
+    for model_number in range(1, 2):
+        wdn_settings = {
+            'model_name': model_name,
+            'n_clusters': n_clusters,
+            'n_levels': n_levels,
 
-        'encoder_channels': encoder_output_filters,
-        'encoder_learning_rate': encoder_learning_rate,
-        'encoder_activation': encoder_activation,
+            'image_input_size': image_input_size,
+            'image_channels': input_filters,
 
-        'rbm_visible_units': rbm_visible_units,
-        'rbm_hidden_units': rbm_hidden_units,
-        'rbm_learning_rate': rbm_learning_rate,
-        'rbm_activation': rbm_activation,
+            'min_familiarity_threshold': min_familiarity_threshold,
+            'log_interval': 50,
 
-        'min_familiarity_threshold': min_familiarity_threshold,
+            'levels_info': [
+                {'input_channels': input_filters, 'encoder_channels': 1,
+                 'rbm_visible_units': image_input_size ** 2,
+                 'encoder_weight_variance': 0.07, 'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3,
+                 'encoder_learning_rate': 1e-3, 'n_training': 2},
 
-        'log_interval': 50,
-        'n_levels': n_levels
+                {'input_channels': input_filters, 'encoder_channels': 1,
+                 'rbm_visible_units': int(image_input_size / 2) ** 2,
+                 'encoder_weight_variance': 0.07, 'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3,
+                 'encoder_learning_rate': 1e-3, 'n_training': 2},
 
-    }
-    #
-    print("Train WDN")
-    model = train_wdn(train_data, wdn_settings)
-    # torch.save('{}_level_train_clusters_{}_checkpoint.pth.tar'.format(n_levels, model_type), model)
-    # model = train_wdn(train_data, wdn_settings, model)
-    # model = train_wdn(test_data, wdn_settings, model)
-    print("Convert train images to latent vectors")
-    train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
-    print("Convert test images to latent vectors")
-    test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
-    #
-    np.save('{}_level_train_features_{}'.format(n_levels, model_type), train_features)
-    np.save('{}_level_train_labels_{}'.format(n_levels, model_type), train_labels)
-    np.save('{}_level_test_features_{}'.format(n_levels, model_type), test_features)
-    np.save('{}_level_test_labels_{}'.format(n_levels, model_type), test_labels)
-    #
-    #
-    # train_features = np.load('{}_level_train_features_{}.npy'.format(n_levels, model_type))
-    # train_labels = np.load('{}_level_train_labels_{}.npy'.format(n_levels, model_type))
-    # test_features = np.load('{}_level_test_features_{}.npy'.format(n_levels, model_type))
-    # test_labels = np.load('{}_level_test_labels_{}.npy'.format(n_levels, model_type))
-    #
-    # print("Fitting SVM")
-    # # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
-    # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
-    # svc.fit(train_features, train_labels)
-    # print("Predicting SVM")
-    # predictions = svc.predict(train_features)
-    # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
-    # predictions = svc.predict(test_features)
-    # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
-    #
-    # exit(1)
+                {'input_channels': input_filters, 'encoder_channels': 1,
+                 'rbm_visible_units': int(image_input_size / 4) ** 2,
+                 'encoder_weight_variance': 0.07, 'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3,
+                 'encoder_learning_rate': 1e-3, 'n_training': 2},
+            ]
+        }
 
-    # print("Calculate Max RBM")
-    # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
-    print("Fit KNN")
-    cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
-    #
-    np.save('{}_level_train_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type), cluster_ids_x)
-    np.save('{}_level_test_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type), cluster_ids_y)
-    #
-    # cluster_ids_x = np.load('{}_level_train_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type))
-    # cluster_ids_y = np.load('{}_level_test_clusters_{}_{}.npy'.format(n_levels, n_clusters, model_type))
+        # wandb.init(project=model_name, config=wdn_settings, reinit=True)
+        #
+        # wbc = wandb.config
+        #
+        # print("Train WDN")
+        # model = train_wdn(train_data, wdn_settings, wbc)
+        # print("Convert train images to latent vectors")
+        # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+        # print("Convert test images to latent vectors")
+        # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+        #
+        # np.save('train_features_{}_{}'.format(model_name, model_number), train_features)
+        # np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
+        # np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
+        # np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
 
-    train_bins = print_cluster_ids(cluster_ids_x, train_labels, n_clusters)
-    print("________________")
-    test_bins = print_cluster_ids(cluster_ids_y, test_labels, n_clusters)
+        train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
+        train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))
+        test_features = np.load('test_features_{}_{}.npy'.format(model_name, model_number))
+        test_labels = np.load('test_labels_{}_{}.npy'.format(model_name, model_number))
+        #
+        # print("Fitting SVM")
+        # # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
+        # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
+        # svc.fit(train_features, train_labels)
+        # print("Predicting SVM")
+        # predictions = svc.predict(train_features)
+        # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
+        # predictions = svc.predict(test_features)
+        # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
+        #
+        # exit(1)
 
-    error_counter = 0
-    error_pos = []
-    for i in range(train_bins.shape[0]):
-        tr_bin = train_bins[i]
-        te_bin = test_bins[i]
+        print("Calculate Max RBM")
+        cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
+        # print("Fit KNN")
+        # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+        #
+        # np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
+        # np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+        #
+        # cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+        # cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
 
-        for j in range(tr_bin.shape[0]):
-            if tr_bin[j] == 0 and te_bin[j] > 0:
-                error_counter += te_bin[j]
-                error_pos.append([i, j])
-    print("Errors: {}".format(error_counter))
-    for pos in error_pos:
-        print("Error bin: {} class: {}".format(pos[0], pos[1]))
+        train_bins = print_cluster_ids(cluster_ids_x, train_labels, n_clusters)
+        print("________________")
+        test_bins = print_cluster_ids(cluster_ids_y, test_labels, n_clusters)
 
-    test = 0
+        error_counter = 0
+        error_pos = []
+        for i in range(train_bins.shape[0]):
+            tr_bin = train_bins[i]
+            te_bin = test_bins[i]
 
-    # np.save('2_level_train_bins_{}_cosine_large'.format(n_clusters), train_bins)
-    # np.save('2_level_test_bins_{}_cosine_large'.format(n_clusters), test_bins)
+            for j in range(tr_bin.shape[0]):
+                if tr_bin[j] == 0 and te_bin[j] > 0:
+                    error_counter += te_bin[j]
+                    error_pos.append([i, j])
+        print("Errors: {}".format(error_counter))
+        for pos in error_pos:
+            print("Error bin: {} class: {}".format(pos[0], pos[1]))
 
-    # test_bins = np.zeros((n_clusters, 10))
-    # for i in range(len(cluster_ids_y)):
-    #     cluster = cluster_ids_y[i]
-    #     test_bins[cluster][int(test_labels[i])] += 1
-    # bin_counter = 0
-    # for bin in test_bins:
-    #     print(bin_counter, np.array(bin, dtype=np.int))
-    #     bin_counter += 1
-
-    # np.save("3_level_train_features.npy", train_features)
-    # np.save("3_level_train_labels.npy", train_labels)
-    # np.save("3_level_test_features.npy", test_features)
-    # np.save("3_level_test_labels.npy", test_labels)
-
-    # svc = LinearSVC(max_iter=100, loss='hinge', random_state=0)
-    # print("Fitting SVM")
-    # # svc = SVC(cache_size=32768)
-    # svc.fit(train_features, train_labels)
-    # print("Predicting SVM")
-    # predictions = svc.predict(train_features)
-    # print('Train Result: %d/%d' % (np.sum(predictions == train_labels), train_labels.shape[0]))
-    # predictions = svc.predict(test_features)
-    # print('Test Result: %d/%d' % (np.sum(predictions == test_labels), test_labels.shape[0]))
-    # #
-    # wrong_indices = np.where(predictions != test_labels)[0]
-
-    # for i in wrong_indices:
-    #     img = test_data.data[i].cpu().detach().numpy()
-    #     plt.imshow(img, cmap='gray')
-    #     plt.show()
+        # np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), train_bins)
+        # np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), test_bins)
