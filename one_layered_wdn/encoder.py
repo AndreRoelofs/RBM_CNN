@@ -12,7 +12,7 @@ class Encoder(nn.Module):
         # self.conv2 = nn.Conv2d(filters, filters, (3, 3), stride=1, padding=1)
 
         # nn.init.xavier_normal_(self.conv1.weight, weight_variance)
-        nn.init.normal_(self.conv1.weight, 0, weight_variance)
+        nn.init.normal_(self.conv1.weight, 0.1, weight_variance)
         # nn.init.xavier_normal_(self.conv2.weight, weight_variance/2)
         # nn.init.xavier_normal_(self.conv1.weight, 0.07)
 

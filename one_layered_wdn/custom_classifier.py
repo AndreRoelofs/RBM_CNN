@@ -56,17 +56,17 @@ class FashionCNN(nn.Module):
         # self.device = torch.device("cpu")
         self.device = torch.device("cuda")
 
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=512, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=512, out_channels=256, kernel_size=3, padding=0)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=256, kernel_size=3, padding=1)
+        # self.conv2 = nn.Conv2d(in_channels=512, out_channels=256, kernel_size=3, padding=0)
         self.conv3 = nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, padding=1)
-        self.conv4 = nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3, padding=0)
+        self.conv4 = nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3, padding=1)
 
         self.act = nn.ReLU()
         # self.act = nn.SELU()
         self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.conv1_bn = nn.BatchNorm2d(512)
-        self.conv2_bn = nn.BatchNorm2d(256)
+        self.conv2_bn = nn.BatchNorm2d(512)
+        # self.conv2_bn = nn.BatchNorm2d(256)
         self.conv3_bn = nn.BatchNorm2d(128)
         self.conv4_bn = nn.BatchNorm2d(64)
 
@@ -83,9 +83,9 @@ class FashionCNN(nn.Module):
         x = self.conv1_bn(x)
         x = self.act(x)
 
-        x = self.conv2(x)
-        x = self.conv2_bn(x)
-        x = self.act(x)
+        # x = self.conv2(x)
+        # x = self.conv2_bn(x)
+        # x = self.act(x)
 
         x = self.conv3(x)
         x = self.conv3_bn(x)

@@ -5,6 +5,7 @@ import copy
 from torchvision.transforms.functional import hflip
 import itertools
 import operator
+import random
 
 # Constants
 MNIST_DATASET = "MNIST"
@@ -38,6 +39,12 @@ def most_common(L):
 
     # pick the highest-count/earliest item
     return max(groups, key=_auxfun)[0]
+
+def reset_seed():
+    torch.manual_seed(0)
+    np.random.seed(0)
+    random.seed(0)
+    torch.cuda.manual_seed_all(0)
 
 
 def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vector_id, parent_mask=None):

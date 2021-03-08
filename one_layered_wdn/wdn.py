@@ -132,8 +132,8 @@ class WDN(nn.Module):
         network.rbm.calculate_energy_threshold(flat_rbm_input)
 
         network.eval()
-
-        # plt.imshow(data[0].reshape((32,32)).cpu().detach().numpy(), cmap='gray')
+        #
+        # plt.imshow(data[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
         # plt.imshow(rbm_input[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
@@ -263,7 +263,7 @@ class WDN(nn.Module):
             # self._joint_training(data, model, self.n_levels - 1, target)
 
 
-def train_wdn(train_data, settings, wbc, model=None):
+def train_wdn(train_data, settings, wbc=None, model=None):
     if model is None:
         model = WDN(settings)
 
@@ -286,7 +286,8 @@ def train_wdn(train_data, settings, wbc, model=None):
             n_parameters += ((9 * model.levels[model_level]['encoder_channels']) + model.levels[model_level][
                 'rbm_visible_units'] + model.levels[model_level]['rbm_hidden_units']) * model.levels_counter[model_level]
         log_dict['n_parameters'] = n_parameters
-        wandb.log(log_dict)
+        if wbc is not None:
+            wandb.log(log_dict)
         random.shuffle(model.models)
 
     model.calculate_number_of_children()
@@ -321,6 +322,8 @@ def train_wdn(train_data, settings, wbc, model=None):
         n_parameters += ((9 * model.levels[model_level]['encoder_channels']) + model.levels[model_level][
             'rbm_visible_units'] + model.levels[model_level]['rbm_hidden_units']) * model.levels_counter[model_level]
     log_dict['n_parameters'] = n_parameters
-    wandb.log(log_dict)
+
+    if wbc is not None:
+        wandb.log(log_dict)
 
     return model

@@ -36,7 +36,7 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -44,17 +44,17 @@ parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
                     # default=[20, 40],
-                    default=[100],
-                    # default=[],
+                    # default=[100],
+                    default=[],
                     help='Decre11ase learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -150,7 +150,7 @@ def main():
 
     n_clusters = 80
 
-    for model_number in range(1, 11):
+    for model_number in range(20, 21):
         wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_levels_1_clusters_{}".format(n_clusters),
                    reinit=True)
         train_predictions = np.load(
