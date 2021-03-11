@@ -34,7 +34,7 @@ encoder_activation = None  # Activation function
 encoder_learning_rate = None
 
 # RBM settings
-image_input_size = None
+image_size = None
 rbm_visible_units = None
 rbm_hidden_units = None
 rbm_learning_rate = None
@@ -80,7 +80,7 @@ def process_settings():
     encoder_learning_rate = float(encoder_settings['LearningRate'])
 
     # Setup RBM
-    global image_input_size
+    global image_size
     global rbm_visible_units
     global rbm_hidden_units
     global rbm_activation
@@ -369,7 +369,7 @@ if __name__ == "__main__":
     n_clusters = 80
     n_levels = 1
     wdn_settings = {
-        'image_input_size': image_input_size,
+        'image_input_size': image_size,
         'image_channels': input_filters,
 
         'encoder_channels': encoder_output_filters,

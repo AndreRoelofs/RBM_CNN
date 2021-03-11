@@ -19,6 +19,31 @@ SELU_ACTIVATION = "SELU"
 level_act_counter = None
 used_models = []
 
+fashion_mnist_classes = [
+    'T-shirt',
+    'Trouser',
+    'Pullover',
+    'Dress',
+    'Coat',
+    'Sandal',
+    'Shirt',
+    'Sneaker',
+    'Bag',
+    'Ankle boot']
+
+cifar10_classes = [
+    'Airplane',
+    'Automobile',
+    'Bird',
+    'Cat',
+    'Deer',
+    'Dog',
+    'Frog',
+    'Horse',
+    'Ship',
+    'Truck']
+
+
 
 def most_common(L):
     # get an iterable of (item, iterable) pairs
@@ -40,11 +65,11 @@ def most_common(L):
     # pick the highest-count/earliest item
     return max(groups, key=_auxfun)[0]
 
-def reset_seed():
-    torch.manual_seed(0)
-    np.random.seed(0)
-    random.seed(0)
-    torch.cuda.manual_seed_all(0)
+def reset_seed(seed=0):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 def calculate_latent_vector(model, node, data, depth, latent_vector, latent_vector_id, parent_mask=None):
@@ -99,7 +124,7 @@ def convert_images_to_latent_vector(images, model):
             if model.n_levels == 1:
                 values = calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector,
                                                  latent_vector_id)
-                latent_vector[:, latent_vector_id] = values.cpu().detach().numpy()
+                latent_vector[:, latent_vector_id] = values
             else:
                 calculate_latent_vector(model, node, data, model.n_levels - 1, latent_vector,
                                         latent_vector_id)

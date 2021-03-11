@@ -8,7 +8,6 @@ import os
 import shutil
 import time
 import random
-from sam import SAM
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -25,6 +24,7 @@ import copy
 from random_erasing.utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 from ImbalancedDatasetSampler import ImbalancedDatasetSampler
 import wandb
+from sys import exit
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -54,7 +54,7 @@ parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[100],
                     default=[],
                     help='Decre11ase learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -150,21 +150,21 @@ def main():
 
     n_clusters = 80
 
-    for model_number in range(20, 21):
-        wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_levels_1_clusters_{}".format(n_clusters),
-                   reinit=True)
+    for model_number in range(0, 1):
+        # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_finetuned_levels_1_clusters_{}".format(n_clusters),
+        #            reinit=True)
         train_predictions = np.load(
-            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_levels_1_{}_{}.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_finetuned_levels_1_{}_{}.npy".format(model_number, n_clusters))
         test_predictions = np.load(
-            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_levels_1_{}_{}.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_finetuned_levels_1_{}_{}.npy".format(model_number, n_clusters))
 
         title = 'fashionmnist-' + args.arch
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
         logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
         correct_preds = []
         best_acc = 0
-        for cluster_id in range(80):
-        # for cluster_id in [7]:
+        # for cluster_id in range(n_clusters):
+        for cluster_id in [7]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -253,6 +253,8 @@ def main():
             best_acc = test_acc
             og_acc = test_acc
             min_incorrect = og_incorrect
+
+            exit(1)
 
             # Train and val
             for epoch in range(start_epoch, args.epochs):

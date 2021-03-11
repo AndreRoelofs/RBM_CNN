@@ -36,7 +36,7 @@ encoder_activation = None  # Activation function
 encoder_learning_rate = None
 
 # RBM settings
-image_input_size = None
+image_size = None
 rbm_visible_units = None
 rbm_hidden_units = None
 rbm_learning_rate = None
@@ -83,15 +83,15 @@ def process_settings():
     encoder_learning_rate = float(encoder_settings['LearningRate'])
 
     # Setup RBM
-    global image_input_size
+    global image_size
     global rbm_visible_units
     global rbm_hidden_units
     global rbm_activation
     global rbm_learning_rate
 
     rbm_settings = config['RBM']
-    image_input_size = int(rbm_settings['ImageInputSize'])
-    rbm_visible_units = encoder_output_filters * image_input_size ** 2
+    image_size = int(rbm_settings['ImageInputSize'])
+    rbm_visible_units = encoder_output_filters * image_size ** 2
     rbm_hidden_units = int(rbm_settings['NumberOfHiddenUnits'])
     rbm_activation = rbm_settings['ActivationFunction']
     rbm_learning_rate = float(rbm_settings['LearningRate'])
@@ -114,14 +114,14 @@ def load_data():
         train_data = MNIST(data_path, train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
-                               transforms.Normalize((0.1307,), (0.3081,)),
+                               # transforms.Normalize((0.1307,), (0.3081,)),
                                # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
                                # transforms.Resize((image_input_size, image_input_size)),
                            ]))
 
         test_data = MNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,)),
+            # transforms.Normalize((0.1307,), (0.3081,)),
             # CropBlackPixelsAndResize(tol=tolerance, output_size=image_input_size),
             # transforms.Resize((image_input_size, image_input_size)),
         ]))
@@ -346,34 +346,29 @@ if __name__ == "__main__":
     load_data()
     n_clusters = 80
     n_levels = 1
+    # model_name = '{}_rbm_cnn_finetuned_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
     model_name = '{}_rbm_cnn_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
-    for model_number in range(1, 2):
+    for model_number in range(1, 6):
         wdn_settings = {
             'model_name': model_name,
             'n_clusters': n_clusters,
             'n_levels': n_levels,
 
-            'image_input_size': image_input_size,
+            'image_input_size': image_size,
             'image_channels': input_filters,
+
+            'use_relu': False,
 
             'min_familiarity_threshold': min_familiarity_threshold,
             'log_interval': 50,
 
             'levels_info': [
-                {'input_channels': input_filters, 'encoder_channels': 1,
-                 'rbm_visible_units': image_input_size ** 2,
-                 'encoder_weight_variance': 0.001, 'rbm_hidden_units': 300, 'rbm_learning_rate': 1e-3,
-                 'encoder_learning_rate': 1e-3, 'n_training': 2},
-
-                {'input_channels': input_filters, 'encoder_channels': 1,
-                 'rbm_visible_units': int(image_input_size / 2) ** 2,
-                 'encoder_weight_variance': 0.07, 'rbm_hidden_units': 100, 'rbm_learning_rate': 1e-3,
-                 'encoder_learning_rate': 1e-3, 'n_training': 2},
-
-                {'input_channels': input_filters, 'encoder_channels': 1,
-                 'rbm_visible_units': int(image_input_size / 4) ** 2,
-                 'encoder_weight_variance': 0.07, 'rbm_hidden_units': 50, 'rbm_learning_rate': 1e-3,
-                 'encoder_learning_rate': 1e-3, 'n_training': 2},
+                {
+                    'input_channels': input_filters, 'encoder_channels': 1, 'rbm_visible_units': image_size ** 2,
+                    'encoder_weight_mean': 0.0, 'encoder_weight_variance': 0.5,
+                    'rbm_weight_mean': 0.0, 'rbm_weight_variance': 0.01,
+                    'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3, 'n_training': 50
+                },
             ]
         }
         wbc = None
@@ -381,22 +376,22 @@ if __name__ == "__main__":
         #
         # wbc = wandb.config
         #
-        print("Train WDN")
-        model = train_wdn(train_data, wdn_settings, wbc)
-        print("Convert train images to latent vectors")
-        train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
-        print("Convert test images to latent vectors")
-        test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+        # print("Train WDN")
+        # model = train_wdn(train_data, wdn_settings, wbc)
+        # print("Convert train images to latent vectors")
+        # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+        # print("Convert test images to latent vectors")
+        # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
         #
         # np.save('train_features_{}_{}'.format(model_name, model_number), train_features)
         # np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
         # np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
         # np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
 
-        # train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
-        # train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))
-        # test_features = np.load('test_features_{}_{}.npy'.format(model_name, model_number))
-        # test_labels = np.load('test_labels_{}_{}.npy'.format(model_name, model_number))
+        train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
+        train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))
+        test_features = np.load('test_features_{}_{}.npy'.format(model_name, model_number))
+        test_labels = np.load('test_labels_{}_{}.npy'.format(model_name, model_number))
         #
         # print("Fitting SVM")
         # # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
@@ -412,14 +407,14 @@ if __name__ == "__main__":
         #
         # print("Calculate Max RBM")
         # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
-        print("Fit KNN")
-        cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
-        #
+        # print("Fit KNN")
+        # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+
         # np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
         # np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
-        #
-        # cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
-        # cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+
+        cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+        cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
 
         train_bins = print_cluster_ids(cluster_ids_x, train_labels, n_clusters)
         print("________________")
@@ -427,6 +422,7 @@ if __name__ == "__main__":
 
         error_counter = 0
         error_pos = []
+        n_zeros = 0
         for i in range(train_bins.shape[0]):
             tr_bin = train_bins[i]
             te_bin = test_bins[i]
@@ -435,9 +431,12 @@ if __name__ == "__main__":
                 if tr_bin[j] == 0 and te_bin[j] > 0:
                     error_counter += te_bin[j]
                     error_pos.append([i, j])
+                if tr_bin[j] == 0:
+                    n_zeros += 1
         print("Errors: {}".format(error_counter))
+        print("Number zeros: {}".format(n_zeros))
         for pos in error_pos:
             print("Error bin: {} class: {}".format(pos[0], pos[1]))
 
-        # np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), train_bins)
-        # np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), test_bins)
+        np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), train_bins)
+        np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), test_bins)

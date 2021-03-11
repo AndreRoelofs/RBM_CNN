@@ -5,16 +5,23 @@ from torch.nn import functional as F
 
 
 class Encoder(nn.Module):
-    def __init__(self, channels, filters, weight_variance, use_relu=False):
+    def __init__(self, channels, filters, weight_mean, weight_variance, use_relu=False):
         super().__init__()
 
         self.conv1 = nn.Conv2d(channels, filters, kernel_size=3, stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(filters, filters, (3, 3), stride=1, padding=1)
+        # self.conv2 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
+        # self.conv3 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
+        # self.conv4 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
 
         # nn.init.xavier_normal_(self.conv1.weight, weight_variance)
-        nn.init.normal_(self.conv1.weight, 0.1, weight_variance)
-        # nn.init.xavier_normal_(self.conv2.weight, weight_variance/2)
-        # nn.init.xavier_normal_(self.conv1.weight, 0.07)
+        # nn.init.xavier_normal_(self.conv2.weight, weight_variance)
+        # nn.init.xavier_normal_(self.conv3.weight, weight_variance)
+        # nn.init.xavier_normal_(self.conv4.weight, weight_variance)
+        #
+        nn.init.normal_(self.conv1.weight, weight_mean, weight_variance)
+        # nn.init.normal_(self.conv2.weight, weight_mean, weight_variance)
+        # nn.init.normal_(self.conv3.weight, weight_mean, weight_variance)
+        # nn.init.normal_(self.conv4.weight, weight_mean, weight_variance)
 
         if use_relu:
             self.act = nn.ReLU()
@@ -25,8 +32,11 @@ class Encoder(nn.Module):
         #     p.data.clamp_(0)
 
     def forward(self, x):
+        # x = self.conv1(x)
+        # x = self.conv2(x)
+        # x = self.conv3(x)
+        # x = self.act(self.conv4(x))
         x = self.act(self.conv1(x))
-        # x = self.act(self.conv2(x))
         # return torch.sigmoid(x)
         return x
 

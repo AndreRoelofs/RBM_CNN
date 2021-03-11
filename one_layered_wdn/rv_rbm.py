@@ -17,6 +17,7 @@ class RV_RBM(nn.Module):
     def __init__(self,
                  num_visible,
                  num_hidden,
+                 weight_mean,
                  weight_variance,
                  k=1,
                  learning_rate=1e-3,
@@ -46,7 +47,7 @@ class RV_RBM(nn.Module):
         self.hidden_bias_momentum = torch.zeros(self.num_hidden)
 
         # nn.init.xavier_normal_(self.weights, weight_variance)
-        nn.init.normal_(self.weights, 0, weight_variance)
+        nn.init.normal_(self.weights, weight_mean, weight_variance)
 
         if self.use_cuda:
             self.weights = self.weights.cuda()

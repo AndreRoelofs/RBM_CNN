@@ -25,6 +25,7 @@ class WDN(nn.Module):
         self.levels = model_settings['levels_info']
 
         self.n_levels = self.model_settings['n_levels']
+        self.use_relu = self.model_settings['use_relu']
         self.levels_counter = np.zeros(self.n_levels)
         self.debug = False
         self.models_total = 0
@@ -36,10 +37,13 @@ class WDN(nn.Module):
         network = Node(
             image_channels=settings['input_channels'],
             encoder_channels=settings['encoder_channels'],
+            encoder_weight_mean=settings['encoder_weight_mean'],
             encoder_weight_variance=settings['encoder_weight_variance'],
+            rbm_weight_mean=settings['rbm_weight_mean'],
+            rbm_weight_variance=settings['rbm_weight_variance'],
             rbm_visible_units=(settings['rbm_visible_units']) * settings['encoder_channels'],
             rbm_hidden_units=settings['rbm_hidden_units'],
-            rbm_learning_rate=settings['rbm_learning_rate'],
+            use_relu=self.use_relu,
             level=level
         )
         network.target = target
@@ -91,8 +95,18 @@ class WDN(nn.Module):
 
         if provide_encoding:
             return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value), rbm_input
+
+        recon_error = np.sum((network.rbm.energy_threshold -
+                              torch.nn.functional.mse_loss(
+                                  flat_rbm_input,
+                                  network.rbm(flat_rbm_input),
+                                  reduction='none')).cpu().detach().numpy(), axis=1)
+
+        if provide_value:
+            return recon_error, recon_error >= 0.0,
+        return recon_error >= 0.0
         # Compare data with existing models
-        return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
+        # return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
 
     def train_new_network(self, data, level, target, provide_encoding=False):
         self.levels_counter[level] += 1
@@ -104,22 +118,18 @@ class WDN(nn.Module):
         #                                      lr=self.levels[network.level]['encoder_learning_rate'])
         encoder_optimizer = torch.optim.SGD(network.encoder.parameters(),
                                             lr=self.levels[network.level]['encoder_learning_rate'])
-        # rbm_optimizer = torch.optim.SGD(network.rbm.parameters(), lr=1e-1)
-        # rbm_optimizer = torch.optim.Adam(network.rbm.parameters(), lr=self.levels[network.level]['rbm_learning_rate'])
-        # plt.imshow(data[0].cpu().detach().numpy().reshape((28, 28)), cmap='gray')
-        # plt.show()
         flat_rbm_input = None
         for i in range(self.levels[level]['n_training']):
             # Encode the image
             rbm_input = network.encode(data)
-            # rbm_input = data
             # Flatten input for RBM
 
             flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
                                                              (self.levels[level]['rbm_visible_units']) *
                                                              self.levels[level]['encoder_channels'])
 
-            if i == 0:
+            # if i == 0:
+            if i % 5 == 0:
                 network.rbm.contrastive_divergence(flat_rbm_input)
 
             # Train encoder
@@ -129,20 +139,21 @@ class WDN(nn.Module):
             encoder_loss.backward(retain_graph=True)
             encoder_optimizer.step()
 
-        network.rbm.calculate_energy_threshold(flat_rbm_input)
-
         network.eval()
+        # network.rbm.calculate_energy_threshold(flat_rbm_input)
+        rbm_input = network.encode(data)
+        flat_rbm_input = rbm_input.clone().detach().view(len(rbm_input),
+                                                         (self.levels[0]['rbm_visible_units']) *
+                                                         self.levels[0]['encoder_channels'])
+        rbm_output = network.rbm(flat_rbm_input)
+        network.rbm.energy_threshold = torch.nn.MSELoss()(flat_rbm_input, rbm_output)
+
         #
         # plt.imshow(data[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
         # plt.imshow(rbm_input[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
         # plt.show()
         # plt.imshow(rbm_output[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
-        # plt.show()
-
-        # plt.imshow(data.cpu().detach().permute(2, 3, 1, 0).squeeze(3))
-        # plt.show()
-        # plt.imshow(rbm_input.cpu().detach().permute(2, 3, 1, 0).squeeze(3))
         # plt.show()
 
         if provide_encoding:
@@ -284,7 +295,8 @@ def train_wdn(train_data, settings, wbc=None, model=None):
             log_dict['n_models_lvl_{}'.format(model_level + 1)] = model.levels_counter[model_level]
             # (kernel_size * encoder_channels) + rbm parameters
             n_parameters += ((9 * model.levels[model_level]['encoder_channels']) + model.levels[model_level][
-                'rbm_visible_units'] + model.levels[model_level]['rbm_hidden_units']) * model.levels_counter[model_level]
+                'rbm_visible_units'] + model.levels[model_level]['rbm_hidden_units']) * model.levels_counter[
+                                model_level]
         log_dict['n_parameters'] = n_parameters
         if wbc is not None:
             wandb.log(log_dict)

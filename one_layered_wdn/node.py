@@ -7,20 +7,28 @@ class Node(nn.Module):
     def __init__(self,
                  image_channels,
                  encoder_channels,
+                 encoder_weight_mean,
                  encoder_weight_variance,
+                 rbm_weight_mean,
+                 rbm_weight_variance,
                  rbm_visible_units,
                  rbm_hidden_units,
-                 rbm_learning_rate,
                  use_relu=False,
                  level=0,
                  ):
         super().__init__()
-        self.encoder = Encoder(image_channels, encoder_channels, encoder_weight_variance, use_relu=False)
+        self.encoder = Encoder(
+            image_channels,
+            encoder_channels,
+            encoder_weight_mean,
+            encoder_weight_variance,
+            use_relu=use_relu)
         self.rbm = RV_RBM(
             rbm_visible_units,
             rbm_hidden_units,
-            weight_variance=encoder_weight_variance,
-            use_relu=False,
+            weight_mean=rbm_weight_mean,
+            weight_variance=rbm_weight_variance,
+            use_relu=use_relu,
         )
         self.child_networks = []
         self.level = level
