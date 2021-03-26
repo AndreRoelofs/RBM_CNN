@@ -32,9 +32,10 @@ class Encoder(nn.Module):
         #     p.data.clamp_(0)
 
     def forward(self, x):
-        # x = self.conv1(x)
-        # x = self.conv2(x)
-        # x = self.conv3(x)
+        # x = self.act(self.conv1(x))
+        # x = self.act(self.conv2(x))
+        # x = self.act(self.conv3(x))
+        # x = self.act(self.conv3(x))
         # x = self.act(self.conv4(x))
         x = self.act(self.conv1(x))
         # return torch.sigmoid(x)

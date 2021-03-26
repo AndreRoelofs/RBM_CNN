@@ -89,8 +89,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.6, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.5, type=float, help='aspect of erasing area')
 
 # parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
@@ -148,23 +148,24 @@ def main():
     trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
-    n_clusters = 80
+    n_clusters = 160
 
-    for model_number in range(0, 1):
-        # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_finetuned_levels_1_clusters_{}".format(n_clusters),
+    for model_number in range(1, 2):
+        # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_clusters_{}".format(n_clusters),
         #            reinit=True)
         train_predictions = np.load(
-            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_finetuned_levels_1_{}_{}.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
         test_predictions = np.load(
-            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_finetuned_levels_1_{}_{}.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
 
         title = 'fashionmnist-' + args.arch
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
         logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
         correct_preds = []
         best_acc = 0
-        # for cluster_id in range(n_clusters):
-        for cluster_id in [7]:
+        # for cluster_id in range(0, 12):
+        for cluster_id in range(0, train_predictions.max() + 1):
+        # for cluster_id in [2]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -185,7 +186,7 @@ def main():
                 shuffle=False,
                 num_workers=args.workers,
                 # sampler=SubsetRandomSampler(train_cluster_idx),
-                sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+                # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
             )
 
             print("Train batch: ", args.train_batch)
@@ -199,12 +200,15 @@ def main():
 
             print("Test size: {}".format(len(test_cluster_idx)))
 
+            if len(test_cluster_idx) == 0:
+                continue
+
             testloader = data.DataLoader(
                 testset,
                 batch_size=min(args.test_batch, len(test_cluster_idx)),
                 shuffle=False,
                 num_workers=args.workers,
-                sampler=SubsetRandomSampler(test_cluster_idx)
+                # sampler=SubsetRandomSampler(test_cluster_idx)
             )
 
             # Model
@@ -418,6 +422,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     if len(incorrect_classes) > 0:
         print("Incorrect classes: ", incorrect_classes)
     # print(top1.avg)
+    print(top5.avg)
     return (losses.avg, top1.avg, len(incorrect_classes))
 
 

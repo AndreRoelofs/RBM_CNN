@@ -28,6 +28,7 @@ class WDN(nn.Module):
         self.use_relu = self.model_settings['use_relu']
         self.levels_counter = np.zeros(self.n_levels)
         self.debug = False
+        self.train_data = None
         self.models_total = 0
 
     def create_new_model(self, level, target):
@@ -108,57 +109,106 @@ class WDN(nn.Module):
         # Compare data with existing models
         # return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value)
 
-    def train_new_network(self, data, level, target, provide_encoding=False):
-        self.levels_counter[level] += 1
-        self.models_total += 1
-        network = self.create_new_model(level, target)
-        network.train()
+    def train_new_network(self, data, level, target, provide_encoding=False, first_training=True, network=None,
+                          train=True, update_threshold=True):
+        if network is None:
+            network = self.create_new_model(level, target)
+            network.train()
+            self.levels_counter[level] += 1
+            self.models_total += 1
 
-        # encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
-        #                                      lr=self.levels[network.level]['encoder_learning_rate'])
-        encoder_optimizer = torch.optim.SGD(network.encoder.parameters(),
-                                            lr=self.levels[network.level]['encoder_learning_rate'])
-        flat_rbm_input = None
-        for i in range(self.levels[level]['n_training']):
-            # Encode the image
+        if train:
+            encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
+                                                 lr=self.levels[network.level]['encoder_learning_rate'])
+            n_train_epochs = self.levels[level]['n_training']
+            if not first_training:
+                n_train_epochs = self.levels[level]['n_training_second']
+            for i in range(n_train_epochs):
+                # Encode the image
+                rbm_input = network.encode(data)
+                # Flatten input for RBM
+                flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
+                                                                 (self.levels[level]['rbm_visible_units']) *
+                                                                 self.levels[level]['encoder_channels'])
+                if i % 5 == 0:
+                # if i == 0:
+                    network.rbm.contrastive_divergence(flat_rbm_input)
+
+                # Train encoder
+                rbm_output = network.rbm(flat_rbm_input)
+                encoder_loss = network.encoder.loss_function(rbm_input,
+                                                             rbm_output.detach().clone().reshape(rbm_input.shape))
+                encoder_loss.backward(retain_graph=True)
+                encoder_optimizer.step()
+
+        if first_training:
             rbm_input = network.encode(data)
-            # Flatten input for RBM
-
-            flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
-                                                             (self.levels[level]['rbm_visible_units']) *
-                                                             self.levels[level]['encoder_channels'])
-
-            # if i == 0:
-            if i % 5 == 0:
-                network.rbm.contrastive_divergence(flat_rbm_input)
-
-            # Train encoder
+            flat_rbm_input = rbm_input.clone().detach().view(len(rbm_input),
+                                                             (self.levels[0]['rbm_visible_units']) *
+                                                             self.levels[0]['encoder_channels'])
             rbm_output = network.rbm(flat_rbm_input)
-            encoder_loss = network.encoder.loss_function(rbm_input,
-                                                         rbm_output.detach().clone().reshape(rbm_input.shape))
-            encoder_loss.backward(retain_graph=True)
-            encoder_optimizer.step()
+            network.rbm.energy_threshold = torch.nn.functional.mse_loss(flat_rbm_input, rbm_output)
+            for _ in range(1):
+                image_energies = self.calculate_energies(network)
+                # Only get activated images
+                image_energies = image_energies[image_energies[:, 3] == 1]
+                # Only get images of target class
+                image_energies = image_energies[image_energies[:, 1] == target]
 
+                image_idx = image_energies[:, 2].astype(np.int)
+
+                if len(image_idx) == 0:
+                    break
+
+                train_loader = torch.utils.data.DataLoader(
+                    self.train_data,
+                    batch_size=min(len(image_idx), 100),
+                    shuffle=False,
+                    sampler=SubsetRandomSampler(image_idx)
+                )
+
+                for batch_idx, (data, target) in enumerate(train_loader):
+                    data = data.to(self.device)
+                    self.train_new_network(data, level, target, network=network, first_training=False, train=True,
+                                           update_threshold=False)
+                    self.train_new_network(data, level, target, network=network, first_training=False, train=False,
+                                           update_threshold=True)
         network.eval()
-        # network.rbm.calculate_energy_threshold(flat_rbm_input)
-        rbm_input = network.encode(data)
-        flat_rbm_input = rbm_input.clone().detach().view(len(rbm_input),
-                                                         (self.levels[0]['rbm_visible_units']) *
-                                                         self.levels[0]['encoder_channels'])
-        rbm_output = network.rbm(flat_rbm_input)
-        network.rbm.energy_threshold = torch.nn.MSELoss()(flat_rbm_input, rbm_output)
 
-        #
-        # plt.imshow(data[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
-        # plt.show()
-        # plt.imshow(rbm_input[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
-        # plt.show()
-        # plt.imshow(rbm_output[0].reshape((32, 32)).cpu().detach().numpy(), cmap='gray')
-        # plt.show()
+        if update_threshold:
+            rbm_input = network.encode(data)
+            flat_rbm_input = rbm_input.clone().detach().view(len(rbm_input),
+                                                             (self.levels[0]['rbm_visible_units']) *
+                                                             self.levels[0]['encoder_channels'])
+            rbm_output = network.rbm(flat_rbm_input)
+            network.rbm.energy_threshold = torch.nn.MSELoss()(flat_rbm_input, rbm_output)
 
         if provide_encoding:
             return network, network.encode(data)
         return network
+
+    def calculate_energies(self, node):
+        train_loader = torch.utils.data.DataLoader(
+            self.train_data,
+            batch_size=5000,
+            shuffle=False,
+        )
+
+        image_energies = []
+        n_activations = 0
+        for batch_idx, (data, target) in enumerate(train_loader):
+            data = data.to(self.device)
+            distances, activations = self.is_familiar(node, data, provide_value=True)
+
+            n_activations += activations.sum()
+
+            for i in range(len(distances)):
+                d = distances[i]
+                t = target[i]
+                image_energies.append([d, t.numpy().astype(int), 5000 * batch_idx + i, activations[i]])
+        # print("Number of activations: {}".format(n_activations))
+        image_energies = np.array(image_energies)
+        return image_energies[image_energies[:, 0].argsort()]
 
     def _joint_training(self, data, model, depth, target):
         if depth <= 0:
@@ -239,45 +289,15 @@ class WDN(nn.Module):
             if n_familiar >= self.model_settings['min_familiarity_threshold']:
                 continue
 
-            # n_familiar = 0
-            # for m in self.models:
-            #     familiar = self.is_familiar(m, data)
-            #     if familiar:
-            #         n_familiar += 1
-            #         # for current_data in [data, hflip(data)]:
-            #         self._joint_training(data, m, self.n_levels - 1, target)
-            #
-            #     if n_familiar >= self.model_settings['min_familiarity_threshold']:
-            #         break
-            # if n_familiar >= self.model_settings['min_familiarity_threshold']:
-            #     continue
-
             model = self.train_new_network(data, level=0, target=target)
             self.models.insert(0, model)
-            # self.models.append(model)
             self._joint_training(data, model, self.n_levels - 1, target)
-
-            # n_familiar = 0
-            # for m in self.models:
-            #     familiar = self.is_familiar(m, data)
-            #     if familiar:
-            #         n_familiar += 1
-            #         self._joint_training(data, m, self.n_levels - 1, target)
-            #
-            #     if n_familiar >= self.model_settings['min_familiarity_threshold']:
-            #         break
-            # if n_familiar >= self.model_settings['min_familiarity_threshold']:
-            #     continue
-
-            # model = self.train_new_network(data, level=0, target=target)
-            # self.models.append(model)
-            # self._joint_training(data, model, self.n_levels - 1, target)
 
 
 def train_wdn(train_data, settings, wbc=None, model=None):
     if model is None:
         model = WDN(settings)
-
+    model.train_data = train_data
     for i in range(10):
         # for i in [5]:
         print("Training digit: ", i)

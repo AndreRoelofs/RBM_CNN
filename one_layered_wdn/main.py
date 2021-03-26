@@ -319,11 +319,15 @@ def calculate_max_clusters(train_features, test_features):
     return cluster_ids_x, cluster_ids_y, len(used_clusters)
 
 
-def print_cluster_ids(cluster_ids, data_labels, n_clusters=10):
+def calculate_cluster_bins(cluster_ids, data_labels, n_clusters, n_classes):
     bins = np.zeros((n_clusters, 10))
     for i in range(len(cluster_ids)):
         cluster = cluster_ids[i]
         bins[cluster][int(data_labels[i])] += 1
+    return bins
+
+
+def print_cluster_ids(bins):
     bin_counter = 0
     for bin in bins:
         bin_string = ''
@@ -334,7 +338,48 @@ def print_cluster_ids(cluster_ids, data_labels, n_clusters=10):
             bin_string += str(int(amount))
         print(bin_counter, bin_string)
         bin_counter += 1
-    return bins
+
+
+def calculate_equal_clusters(bins):
+    class_dis = []
+    for bin in bins:
+        class_dis.append([i for i, e in enumerate(bin) if e != 0])
+    indices_to_skip = set()
+    equal_clusters = []
+    counter = n_clusters
+    for i in range(len(class_dis)):
+        if i in indices_to_skip:
+            continue
+        parent_cluster = [i]
+        set_1 = set(class_dis[i])
+        for j in range(i + 1, len(class_dis)):
+            if j in indices_to_skip:
+                continue
+            if set_1 == set(class_dis[j]):
+                indices_to_skip.add(j)
+                indices_to_skip.add(i)
+
+                parent_cluster.append(j)
+
+                counter -= 1
+        equal_clusters.append(parent_cluster)
+    return equal_clusters
+
+def is_slice_in_list(s,l):
+    len_s = len(s) #so we don't recompute length of s on every iteration
+    return any(s == l[i:len_s+i] for i in range(len(l) - len_s+1))
+
+def compress_clusters(cluster_ids, clusters):
+    for i in range(len(clusters)):
+        cluster_group = clusters[i]
+
+        for cluster in cluster_group:
+            if cluster not in cluster_ids:
+                continue
+            cluster_ids[cluster_ids == cluster] = i
+
+    return cluster_ids
+
 
 if __name__ == "__main__":
     # reset_seed()
@@ -344,11 +389,12 @@ if __name__ == "__main__":
     process_settings()
 
     load_data()
-    n_clusters = 80
+    n_clusters = 160
     n_levels = 1
+    n_classes = 10
     # model_name = '{}_rbm_cnn_finetuned_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
-    model_name = '{}_rbm_cnn_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
-    for model_number in range(1, 6):
+    model_name = '{}_rbm_cnn_extra_training_supervised_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
+    for model_number in range(1, 2):
         wdn_settings = {
             'model_name': model_name,
             'n_clusters': n_clusters,
@@ -363,11 +409,18 @@ if __name__ == "__main__":
             'log_interval': 50,
 
             'levels_info': [
+                # {
+                #     'input_channels': input_filters, 'encoder_channels': 1, 'rbm_visible_units': image_size ** 2,
+                #     'encoder_weight_mean': 0.0, 'encoder_weight_variance': 0.5,
+                #     'rbm_weight_mean': 0.0, 'rbm_weight_variance': 0.01,
+                #     'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3, 'n_training': 50
+                # },
                 {
                     'input_channels': input_filters, 'encoder_channels': 1, 'rbm_visible_units': image_size ** 2,
-                    'encoder_weight_mean': 0.0, 'encoder_weight_variance': 0.5,
+                    'encoder_weight_mean': 0.1, 'encoder_weight_variance': 0.01,
                     'rbm_weight_mean': 0.0, 'rbm_weight_variance': 0.01,
-                    'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3, 'n_training': 50
+                    'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3,
+                    'n_training': 50, 'n_training_second': 2,
                 },
             ]
         }
@@ -387,14 +440,14 @@ if __name__ == "__main__":
         # np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
         # np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
         # np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
-
+        #
         train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
         train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))
         test_features = np.load('test_features_{}_{}.npy'.format(model_name, model_number))
         test_labels = np.load('test_labels_{}_{}.npy'.format(model_name, model_number))
-        #
+
         # print("Fitting SVM")
-        # # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
+        # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
         # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
         # svc.fit(train_features, train_labels)
         # print("Predicting SVM")
@@ -407,18 +460,34 @@ if __name__ == "__main__":
         #
         # print("Calculate Max RBM")
         # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
-        # print("Fit KNN")
-        # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+        print("Fit KNN")
+        cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
 
-        # np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
-        # np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+        np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
+        np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+        #
+        # cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+        # cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
 
-        cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
-        cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+        train_bins = calculate_cluster_bins(cluster_ids_x, train_labels, n_clusters, n_classes)
+        test_bins = calculate_cluster_bins(cluster_ids_y, test_labels, n_clusters, n_classes)
 
-        train_bins = print_cluster_ids(cluster_ids_x, train_labels, n_clusters)
+        equal_clusters = calculate_equal_clusters(train_bins)
+
+        cluster_ids_x = compress_clusters(cluster_ids_x, equal_clusters)
+        cluster_ids_y = compress_clusters(cluster_ids_y, equal_clusters)
+
+        np.save('train_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
+        np.save('test_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+
+        n_clusters = cluster_ids_x.max() + 1
+
+        train_bins = calculate_cluster_bins(cluster_ids_x, train_labels, n_clusters, n_classes)
+        test_bins = calculate_cluster_bins(cluster_ids_y, test_labels, n_clusters, n_classes)
+
+        print_cluster_ids(train_bins)
         print("________________")
-        test_bins = print_cluster_ids(cluster_ids_y, test_labels, n_clusters)
+        print_cluster_ids(test_bins)
 
         error_counter = 0
         error_pos = []
@@ -438,5 +507,8 @@ if __name__ == "__main__":
         for pos in error_pos:
             print("Error bin: {} class: {}".format(pos[0], pos[1]))
 
-        np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), train_bins)
-        np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), test_bins)
+        print('Sub-class problem: ')
+        print(np.around((((n_clusters * n_classes) - n_zeros)/n_clusters), 2))
+
+        # np.save('train_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), train_bins)
+        # np.save('test_bins_{}_{}_{}'.format(model_name, model_number, n_clusters), test_bins)
