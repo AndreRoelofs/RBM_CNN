@@ -42,8 +42,8 @@ n_levels = 1
 # train_features = np.load('autoencoder/fashion_mnist_train_features_ae_392.npy'.format(n_levels, model_type))
 # train_labels = np.load('autoencoder/fashion_mnist_train_labels_ae_392.npy'.format(n_levels, model_type))
 
-train_features = np.load('one_layered_wdn/train_features_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_1.npy')
-train_labels = np.load('one_layered_wdn/train_labels_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_1.npy')
+train_features = np.load('one_layered_wdn/train_features_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_1.npy')
+train_labels = np.load('one_layered_wdn/train_labels_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_1.npy')
 
 train_features -= train_features.min(0)
 train_features /= train_features.max(0)

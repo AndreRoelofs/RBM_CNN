@@ -54,7 +54,7 @@ parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[100],
                     default=[],
                     help='Decre11ase learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -88,11 +88,11 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 
 # Random Erasing
-parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.6, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.5, type=float, help='aspect of erasing area')
-
-# parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
+# parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
+parser.add_argument('--sh', default=0.7, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.6, type=float, help='aspect of erasing area')
+#
+parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
 # parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
 
@@ -154,9 +154,9 @@ def main():
         # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_clusters_{}".format(n_clusters),
         #            reinit=True)
         train_predictions = np.load(
-            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_{}_{}.npy".format(model_number, n_clusters))
         test_predictions = np.load(
-            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_{}_{}.npy".format(model_number, n_clusters))
 
         title = 'fashionmnist-' + args.arch
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
@@ -165,7 +165,7 @@ def main():
         best_acc = 0
         # for cluster_id in range(0, 12):
         for cluster_id in range(0, train_predictions.max() + 1):
-        # for cluster_id in [2]:
+        # for cluster_id in [14]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -186,7 +186,7 @@ def main():
                 shuffle=False,
                 num_workers=args.workers,
                 # sampler=SubsetRandomSampler(train_cluster_idx),
-                # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+                sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
             )
 
             print("Train batch: ", args.train_batch)
@@ -208,7 +208,7 @@ def main():
                 batch_size=min(args.test_batch, len(test_cluster_idx)),
                 shuffle=False,
                 num_workers=args.workers,
-                # sampler=SubsetRandomSampler(test_cluster_idx)
+                sampler=SubsetRandomSampler(test_cluster_idx)
             )
 
             # Model
@@ -226,12 +226,13 @@ def main():
                     depth=args.depth,
                 )
 
-            # fc_clone = copy.deepcopy(model.fc)
-            #
-            # for param in model.parameters():
-            #     param.requires_grad = False
-            #
-            # model.fc = fc_clone
+            # for p in model.fc.parameters():
+            #     print(p)
+            # print(model.fc.parameters())
+
+            # for p in model.fc.parameters():
+            #     print(p)
+            # exit(1)
 
             model = torch.nn.DataParallel(model).cuda()
             cudnn.benchmark = True
@@ -250,6 +251,15 @@ def main():
             start_epoch = 0
             model.load_state_dict(checkpoint['state_dict'])
 
+            for param in model.module.parameters():
+                param.requires_grad = False
+
+            for param in model.module.fc.parameters():
+                param.requires_grad = True
+            # model.module.fc = fc_clone
+            # model.module.fc = nn.Linear(64 * args.widen_factor, 10)
+            # model.module.fc.cuda()
+
             train_loss, train_acc, _ = test(trainloader, model, criterion, 0, use_cuda)
             print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
             test_loss, test_acc, og_incorrect = test(testloader, model, criterion, 0, use_cuda)
@@ -258,7 +268,7 @@ def main():
             og_acc = test_acc
             min_incorrect = og_incorrect
 
-            exit(1)
+            # exit(1)
 
             # Train and val
             for epoch in range(start_epoch, args.epochs):
@@ -422,7 +432,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     if len(incorrect_classes) > 0:
         print("Incorrect classes: ", incorrect_classes)
     # print(top1.avg)
-    print(top5.avg)
+    # print(top5.avg)
     return (losses.avg, top1.avg, len(incorrect_classes))
 
 
