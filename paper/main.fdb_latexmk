@@ -1,0 +1,21 @@
+# Fdb version 3
+["pdflatex"] 1617141619 "/home/andre/Documents/projects/RBM_CNN/paper/main.tex" "/home/andre/Documents/projects/RBM_CNN/paper/main.pdf" "main" 1617141752
+  "/etc/texmf/web2c/texmf.cnf" 1617140209 475 c0e671620eb5563b2130f56340a5fde8 ""
+  "/home/andre/Documents/projects/RBM_CNN/paper/main.aux" 1617141619 8 a94a2480d3289e625eea47cd1b285758 ""
+  "/home/andre/Documents/projects/RBM_CNN/paper/main.tex" 1617141751 111 4782e3cef4e0356de8baf1c7b4e40a4c ""
+  "/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb" 1248133631 35752 024fb6c41858982481f6968b5fc26508 ""
+  "/usr/share/texlive/texmf-dist/tex/latex/base/article.cls" 1580683321 20023 e427dd9e17e239bf926ef3aab67fe35e ""
+  "/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo" 1580683321 8446 9874cccac5fee462272c582807dbbf56 ""
+  "/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdfmode.def" 1580854751 25404 9d60f463a00d154207ec0048dee27cf0 ""
+  "/usr/share/texlive/texmf-dist/web2c/texmf.cnf" 1581979058 38841 ce3692aa899bb693b90b87eaa5d4d84e ""
+  "/usr/share/texmf/web2c/texmf.cnf" 1581979058 38841 ce3692aa899bb693b90b87eaa5d4d84e ""
+  "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1617141497 4770781 1ed1abab22da9c3e2cc82e4db562318b ""
+  "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1617141523 8258794 b0928245edbeb8eda1bb06985df1c99d ""
+  "main.aux" 1617141619 8 a94a2480d3289e625eea47cd1b285758 "pdflatex"
+  "main.tex" 1617141751 111 4782e3cef4e0356de8baf1c7b4e40a4c ""
+  (generated)
+  "/home/andre/Documents/projects/RBM_CNN/paper/main.log"
+  "main.pdf"
+  "main.log"
+  "main.aux"
+  "/home/andre/Documents/projects/RBM_CNN/paper/main.pdf"

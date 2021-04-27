@@ -9,7 +9,6 @@ import shutil
 import time
 import random
 import copy
-from sam import SAM
 from sys import exit
 import torch
 import torch.nn as nn
@@ -37,7 +36,7 @@ parser.add_argument('-d', '--dataset', default='cifar10', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -45,17 +44,17 @@ parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
                     # default=[20, 40],
-                    default=[100],
-                    # default=[],
+                    # default=[50],
+                    default=[],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -89,13 +88,13 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 
 # Random Erasing
-parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
-
-# parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
-# parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
-# parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
+# parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
+# parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
+# parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+#
+parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
+parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -151,17 +150,17 @@ def main():
     trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
-    n_clusters = 80
+    n_clusters = 240
 
-    for model_number in range(2, 6):
-        wandb.init(project="Clusters_CIFAR_10_old_rbm_cnn_levels_2_clusters_{}".format(n_clusters),
-                   reinit=True)
+    for model_number in range(1, 2):
+        # wandb.init(project="Clusters_CIFAR_10_old_rbm_cnn_levels_2_clusters_{}".format(n_clusters),
+        #            reinit=True)
 
         train_predictions = np.load(
-            "../one_layered_wdn/train_clusters_CIFAR_10_old_rbm_cnn_levels_2_{}_{}.npy".format(model_number,
+            "../one_layered_wdn/train_clusters_CIFAR_10_old_rbm_cnn_extra_training_supervised_levels_1_{}_{}.npy".format(model_number,
                                                                                                     n_clusters))
         test_predictions = np.load(
-            "../one_layered_wdn/test_clusters_CIFAR_10_old_rbm_cnn_levels_2_{}_{}.npy".format(model_number,
+            "../one_layered_wdn/test_clusters_CIFAR_10_old_rbm_cnn_extra_training_supervised_levels_1_{}_{}.npy".format(model_number,
                                                                                                    n_clusters))
 
         title = 'cifar-10-' + args.arch
@@ -169,8 +168,8 @@ def main():
         logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
         correct_preds = []
         best_acc = 0
-        for cluster_id in range(80):
-        # for cluster_id in [3]:
+        # for cluster_id in range(0, train_predictions.max() + 1):
+        for cluster_id in [34]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -204,6 +203,9 @@ def main():
                 test_cluster_idx.append(i)
 
             print("Test size: {}".format(len(test_cluster_idx)))
+
+            if len(test_cluster_idx) == 0:
+                continue
 
             testloader = data.DataLoader(
                 testset,
@@ -253,6 +255,12 @@ def main():
             start_epoch = 0
             model.load_state_dict(checkpoint['state_dict'])
 
+            for param in model.module.parameters():
+                param.requires_grad = False
+
+            for param in model.module.fc.parameters():
+                param.requires_grad = True
+
             train_loss, train_acc, _ = test(trainloader, model, criterion, 0, use_cuda)
             print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
             test_loss, test_acc, og_incorrect = test(testloader, model, criterion, 0, use_cuda)
@@ -295,12 +303,6 @@ def main():
             print("Og Acc Diff:")
             print(best_acc - og_acc)
             correct_preds.append(len(test_cluster_idx) - min_incorrect)
-            log_dict = {}
-            log_dict['min_incorrect_first'] = incorrect_array[:100].min()
-            log_dict['min_incorrect_first_improvement'] = log_dict['min_incorrect_first'] - min_incorrect
-            log_dict['min_incorrect_second'] = incorrect_array[100:].min()
-            log_dict['min_incorrect_second_improvement'] = log_dict['min_incorrect_second'] - min_incorrect
-            wandb.log(log_dict)
         print("Total of correct preds: {}".format(np.sum(correct_preds)))
         log_dict = {"max_accuracy": np.sum(correct_preds), 'improvement': np.sum(correct_preds)-9704}
         wandb.log(log_dict)

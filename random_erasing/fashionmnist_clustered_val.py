@@ -152,17 +152,7 @@ def main():
     valset = dataloader(root='./data', train=True, download=True, transform=transform_test)
     testset = dataloader(root='./data', train=False, download=False, transform=transform_test)
 
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_40_large_rbm_fixed_max_rbm.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_40_large_rbm_fixed_max_rbm.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_10_large_rbm_fixed_3.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_10_large_rbm_fixed_3.npy")
-
-    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_2_large_rbm_fixed_3.npy")
-    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_2_large_rbm_fixed_3.npy")
-
-    # train_predictions = np.load("../autoencoder/fashion_mnist_ae_392_train_clusters_80.npy")
-    # test_predictions = np.load("../autoencoder/fashion_mnist_ae_392_test_clusters_80.npy")
+    n_clusters = 160
 
     train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
     val_predictions = np.load("../one_layered_wdn/1_level_val_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
@@ -177,8 +167,7 @@ def main():
     test_correct_preds = []
     val_correct_preds = []
     best_acc = 0
-    for cluster_id in range(80):
-    # for cluster_id in [71]:
+    for cluster_id in range(0, train_predictions.max() + 1):
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):

@@ -21,8 +21,9 @@ class RV_RBM(nn.Module):
                  weight_variance,
                  k=1,
                  learning_rate=1e-3,
-                 momentum_coefficient=0.5,
+                 momentum_coefficient=0.9,
                  weight_decay=1e-4,
+                 # weight_decay=0,
                  use_relu=True,
                  use_cuda=True
                  ):

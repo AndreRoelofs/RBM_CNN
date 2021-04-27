@@ -247,20 +247,20 @@ def main():
         dataloader = datasets.FashionMNIST
         num_classes = 10
 
-    # indices = np.arange(60000).astype(np.int)
-    # np.random.shuffle(indices)
-    #
-    # np.save('fashion_mnist_training_indices.npy', indices)
+    indices = np.arange(60000).astype(np.int)
+    np.random.shuffle(indices)
+
+    np.save('fashion_mnist_training_indices.npy', indices)
 
     trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
-    # trainset.data = trainset.data[indices[:50000]]
-    # trainset.targets = trainset.targets[indices[:50000]]
+    trainset.data = trainset.data[indices[:50000]]
+    trainset.targets = trainset.targets[indices[:50000]]
 
     trainloader = data.DataLoader(trainset, batch_size=args.train_batch, shuffle=True, num_workers=args.workers)
 
-    testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
-    # testset.data = testset.data[indices[50000:60000]]
-    # testset.targets = testset.targets[indices[50000:60000]]
+    testset = dataloader(root='../data', train=True, download=False, transform=transform_test)
+    testset.data = testset.data[indices[50000:60000]]
+    testset.targets = testset.targets[indices[50000:60000]]
 
     # testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
     testloader = data.DataLoader(testset, batch_size=args.test_batch, shuffle=False, num_workers=args.workers)

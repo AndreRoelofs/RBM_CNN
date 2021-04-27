@@ -19,6 +19,7 @@ import one_layered_wdn.svm as svm
 from torch import nn
 # from one_layered_wdn.kmeans import kmeans, kmeans_predict
 from kmeans_pytorch import kmeans, kmeans_predict
+import scipy.cluster.hierarchy as hcluster
 import copy
 from ImbalancedDatasetSampler import ImbalancedDatasetSampler
 from sys import exit
@@ -65,7 +66,7 @@ def process_settings():
     if general_settings['Dataset'] == FASHIONMNIST_DATASET:
         input_filters = 1
     if general_settings['Dataset'] == CIFAR10_DATASET:
-        input_filters = 3
+        input_filters = 1
     if general_settings['Dataset'] == CIFAR100_DATASET:
         input_filters = 3
 
@@ -130,12 +131,12 @@ def load_data():
         train_data = FashionMNIST(data_path, train=True, download=True,
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
-                                      # transforms.Normalize((0.1307,), (0.3081,)),
+                                      transforms.Normalize((0.1307,), (0.3081,)),
                                   ]))
 
         test_data = FashionMNIST(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize((0.1307,), (0.3081,)),
+            transforms.Normalize((0.1307,), (0.3081,)),
         ]))
 
     if general_settings['Dataset'] == CIFAR10_DATASET:
@@ -143,13 +144,17 @@ def load_data():
                              transform=transforms.Compose([
                                  transforms.ToTensor(),
                                  # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                                 # transforms.Grayscale(),
+                                 #
+                                 transforms.Grayscale(),
+                                 transforms.Normalize((0.1307,), (0.3081,)),
                              ]))
 
         test_data = CIFAR10(data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            # transforms.Grayscale(),
+
+            transforms.Grayscale(),
+            transforms.Normalize((0.1307,), (0.3081,)),
         ]))
 
     if general_settings['Dataset'] == CIFAR100_DATASET:
@@ -270,9 +275,9 @@ def train_knn(train_features, test_features, n_clusters):
     #
     # tr_features -= tr_features.min(0, keepdim=True)[0]
     # tr_features /= tr_features.max(0, keepdim=True)[0]
-
+    #
     te_features = torch.tensor(test_features, dtype=torch.float)
-
+    #
     # te_features -= te_features.min(0, keepdim=True)[0]
     # te_features /= te_features.max(0, keepdim=True)[0]
 
@@ -389,12 +394,13 @@ if __name__ == "__main__":
     process_settings()
 
     load_data()
-    n_clusters = 160
+    n_clusters = 80
     n_levels = 1
     n_classes = 10
     # model_name = '{}_rbm_cnn_finetuned_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
-    model_name = '{}_rbm_cnn_extra_training_supervised_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
-    for model_number in range(1, 2):
+    # model_name = '{}_rbm_cnn_extra_training_supervised_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
+    model_name = '{}_rbm_cnn_data_normalized_quality_wide_levels_{}'.format(config['GENERAL']['Dataset'] + '_old_val', n_levels)
+    for model_number in range(7, 8):
         wdn_settings = {
             'model_name': model_name,
             'n_clusters': n_clusters,
@@ -417,10 +423,10 @@ if __name__ == "__main__":
                 # },
                 {
                     'input_channels': input_filters, 'encoder_channels': 1, 'rbm_visible_units': image_size ** 2,
-                    'encoder_weight_mean': 0.1, 'encoder_weight_variance': 0.01,
+                    'encoder_weight_mean': 0.1, 'encoder_weight_variance': 0.001,
                     'rbm_weight_mean': 0.0, 'rbm_weight_variance': 0.01,
                     'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3,
-                    'n_training': 50, 'n_training_second': 2,
+                    'n_training': 50, 'n_training_second': 1,
                 },
             ]
         }
@@ -428,24 +434,40 @@ if __name__ == "__main__":
         # wandb.init(project=model_name, config=wdn_settings, reinit=True)
         #
         # wbc = wandb.config
+        # n_test_data = 5000
+        # test_subset = np.random.randint(0, 10000, n_test_data)
+        # test_data.data = test_data.data[test_subset]
+        # test_data.targets = test_data.targets[test_subset]
+
+        # cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, 4, 240))
+        # cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, 4, 240))
+        #
+        # train_indices = np.where(cluster_ids_x == 0)[0].astype(int)
+        # test_indices = np.where(cluster_ids_y == 0)[0].astype(int)
+        #
+        # train_data.data = train_data.data[train_indices]
+        # train_data.targets = np.array(train_data.targets)[train_indices].tolist()
+        #
+        # test_data.data = test_data.data[test_indices]
+        # test_data.targets = np.array(test_data.targets)[test_indices].tolist()
         #
         # print("Train WDN")
-        # model = train_wdn(train_data, wdn_settings, wbc)
+        # model = train_wdn(train_data, test_data, wdn_settings, wbc)
         # print("Convert train images to latent vectors")
         # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
         # print("Convert test images to latent vectors")
         # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
-        #
+
         # np.save('train_features_{}_{}'.format(model_name, model_number), train_features)
         # np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
         # np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
         # np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
-        #
+
         train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
         train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))
         test_features = np.load('test_features_{}_{}.npy'.format(model_name, model_number))
         test_labels = np.load('test_labels_{}_{}.npy'.format(model_name, model_number))
-
+        #
         # print("Fitting SVM")
         # svc = LinearSVC(max_iter=100000, loss='hinge', random_state=0)
         # svc = SVC(cache_size=32768, tol=1e-5, kernel='linear', random_state=0)
@@ -460,26 +482,26 @@ if __name__ == "__main__":
         #
         # print("Calculate Max RBM")
         # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
-        print("Fit KNN")
-        cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
-
-        np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
-        np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+        # print("Fit KNN")
+        # cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
         #
-        # cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
-        # cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+        # np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
+        # np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+        #
+        cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+        cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
 
         train_bins = calculate_cluster_bins(cluster_ids_x, train_labels, n_clusters, n_classes)
         test_bins = calculate_cluster_bins(cluster_ids_y, test_labels, n_clusters, n_classes)
-
+        #
         equal_clusters = calculate_equal_clusters(train_bins)
 
         cluster_ids_x = compress_clusters(cluster_ids_x, equal_clusters)
         cluster_ids_y = compress_clusters(cluster_ids_y, equal_clusters)
-
+        #
         np.save('train_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
         np.save('test_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
-
+        #
         n_clusters = cluster_ids_x.max() + 1
 
         train_bins = calculate_cluster_bins(cluster_ids_x, train_labels, n_clusters, n_classes)

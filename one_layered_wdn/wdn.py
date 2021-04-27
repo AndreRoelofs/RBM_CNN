@@ -29,6 +29,7 @@ class WDN(nn.Module):
         self.levels_counter = np.zeros(self.n_levels)
         self.debug = False
         self.train_data = None
+        self.test_data = None
         self.models_total = 0
 
     def create_new_model(self, level, target):
@@ -98,7 +99,7 @@ class WDN(nn.Module):
             return network.rbm.is_familiar(flat_rbm_input, provide_value=provide_value), rbm_input
 
         recon_error = np.sum((network.rbm.energy_threshold -
-                              torch.nn.functional.mse_loss(
+                              F.mse_loss(
                                   flat_rbm_input,
                                   network.rbm(flat_rbm_input),
                                   reduction='none')).cpu().detach().numpy(), axis=1)
@@ -118,8 +119,11 @@ class WDN(nn.Module):
             self.models_total += 1
 
         if train:
+            lr = self.levels[network.level]['encoder_learning_rate']
+            if update_threshold == False:
+                lr = 1e-5
             encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
-                                                 lr=self.levels[network.level]['encoder_learning_rate'])
+                                                 lr=lr)
             n_train_epochs = self.levels[level]['n_training']
             if not first_training:
                 n_train_epochs = self.levels[level]['n_training_second']
@@ -130,24 +134,26 @@ class WDN(nn.Module):
                 flat_rbm_input = rbm_input.detach().clone().view(len(rbm_input),
                                                                  (self.levels[level]['rbm_visible_units']) *
                                                                  self.levels[level]['encoder_channels'])
-                if i % 5 == 0:
+                # if i % 5 == 0:
+                if i % 10 == 0 and i != 0:
                 # if i == 0:
                     network.rbm.contrastive_divergence(flat_rbm_input)
 
                 # Train encoder
                 rbm_output = network.rbm(flat_rbm_input)
-                encoder_loss = network.encoder.loss_function(rbm_input,
-                                                             rbm_output.detach().clone().reshape(rbm_input.shape))
+                encoder_loss = network.encoder.loss_function(rbm_output.detach().clone().reshape(rbm_input.shape),
+                                                             rbm_input)
                 encoder_loss.backward(retain_graph=True)
                 encoder_optimizer.step()
 
+        # if False:
         if first_training:
             rbm_input = network.encode(data)
             flat_rbm_input = rbm_input.clone().detach().view(len(rbm_input),
                                                              (self.levels[0]['rbm_visible_units']) *
                                                              self.levels[0]['encoder_channels'])
             rbm_output = network.rbm(flat_rbm_input)
-            network.rbm.energy_threshold = torch.nn.functional.mse_loss(flat_rbm_input, rbm_output)
+            network.rbm.energy_threshold = F.mse_loss(flat_rbm_input, rbm_output)
             for _ in range(1):
                 image_energies = self.calculate_energies(network)
                 # Only get activated images
@@ -181,32 +187,35 @@ class WDN(nn.Module):
                                                              (self.levels[0]['rbm_visible_units']) *
                                                              self.levels[0]['encoder_channels'])
             rbm_output = network.rbm(flat_rbm_input)
-            network.rbm.energy_threshold = torch.nn.MSELoss()(flat_rbm_input, rbm_output)
+            network.rbm.energy_threshold = F.mse_loss(flat_rbm_input, rbm_output)
 
         if provide_encoding:
             return network, network.encode(data)
         return network
 
-    def calculate_energies(self, node):
-        train_loader = torch.utils.data.DataLoader(
-            self.train_data,
-            batch_size=5000,
-            shuffle=False,
-        )
+    def calculate_energies(self, node, use_training_data=True):
+        if use_training_data:
+            train_loader = torch.utils.data.DataLoader(
+                self.train_data,
+                batch_size=5000,
+                shuffle=False,
+            )
+        else:
+            train_loader = torch.utils.data.DataLoader(
+                self.test_data,
+                batch_size=5000,
+                shuffle=False,
+            )
 
         image_energies = []
-        n_activations = 0
         for batch_idx, (data, target) in enumerate(train_loader):
             data = data.to(self.device)
             distances, activations = self.is_familiar(node, data, provide_value=True)
-
-            n_activations += activations.sum()
 
             for i in range(len(distances)):
                 d = distances[i]
                 t = target[i]
                 image_energies.append([d, t.numpy().astype(int), 5000 * batch_idx + i, activations[i]])
-        # print("Number of activations: {}".format(n_activations))
         image_energies = np.array(image_energies)
         return image_energies[image_energies[:, 0].argsort()]
 
@@ -237,10 +246,22 @@ class WDN(nn.Module):
                     break
             if is_familiar == 1:
                 continue
-            new_model = self.train_new_network(region, level=model.level + 1, target=target)
-            new_models.append(new_model)
-            self._joint_training(region, new_model, depth - 1, target)
-            model.child_networks.append(new_model)
+            n_tries = 5
+            activation_threshold = 60
+            n_activations = 0
+            while n_tries != 0:
+                n_tries -= 1
+                new_model = self.train_new_network(region, level=model.level + 1, target=target)
+                image_energies = self.calculate_energies(new_model)
+                target_digit_indices = [10000 - (i + 1) for i, e in reversed(list(enumerate(image_energies))) if
+                                        int(e[1]) == target]
+                n_activations = sum([i < 100 for i in target_digit_indices])
+                if n_activations >= activation_threshold:
+                    break
+            if n_activations >= activation_threshold:
+                new_models.append(new_model)
+                self._joint_training(region, new_model, depth - 1, target)
+                model.child_networks.append(new_model)
 
     def joint_training(self):
         counter = 0
@@ -289,15 +310,36 @@ class WDN(nn.Module):
             if n_familiar >= self.model_settings['min_familiarity_threshold']:
                 continue
 
-            model = self.train_new_network(data, level=0, target=target)
-            self.models.insert(0, model)
-            self._joint_training(data, model, self.n_levels - 1, target)
+            n_tries = 5
+            activation_threshold = 250
+            n_activations = None
+            model = None
+            while n_tries != 0:
+                n_tries -= 1
+                model = self.train_new_network(data, level=0, target=target)
+                # model = self.train_new_network(data, level=0, target=target, network=model, update_threshold=False)
+                image_energies = self.calculate_energies(model, use_training_data=False)
+                t_energies = image_energies[image_energies[:, 3] == 1]
+                # t_energies = t_energies[t_energies[:, 1] == target]
+
+                n_activations = t_energies.shape[0]
+
+                # target_digit_indices = [10000 - (i + 1) for i, e in reversed(list(enumerate(image_energies))) if
+                #                         int(e[1]) == target]
+                # n_activations = sum([i < 100 for i in target_digit_indices])
+                # print('Number of activations: {}'.format(n_activations))
+                if n_activations >= activation_threshold:
+                    break
+            if n_activations >= activation_threshold:
+                self.models.insert(0, model)
+                self._joint_training(data, model, self.n_levels - 1, target)
 
 
-def train_wdn(train_data, settings, wbc=None, model=None):
+def train_wdn(train_data, test_data, settings, wbc=None, model=None):
     if model is None:
         model = WDN(settings)
     model.train_data = train_data
+    model.test_data = test_data
     for i in range(10):
         # for i in [5]:
         print("Training digit: ", i)

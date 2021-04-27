@@ -19,6 +19,7 @@ import random_erasing.models.fashion as models
 from torch.utils.data.sampler import SubsetRandomSampler
 import random_erasing.transforms as transforms
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
 import copy
 from random_erasing.utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
@@ -89,13 +90,13 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 # parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.7, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.6, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
 #
 parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
 # parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
-
+#
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
 
@@ -104,10 +105,12 @@ assert args.dataset == 'fashionmnist'
 
 # Use CUDA
 use_cuda = torch.cuda.is_available()
-
-# Random seed
+#
+# # Random seed
 # if args.manualSeed is None:
 #     args.manualSeed = random.randint(1, 10000)
+#
+# print('Seed: {}'.format(args.manualSeed))
 # random.seed(args.manualSeed)
 # np.random.seed(args.manualSeed)
 # torch.manual_seed(args.manualSeed)
@@ -129,8 +132,6 @@ def main():
     transform_train = transforms.Compose([
         transforms.RandomCrop(28, padding=4),
         transforms.RandomHorizontalFlip(),
-        # transforms.GaussianBlur(3),
-        # transforms.RandomRotation(1),
         # transforms.RandomVerticalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,)),
@@ -150,13 +151,13 @@ def main():
 
     n_clusters = 160
 
-    for model_number in range(1, 2):
+    for model_number in range(7, 8):
         # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_clusters_{}".format(n_clusters),
         #            reinit=True)
         train_predictions = np.load(
-            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_{}_{}.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
         test_predictions = np.load(
-            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_{}_{}.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
 
         title = 'fashionmnist-' + args.arch
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
@@ -165,7 +166,7 @@ def main():
         best_acc = 0
         # for cluster_id in range(0, 12):
         for cluster_id in range(0, train_predictions.max() + 1):
-        # for cluster_id in [14]:
+        # for cluster_id in [6]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -185,8 +186,8 @@ def main():
                 # batch_size=min(64, len(train_cluster_idx)),
                 shuffle=False,
                 num_workers=args.workers,
-                # sampler=SubsetRandomSampler(train_cluster_idx),
-                sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+                sampler=SubsetRandomSampler(train_cluster_idx),
+                # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
             )
 
             print("Train batch: ", args.train_batch)
@@ -250,12 +251,15 @@ def main():
             best_acc = 0
             start_epoch = 0
             model.load_state_dict(checkpoint['state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            # print(checkpoint['optimizer'])
 
-            for param in model.module.parameters():
-                param.requires_grad = False
+            # for param in model.module.parameters():
+            #     param.requires_grad = False
+            #
+            # for param in model.module.fc.parameters():
+            #     param.requires_grad = True
 
-            for param in model.module.fc.parameters():
-                param.requires_grad = True
             # model.module.fc = fc_clone
             # model.module.fc = nn.Linear(64 * args.widen_factor, 10)
             # model.module.fc.cuda()
@@ -324,6 +328,32 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
         inputs, targets = torch.autograd.Variable(inputs), torch.autograd.Variable(targets)
+
+        # print(inputs.shape)
+        #
+        # plt.imshow(inputs[0][0].detach().cpu().numpy(), cmap='gray')
+        # plt.savefig('test.png')
+        #
+        # first_layer_output = model.module.conv1(inputs)[0]
+        #
+        # fig = plt.figure(figsize=(4., 4.))
+        # grid = ImageGrid(fig, 111,  # similar to subplot(111)
+        #                  nrows_ncols=(4, 4),  # creates 2x2 grid of axes
+        #                  axes_pad=0.1,  # pad between axes in inch.
+        #                  )
+        #
+        # for ax, im in zip(grid, first_layer_output):
+        #     # Iterating over the grid returns the Axes.
+        #     im = im.detach().cpu().numpy()
+        #     ax.imshow(im, cmap='gray')
+        #     ax.axis('off')
+        #
+        # fig.suptitle('Trained Model: First layer output', fontsize=12)
+        #
+        # plt.savefig('test_conv.png')
+        #
+        # print(first_layer_output.shape)
+        # exit(1)
 
         # compute output
         outputs = model(inputs)
@@ -402,7 +432,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
             _, pred = outputs.topk(1, 1, True, True)
             incorrect_indices = (pred.t()[0] != targets).nonzero().t()[0]
             if incorrect_indices.shape[0] > 0:
-                incorrect_classes += targets[incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                incorrect_classes += pred.t()[0][incorrect_indices].cpu().detach().numpy().flatten().tolist()
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, targets.data, topk=(1, 5))
