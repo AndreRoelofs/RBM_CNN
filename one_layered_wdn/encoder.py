@@ -11,7 +11,7 @@ class Encoder(nn.Module):
         # self.conv1 = nn.Conv2d(channels, filters, kernel_size=7, stride=1, padding=3)
         # self.conv2 = nn.Conv2d(filters, filters, kernel_size=7, stride=1, padding=3)
         # self.conv3 = nn.Conv2d(filters, filters, kernel_size=7, stride=1, padding=3)
-
+        #
         self.conv1 = nn.Conv2d(channels, filters, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
@@ -26,7 +26,7 @@ class Encoder(nn.Module):
         # nn.init.normal_(self.conv4.weight, weight_mean, weight_variance)
         # nn.init.normal_(self.conv5.weight, weight_mean, weight_variance)
 
-
+        # #
         # self.conv1.weight.requires_grad = False
         # self.conv1.weight /= self.conv1.weight.sum()
         # self.conv1.weight.requires_grad = True

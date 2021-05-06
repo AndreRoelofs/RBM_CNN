@@ -104,6 +104,12 @@ class WDN(nn.Module):
                                   network.rbm(flat_rbm_input),
                                   reduction='none')).cpu().detach().numpy(), axis=1)
 
+        # recon_error = np.sum((network.rbm.energy_threshold -
+        #                       F.mse_loss(
+        #                           network.rbm(flat_rbm_input),
+        #                           flat_rbm_input,
+        #                           reduction='none')).cpu().detach().numpy(), axis=1)
+
         if provide_value:
             return recon_error, recon_error >= 0.0,
         return recon_error >= 0.0
@@ -136,24 +142,28 @@ class WDN(nn.Module):
                                                                  self.levels[level]['encoder_channels'])
                 # if i % 5 == 0:
                 if i % 10 == 0 and i != 0:
-                # if i == 0:
+                    # if i == 0:
                     network.rbm.contrastive_divergence(flat_rbm_input)
 
                 # Train encoder
                 rbm_output = network.rbm(flat_rbm_input)
-                encoder_loss = network.encoder.loss_function(rbm_output.detach().clone().reshape(rbm_input.shape),
-                                                             rbm_input)
+                # encoder_loss = network.encoder.loss_function(rbm_output.detach().clone().reshape(rbm_input.shape),
+                #                                              rbm_input)
+                encoder_loss = network.encoder.loss_function(rbm_input,
+                                                             rbm_output.detach().clone().reshape(rbm_input.shape))
+                encoder_optimizer.zero_grad()
                 encoder_loss.backward(retain_graph=True)
                 encoder_optimizer.step()
 
-        # if False:
-        if first_training:
+        if False:
+            # if first_training:
             rbm_input = network.encode(data)
             flat_rbm_input = rbm_input.clone().detach().view(len(rbm_input),
                                                              (self.levels[0]['rbm_visible_units']) *
                                                              self.levels[0]['encoder_channels'])
             rbm_output = network.rbm(flat_rbm_input)
-            network.rbm.energy_threshold = F.mse_loss(flat_rbm_input, rbm_output)
+            # network.rbm.energy_threshold = F.mse_loss(flat_rbm_input, rbm_output)
+            network.rbm.energy_threshold = F.mse_loss(rbm_output, flat_rbm_input)
             for _ in range(1):
                 image_energies = self.calculate_energies(network)
                 # Only get activated images
@@ -188,6 +198,7 @@ class WDN(nn.Module):
                                                              self.levels[0]['encoder_channels'])
             rbm_output = network.rbm(flat_rbm_input)
             network.rbm.energy_threshold = F.mse_loss(flat_rbm_input, rbm_output)
+            # network.rbm.energy_threshold = F.mse_loss(rbm_output, flat_rbm_input)
 
         if provide_encoding:
             return network, network.encode(data)
@@ -311,28 +322,47 @@ class WDN(nn.Module):
                 continue
 
             n_tries = 5
-            activation_threshold = 250
-            n_activations = None
+            activation_threshold = 50
+            score = None
             model = None
+            models = []
             while n_tries != 0:
                 n_tries -= 1
                 model = self.train_new_network(data, level=0, target=target)
-                # model = self.train_new_network(data, level=0, target=target, network=model, update_threshold=False)
                 image_energies = self.calculate_energies(model, use_training_data=False)
+
+                # target_digit_indices = [10000 - (i + 1) for i, e in reversed(list(enumerate(image_energies))) if
+                #                         int(e[1]) == target]
+                #
+                # one_hundred_test = sum([i < 100 for i in target_digit_indices])
+                #
+                # score = one_hundred_test
+
                 t_energies = image_energies[image_energies[:, 3] == 1]
                 # t_energies = t_energies[t_energies[:, 1] == target]
-
-                n_activations = t_energies.shape[0]
+                #
+                # n_activations = t_energies.shape[0]
+                score = t_energies.shape[0]
+                # score = 0
 
                 # target_digit_indices = [10000 - (i + 1) for i, e in reversed(list(enumerate(image_energies))) if
                 #                         int(e[1]) == target]
                 # n_activations = sum([i < 100 for i in target_digit_indices])
-                # print('Number of activations: {}'.format(n_activations))
-                if n_activations >= activation_threshold:
+                print('Score value: {}'.format(score))
+                # print('N activations: {}'.format(n_activations))
+
+                models.append([model, score])
+                if score >= activation_threshold:
                     break
-            if n_activations >= activation_threshold:
+            if score >= activation_threshold:
                 self.models.insert(0, model)
                 self._joint_training(data, model, self.n_levels - 1, target)
+            # else:
+            #     models = np.array(models)
+            #     models = models[(-models[:, 1]).argsort()]
+            #     model = models[0][0]
+            #     self.models.insert(0, model)
+            #     self._joint_training(data, model, self.n_levels - 1, target)
 
 
 def train_wdn(train_data, test_data, settings, wbc=None, model=None):

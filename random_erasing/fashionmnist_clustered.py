@@ -77,10 +77,10 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet20)')
-parser.add_argument('--depth', type=int, default=28, help='Model depth.')
-parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
-# parser.add_argument('--depth', type=int, default=40, help='Model depth.')
-# parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
+# parser.add_argument('--depth', type=int, default=28, help='Model depth.')
+# parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
+parser.add_argument('--depth', type=int, default=40, help='Model depth.')
+parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
 parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
 parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
 # Miscs
@@ -149,15 +149,21 @@ def main():
     trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
-    n_clusters = 160
+    indices = np.load('fashion_mnist_training_indices.npy')
+    train_indices = indices[:50000]
+    # val_indices = indices[50000:]
 
-    for model_number in range(7, 8):
+    # trainset = trainset[train_indices]
+
+    n_clusters = 80
+
+    for model_number in range(8, 9):
         # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_clusters_{}".format(n_clusters),
         #            reinit=True)
         train_predictions = np.load(
-            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
         test_predictions = np.load(
-            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
 
         title = 'fashionmnist-' + args.arch
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
@@ -176,7 +182,9 @@ def main():
                 cluster = train_predictions[i]
                 if cluster != cluster_id:
                     continue
-                train_cluster_idx.append(i)
+                # train_cluster_idx.append(i)
+                train_cluster_idx.append(train_indices[i])
+
 
             print("Train size: {}".format(len(train_cluster_idx)))
 

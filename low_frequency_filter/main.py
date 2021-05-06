@@ -44,7 +44,7 @@ n_train_data = None
 n_test_data = None
 n_classes = None
 # target_digit = None
-target_digit = 5
+target_digit = 0
 target_digits = []
 target_classes = None
 
@@ -164,8 +164,8 @@ wdn_settings = {
             # 'rbm_visible_units': 14**2,
             'encoder_weight_mean': 0.1, 'encoder_weight_variance': 0.001,
             'rbm_weight_mean': 0.0, 'rbm_weight_variance': 0.01,
-            'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-4,
-            'n_training': 50, 'n_training_second': 1,
+            'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3,
+            'n_training': 50, 'n_training_second': 11,
         },
     ]
 }
@@ -198,7 +198,7 @@ def plot_energies(energies, record_tests=True, use_train_data=True):
         one_hundred_test_history.append([target_digit, one_hundred_test])
         five_hundred_test_history.append([target_digit, five_hundred_test])
 
-    return
+    # return
     # energies = (energies - np.min(energies))/np.ptp(energies)
     energies[:, 0] -= energies[:, 0].min()
     energies[:, 0] /= energies[:, 0].max()
@@ -416,10 +416,10 @@ def train_node(node, tr_indices, update_threshold=False, train=True):
 
                 # Train encoder
                 rbm_output = node.rbm(flat_rbm_input)
-                encoder_loss = node.encoder.loss_function(rbm_output.clone().detach().reshape(rbm_input.shape),
-                                                          rbm_input)
-                # encoder_loss = node.encoder.loss_function(rbm_input,
-                #                                           rbm_output.clone().detach().reshape(rbm_input.shape))
+                # encoder_loss = node.encoder.loss_function(rbm_output.clone().detach().reshape(rbm_input.shape),
+                #                                           rbm_input)
+                encoder_loss = node.encoder.loss_function(rbm_input,
+                                                          rbm_output.clone().detach().reshape(rbm_input.shape))
                 encoder_optimizer.zero_grad()
                 encoder_loss.backward(retain_graph=True)
                 encoder_optimizer.step()
@@ -439,6 +439,7 @@ def train_node(node, tr_indices, update_threshold=False, train=True):
 
             rbm_output = node.rbm(flat_rbm_input)
             node.rbm.energy_threshold = torch.nn.functional.mse_loss(flat_rbm_input, rbm_output)
+            # node.rbm.energy_threshold = torch.nn.functional.mse_loss(rbm_output, flat_rbm_input)
 
             # f, axarr = plt.subplots(1, 3)
             #
@@ -466,8 +467,8 @@ def create_node():
     global random_tr_indice
     global node
 
-    # random_tr_indice = 317
-    # random_tr_indice = 38199
+    # random_tr_indice = 0
+    # random_tr_indice = 31947
     target = train_data.targets[random_tr_indice]
     # print("Random tr indice {}".format(random_tr_indice))
     # target_digit = target
@@ -486,13 +487,13 @@ def create_node():
         # image_energies = calculate_energies(node)
         # plot_energies(image_energies)
 
-        for _ in range(0):
+        for _ in range(1):
             image_energies = calculate_energies(node)
             # plot_energies(image_energies)
             # Only get activated images
             image_energies = image_energies[image_energies[:, 3] == 1]
             # Only get images of the same class
-            image_energies = image_energies[image_energies[:, 1] == target_digit]
+            # image_energies = image_energies[image_energies[:, 1] == target_digit]
             # print("Class specific: {}".format(len(image_energies[image_energies[:, 1] == target_digit])))
 
             if len(image_energies) == 0:
@@ -510,13 +511,13 @@ def create_node():
         n_activations = t_energies.shape[0]
         print("Number of general activations: {}".format(n_activations))
 
-        t_energies = t_energies[t_energies[:, 1] == target_digit]
-        n_activations = t_energies.shape[0]
-        print("Number of targeted activations: {}".format(n_activations))
+        # t_energies = t_energies[t_energies[:, 1] == target_digit]
+        # n_activations = t_energies.shape[0]
+        # print("Number of targeted activations: {}".format(n_activations))
 
         if True:
         # if n_activations <= 2000:
-        # if n_activations >= 100:
+        # if n_activations >= 25:
         # if n_activations >= 100 and n_activations <= 200:
             plot_energies(image_energies, use_train_data=False)
             n_activations_history.append(n_activations)
@@ -534,7 +535,7 @@ def create_node():
 
     # image_energies = calculate_energies(node, use_train_data=True)
     # plot_energies(image_energies, use_train_data=True)
-
+    # exit(0)
     return node
 
 
