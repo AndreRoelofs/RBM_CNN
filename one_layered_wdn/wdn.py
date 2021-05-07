@@ -155,15 +155,15 @@ class WDN(nn.Module):
                 encoder_loss.backward(retain_graph=True)
                 encoder_optimizer.step()
 
-        if False:
-            # if first_training:
+        # if False:
+        if first_training:
             rbm_input = network.encode(data)
             flat_rbm_input = rbm_input.clone().detach().view(len(rbm_input),
                                                              (self.levels[0]['rbm_visible_units']) *
                                                              self.levels[0]['encoder_channels'])
             rbm_output = network.rbm(flat_rbm_input)
-            # network.rbm.energy_threshold = F.mse_loss(flat_rbm_input, rbm_output)
-            network.rbm.energy_threshold = F.mse_loss(rbm_output, flat_rbm_input)
+            network.rbm.energy_threshold = F.mse_loss(flat_rbm_input, rbm_output)
+            # network.rbm.energy_threshold = F.mse_loss(rbm_output, flat_rbm_input)
             for _ in range(1):
                 image_energies = self.calculate_energies(network)
                 # Only get activated images
@@ -322,7 +322,7 @@ class WDN(nn.Module):
                 continue
 
             n_tries = 5
-            activation_threshold = 50
+            activation_threshold = 100
             score = None
             model = None
             models = []
@@ -339,7 +339,7 @@ class WDN(nn.Module):
                 # score = one_hundred_test
 
                 t_energies = image_energies[image_energies[:, 3] == 1]
-                # t_energies = t_energies[t_energies[:, 1] == target]
+                t_energies = t_energies[t_energies[:, 1] == target]
                 #
                 # n_activations = t_energies.shape[0]
                 score = t_energies.shape[0]
@@ -348,7 +348,7 @@ class WDN(nn.Module):
                 # target_digit_indices = [10000 - (i + 1) for i, e in reversed(list(enumerate(image_energies))) if
                 #                         int(e[1]) == target]
                 # n_activations = sum([i < 100 for i in target_digit_indices])
-                print('Score value: {}'.format(score))
+                # print('Score value: {}'.format(score))
                 # print('N activations: {}'.format(n_activations))
 
                 models.append([model, score])

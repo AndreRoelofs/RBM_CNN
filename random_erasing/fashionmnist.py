@@ -62,8 +62,10 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet20)')
-parser.add_argument('--depth', type=int, default=40, help='Model depth.')
-parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
+parser.add_argument('--depth', type=int, default=28, help='Model depth.')
+parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
+# parser.add_argument('--depth', type=int, default=40, help='Model depth.')
+# parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
 parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
 parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
 # Miscs
@@ -247,10 +249,11 @@ def main():
         dataloader = datasets.FashionMNIST
         num_classes = 10
 
-    indices = np.arange(60000).astype(np.int)
-    np.random.shuffle(indices)
-
-    np.save('fashion_mnist_training_indices.npy', indices)
+    # indices = np.arange(60000).astype(np.int)
+    # np.random.shuffle(indices)
+    #
+    # np.save('fashion_mnist_training_indices.npy', indices)
+    indices = np.load('fashion_mnist_training_indices.npy')
 
     trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
     trainset.data = trainset.data[indices[:50000]]

@@ -9,7 +9,7 @@ import shutil
 import time
 import copy
 import random
-from sam import SAM
+# from sam import SAM
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -35,7 +35,7 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -43,15 +43,15 @@ parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
-                    default=[100],
+                    # default=[100],
                     # default=[50, 75],
-                    # default=[],
+                    default=[],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -87,11 +87,11 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 
 # Random Erasing
-parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+# parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
+parser.add_argument('--sh', default=0.6, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.5, type=float, help='aspect of erasing area')
 
-# parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
+parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
 # parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
 
@@ -148,15 +148,26 @@ def main():
     train_indices = indices[:50000]
     val_indices = indices[50000:]
 
-    trainset = dataloader(root='./data', train=True, download=True, transform=transform_train)
-    valset = dataloader(root='./data', train=True, download=True, transform=transform_test)
-    testset = dataloader(root='./data', train=False, download=False, transform=transform_test)
+    trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
+    valset = dataloader(root='../data', train=True, download=True, transform=transform_test)
+    testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
     n_clusters = 160
+    model_number = 4
 
-    train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
-    val_predictions = np.load("../one_layered_wdn/1_level_val_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
-    test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
+    train_predictions = np.load(
+        "../one_layered_wdn/train_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
+            model_number, n_clusters))
+    val_predictions = np.load(
+        "../one_layered_wdn/val_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
+            model_number, n_clusters))
+    test_predictions = np.load(
+        "../one_layered_wdn/test_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
+            model_number, n_clusters))
+
+    # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
+    # val_predictions = np.load("../one_layered_wdn/1_level_val_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
+    # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
     #
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_rbm_fixed_5.npy")
     # test_predictions = np.load("../one_layered_wdn/1_level_test_clusters_80_rbm_fixed_5.npy")
@@ -167,7 +178,8 @@ def main():
     test_correct_preds = []
     val_correct_preds = []
     best_acc = 0
-    for cluster_id in range(0, train_predictions.max() + 1):
+    # for cluster_id in range(2, train_predictions.max() + 1):
+    for cluster_id in [6]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
@@ -188,8 +200,8 @@ def main():
             # batch_size=min(64, len(train_cluster_idx)),
             shuffle=False,
             num_workers=args.workers,
-            # sampler=SubsetRandomSampler(train_cluster_idx),
-            sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+            sampler=SubsetRandomSampler(train_cluster_idx),
+            # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
         )
 
         val_cluster_idx = []
@@ -279,8 +291,8 @@ def main():
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
-        # train_loss, train_acc, _ = test(trainloader, model, criterion, 0, use_cuda)
-        # print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
+        train_loss, train_acc, _ = test(trainloader, model, criterion, 0, use_cuda)
+        print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
         val_loss, val_acc, _ = test(valloader, model, criterion, 0, use_cuda)
         print("Original Valid Accuracy: {} Loss: {}".format(val_acc, val_loss))
         test_loss, test_acc, _ = test(testloader, model, criterion, 0, use_cuda)
@@ -307,8 +319,12 @@ def main():
             val_loss, val_acc, _ = test(valloader, model, criterion, epoch, use_cuda)
             # print("Test classes:")
             test_loss, test_acc, _ = test(testloader, model, criterion, 0, use_cuda)
-            print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Valid Accuracy: %f Test Accuracy: %f' % (
+            print('Epoch: [%d | %d] LR: %.3f \nBest Accuracy: %.3f Valid Accuracy: %.3f Test Accuracy: %.3f' % (
                 epoch + 1, args.epochs, state['lr'], best_acc, val_acc, test_acc))
+            # print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Valid Accuracy: %f' % (
+            #     epoch + 1, args.epochs, state['lr'], best_acc, val_acc))
+
+            # exit(1)
 
             # append logger file
             logger.append([state['lr'], train_loss, val_loss, train_acc, val_acc])
@@ -462,7 +478,8 @@ def test(testloader, model, criterion, epoch, use_cuda):
             _, pred = outputs.topk(1, 1, True, True)
             incorrect_indices = (pred.t()[0] != targets).nonzero().t()[0]
             if incorrect_indices.shape[0] > 0:
-                incorrect_classes += targets[incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                # incorrect_classes += targets[incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                incorrect_classes += pred.t()[0][incorrect_indices].cpu().detach().numpy().flatten().tolist()
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, targets.data, topk=(1, 5))
@@ -488,9 +505,9 @@ def test(testloader, model, criterion, epoch, use_cuda):
             )
             bar.next()
     bar.finish()
-    # incorrect_classes.sort()
-    # if len(incorrect_classes) > 0:
-    #     print("Incorrect classes: ", incorrect_classes)
+    incorrect_classes.sort()
+    if len(incorrect_classes) > 0:
+        print("Incorrect classes: ", incorrect_classes)
     # print(top1.avg)
     return (losses.avg, top1.avg, len(incorrect_classes))
 

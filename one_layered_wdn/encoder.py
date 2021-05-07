@@ -26,7 +26,7 @@ class Encoder(nn.Module):
         # nn.init.normal_(self.conv4.weight, weight_mean, weight_variance)
         # nn.init.normal_(self.conv5.weight, weight_mean, weight_variance)
 
-        # #
+        #
         # self.conv1.weight.requires_grad = False
         # self.conv1.weight /= self.conv1.weight.sum()
         # self.conv1.weight.requires_grad = True

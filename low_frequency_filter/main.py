@@ -198,7 +198,7 @@ def plot_energies(energies, record_tests=True, use_train_data=True):
         one_hundred_test_history.append([target_digit, one_hundred_test])
         five_hundred_test_history.append([target_digit, five_hundred_test])
 
-    # return
+    return
     # energies = (energies - np.min(energies))/np.ptp(energies)
     energies[:, 0] -= energies[:, 0].min()
     energies[:, 0] /= energies[:, 0].max()
@@ -468,7 +468,7 @@ def create_node():
     global node
 
     # random_tr_indice = 0
-    # random_tr_indice = 31947
+    # random_tr_indice = 23708
     target = train_data.targets[random_tr_indice]
     # print("Random tr indice {}".format(random_tr_indice))
     # target_digit = target
@@ -493,7 +493,7 @@ def create_node():
             # Only get activated images
             image_energies = image_energies[image_energies[:, 3] == 1]
             # Only get images of the same class
-            # image_energies = image_energies[image_energies[:, 1] == target_digit]
+            image_energies = image_energies[image_energies[:, 1] == target_digit]
             # print("Class specific: {}".format(len(image_energies[image_energies[:, 1] == target_digit])))
 
             if len(image_energies) == 0:
@@ -511,9 +511,9 @@ def create_node():
         n_activations = t_energies.shape[0]
         print("Number of general activations: {}".format(n_activations))
 
-        # t_energies = t_energies[t_energies[:, 1] == target_digit]
-        # n_activations = t_energies.shape[0]
-        # print("Number of targeted activations: {}".format(n_activations))
+        t_energies = t_energies[t_energies[:, 1] == target_digit]
+        n_activations = t_energies.shape[0]
+        print("Number of targeted activations: {}".format(n_activations))
 
         if True:
         # if n_activations <= 2000:
