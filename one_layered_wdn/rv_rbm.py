@@ -41,6 +41,8 @@ class RV_RBM(nn.Module):
         self.weights = torch.zeros(self.num_visible, self.num_hidden)
         # self.visible_bias = torch.ones(self.num_visible) * 0.5
         self.visible_bias = torch.zeros(self.num_visible)
+
+        # nn.init.normal_(self.visible_bias, 0.5, 0.01)
         self.hidden_bias = torch.zeros(self.num_hidden)
 
         self.weights_momentum = torch.zeros(self.num_visible, self.num_hidden)

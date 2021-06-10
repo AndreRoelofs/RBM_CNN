@@ -35,7 +35,7 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -43,15 +43,15 @@ parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
-                    # default=[100],
+                    default=[100],
                     # default=[50, 75],
-                    default=[],
+                    # default=[],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -75,10 +75,10 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet20)')
-# parser.add_argument('--depth', type=int, default=28, help='Model depth.')
-# parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
-parser.add_argument('--depth', type=int, default=40, help='Model depth.')
-parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
+parser.add_argument('--depth', type=int, default=28, help='Model depth.')
+parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
+# parser.add_argument('--depth', type=int, default=40, help='Model depth.')
+# parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
 parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
 parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
 # Miscs
@@ -88,13 +88,13 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 # parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.6, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.5, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
 
 parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
 # parser.add_argument('--r1', default=0.3, type=float, help='aspect of erasing area')
-
+#
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
 
@@ -105,13 +105,13 @@ assert args.dataset == 'fashionmnist'
 use_cuda = torch.cuda.is_available()
 
 # Random seed
-if args.manualSeed is None:
-    args.manualSeed = random.randint(1, 10000)
-random.seed(args.manualSeed)
-np.random.seed(args.manualSeed)
-torch.manual_seed(args.manualSeed)
-if use_cuda:
-    torch.cuda.manual_seed_all(args.manualSeed)
+# if args.manualSeed is None:
+#     args.manualSeed = random.randint(1, 10000)
+# random.seed(args.manualSeed)
+# np.random.seed(args.manualSeed)
+# torch.manual_seed(args.manualSeed)
+# if use_cuda:
+#     torch.cuda.manual_seed_all(args.manualSeed)
 
 best_acc = 0  # best test accuracy
 
@@ -152,17 +152,17 @@ def main():
     valset = dataloader(root='../data', train=True, download=True, transform=transform_test)
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
-    n_clusters = 160
+    n_clusters = 80
     model_number = 4
 
     train_predictions = np.load(
-        "../one_layered_wdn/train_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
+        "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
             model_number, n_clusters))
-    val_predictions = np.load(
-        "../one_layered_wdn/val_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
-            model_number, n_clusters))
+    # val_predictions = np.load(
+    #     "../one_layered_wdn/val_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
+    #         model_number, n_clusters))
     test_predictions = np.load(
-        "../one_layered_wdn/test_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
+        "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
             model_number, n_clusters))
 
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
@@ -178,21 +178,34 @@ def main():
     test_correct_preds = []
     val_correct_preds = []
     best_acc = 0
-    # for cluster_id in range(2, train_predictions.max() + 1):
-    for cluster_id in [6]:
+    n_accuracy_decimals = 3
+    for cluster_id in range(0, train_predictions.max() + 1):
+    # for cluster_id in [13]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
         print("Current cluster ", cluster_id)
         train_cluster_idx = []
+        val_cluster_idx = []
 
         for i in range(len(train_predictions)):
             cluster = train_predictions[i]
             if cluster != cluster_id:
                 continue
-            train_cluster_idx.append(train_indices[i])
+            # train_cluster_idx.append(train_indices[i])
+            #
+            if i in train_indices:
+                train_cluster_idx.append(i)
+            else:
+                val_cluster_idx.append(i)
+
+            # if i in val_indices:
+            #     val_cluster_idx.append(i)
+            # train_cluster_idx.append(i)
 
         print("Train size: {}".format(len(train_cluster_idx)))
+
+        random.shuffle(train_cluster_idx)
 
         trainloader = data.DataLoader(
             trainset,
@@ -200,18 +213,16 @@ def main():
             # batch_size=min(64, len(train_cluster_idx)),
             shuffle=False,
             num_workers=args.workers,
-            sampler=SubsetRandomSampler(train_cluster_idx),
-            # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+            # sampler=SubsetRandomSampler(train_cluster_idx),
+            sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
         )
-
-        val_cluster_idx = []
-        for i in range(len(val_predictions)):
-            cluster = val_predictions[i]
-            if cluster != cluster_id:
-                continue
-
-            # val_cluster_idx.append(i)
-            val_cluster_idx.append(val_indices[i])
+        #
+        # for i in range(len(val_predictions)):
+        #     cluster = val_predictions[i]
+        #     if cluster != cluster_id:
+        #         continue
+        #
+        #     val_cluster_idx.append(val_indices[i])
         print("Val size: {}".format(len(val_cluster_idx)))
 
         valloader = data.DataLoader(
@@ -231,6 +242,11 @@ def main():
                 continue
             test_cluster_idx.append(i)
 
+        print("Test size: {}".format(len(test_cluster_idx)))
+
+        if len(test_cluster_idx) == 0:
+            continue
+
         testloader = data.DataLoader(
             testset,
             batch_size=min(args.test_batch, len(test_cluster_idx)),
@@ -239,7 +255,6 @@ def main():
             sampler=SubsetRandomSampler(test_cluster_idx)
 
         )
-        print("Test size: {}".format(len(test_cluster_idx)))
         print("Train batch: ", args.train_batch)
 
         # Model
@@ -256,7 +271,7 @@ def main():
                 num_classes=num_classes,
                 depth=args.depth,
             )
-
+        #
         # fc_clone = copy.deepcopy(model.fc)
         #
         # for param in model.parameters():
@@ -282,7 +297,6 @@ def main():
         # start_epoch = checkpoint['epoch']
         start_epoch = 0
         model.load_state_dict(checkpoint['state_dict'])
-        # optimizer.load_state_dict(checkpoint['optimizer'])
         # for param_group in optimizer.param_groups:
         #     param_group['lr'] = args.lr
 
@@ -290,6 +304,12 @@ def main():
 
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        #
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = args.lr
+        # #
+        # print(args.lr)
 
         train_loss, train_acc, _ = test(trainloader, model, criterion, 0, use_cuda)
         print("Original Train Accuracy: {} Loss: {}".format(train_acc, train_loss))
@@ -298,17 +318,23 @@ def main():
         test_loss, test_acc, _ = test(testloader, model, criterion, 0, use_cuda)
         print("Original Test Accuracy: {} Loss: {}".format(test_acc, test_loss))
 
+        val_acc = np.around(val_acc, n_accuracy_decimals)
+
         # best_acc = 0
         # best_acc = test_acc
         best_acc = val_acc
         og_val_acc = val_acc
         og_test_acc = test_acc
+
+        og_test_acc = np.around(og_test_acc, n_accuracy_decimals)
+        og_val_acc = np.around(og_val_acc, n_accuracy_decimals)
+
         # max_val_correct = 0
         # Train and val
         for epoch in range(start_epoch, args.epochs):
-            if best_acc == 100:
+            if best_acc >= 100:
                 break
-            if og_test_acc == 100:
+            if og_test_acc >= 100:
                 break
             adjust_learning_rate(optimizer, epoch)
 
@@ -319,10 +345,13 @@ def main():
             val_loss, val_acc, _ = test(valloader, model, criterion, epoch, use_cuda)
             # print("Test classes:")
             test_loss, test_acc, _ = test(testloader, model, criterion, 0, use_cuda)
-            print('Epoch: [%d | %d] LR: %.3f \nBest Accuracy: %.3f Valid Accuracy: %.3f Test Accuracy: %.3f' % (
+            print('Epoch: [%d | %d] LR: %f \nBest Accuracy: %.3f Valid Accuracy: %.3f Test Accuracy: %.3f' % (
                 epoch + 1, args.epochs, state['lr'], best_acc, val_acc, test_acc))
             # print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Valid Accuracy: %f' % (
             #     epoch + 1, args.epochs, state['lr'], best_acc, val_acc))
+
+            if epoch <= 5:
+                continue
 
             # exit(1)
 
@@ -333,7 +362,9 @@ def main():
             # is_best = test_acc > best_acc + 0.00001
             # best_acc = max(test_acc, best_acc)
             #
-            is_best = val_acc > best_acc + 0.00001
+            # is_best = val_acc > best_acc + 0.0001
+            val_acc = np.around(val_acc, n_accuracy_decimals)
+            is_best = val_acc >= best_acc
             best_acc = max(val_acc, best_acc)
 
             save_checkpoint({
@@ -345,7 +376,7 @@ def main():
             }, is_best, checkpoint=args.checkpoint)
 
         # if best_acc <= og_test_acc + 0.0001:
-        if best_acc <= og_val_acc + 0.0001:
+        if best_acc <= og_val_acc:
             model = models.__dict__[args.arch](
                 num_classes=num_classes,
                 depth=args.depth,
@@ -361,6 +392,9 @@ def main():
         test_loss, test_acc, n_test_incorrect = test(testloader, model, criterion, 0, use_cuda)
         print("New Test Accuracy: {} Loss: {}".format(test_acc, test_loss))
 
+        test_acc = np.around(test_acc, n_accuracy_decimals)
+
+
         # logger.close()
         # logger.plot()
         # savefig(os.path.join(args.checkpoint, 'log.eps'))
@@ -372,12 +406,12 @@ def main():
         print("Og Test Acc Diff:")
         # print(best_acc - og_test_acc)
         print(test_acc - og_test_acc)
-        val_correct_preds.append(int((best_acc / 100) * len(val_cluster_idx)))
+        # val_correct_preds.append(int((best_acc / 100) * len(val_cluster_idx)))
         test_correct_preds.append(len(test_cluster_idx) - n_test_incorrect)
         # test_correct_preds.append(max_test_correct)
 
     # best_accuracies.append(best_acc)
-    print("Total of val correct preds: {}".format(np.sum(val_correct_preds)))
+    # print("Total of val correct preds: {}".format(np.sum(val_correct_preds)))
     print("Total of test correct preds: {}".format(np.sum(test_correct_preds)))
 
 
@@ -505,9 +539,9 @@ def test(testloader, model, criterion, epoch, use_cuda):
             )
             bar.next()
     bar.finish()
-    incorrect_classes.sort()
-    if len(incorrect_classes) > 0:
-        print("Incorrect classes: ", incorrect_classes)
+    # incorrect_classes.sort()
+    # if len(incorrect_classes) > 0:
+    #     print("Incorrect classes: ", incorrect_classes)
     # print(top1.avg)
     return (losses.avg, top1.avg, len(incorrect_classes))
 

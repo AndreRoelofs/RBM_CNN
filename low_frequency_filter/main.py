@@ -162,7 +162,7 @@ wdn_settings = {
             'input_channels': input_filters, 'encoder_channels': 1,
             'rbm_visible_units': image_size ** 2,
             # 'rbm_visible_units': 14**2,
-            'encoder_weight_mean': 0.1, 'encoder_weight_variance': 0.001,
+            'encoder_weight_mean': 0.1, 'encoder_weight_variance': 0.01,
             'rbm_weight_mean': 0.0, 'rbm_weight_variance': 0.01,
             'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3,
             'n_training': 50, 'n_training_second': 11,
@@ -197,7 +197,7 @@ def plot_energies(energies, record_tests=True, use_train_data=True):
         ten_test_history.append([target_digit, ten_test])
         one_hundred_test_history.append([target_digit, one_hundred_test])
         five_hundred_test_history.append([target_digit, five_hundred_test])
-
+    #
     return
     # energies = (energies - np.min(energies))/np.ptp(energies)
     energies[:, 0] -= energies[:, 0].min()
@@ -374,7 +374,7 @@ def train_node(node, tr_indices, update_threshold=False, train=True):
     )
 
     lr = wdn.levels[node.level]['encoder_learning_rate']
-    if update_threshold == False:
+    if update_threshold is False:
         lr = 1e-5
     for batch_idx, (data, target) in enumerate(wdn.train_loader):
         data = data.to(wdn.device)
@@ -385,6 +385,8 @@ def train_node(node, tr_indices, update_threshold=False, train=True):
                                                  lr=lr)
             # encoder_optimizer = torch.optim.SGD(node.encoder.parameters(),
             #                                      lr=wdn.levels[node.level]['encoder_learning_rate'])
+            # encoder_optimizer = torch.optim.SGD(node.encoder.parameters(),
+            #                                      lr=lr)
             n_iterations = wdn.levels[0]['n_training']
             if update_threshold is False:
                 n_iterations = wdn.levels[0]['n_training_second']
@@ -408,18 +410,18 @@ def train_node(node, tr_indices, update_threshold=False, train=True):
                 # flat_rbm_input /= flat_rbm_input.max()
                 # if False:
                 if i % 10 == 0 and i != 0:
-                # if i % 10 == 0:
+                # if i % 5 == 0:
+                # if i == 0 and update_threshold:
                 # if i == 10:
-                # if i > 5:
                 # if True:
                     node.rbm.contrastive_divergence(flat_rbm_input)
 
                 # Train encoder
                 rbm_output = node.rbm(flat_rbm_input)
-                # encoder_loss = node.encoder.loss_function(rbm_output.clone().detach().reshape(rbm_input.shape),
-                #                                           rbm_input)
-                encoder_loss = node.encoder.loss_function(rbm_input,
-                                                          rbm_output.clone().detach().reshape(rbm_input.shape))
+                encoder_loss = node.encoder.loss_function(rbm_output.clone().detach().reshape(rbm_input.shape),
+                                                          rbm_input)
+                # encoder_loss = node.encoder.loss_function(rbm_input,
+                #                                           rbm_output.clone().detach().reshape(rbm_input.shape))
                 encoder_optimizer.zero_grad()
                 encoder_loss.backward(retain_graph=True)
                 encoder_optimizer.step()
@@ -438,6 +440,7 @@ def train_node(node, tr_indices, update_threshold=False, train=True):
             # flat_rbm_input /= flat_rbm_input.max()
 
             rbm_output = node.rbm(flat_rbm_input)
+            # node.rbm.energy_threshold = torch.mean(torch.nn.functional.mse_loss(flat_rbm_input, rbm_output, reduction='none'), dim=1).max()
             node.rbm.energy_threshold = torch.nn.functional.mse_loss(flat_rbm_input, rbm_output)
             # node.rbm.energy_threshold = torch.nn.functional.mse_loss(rbm_output, flat_rbm_input)
 
@@ -468,7 +471,7 @@ def create_node():
     global node
 
     # random_tr_indice = 0
-    # random_tr_indice = 23708
+    # random_tr_indice = 39708
     target = train_data.targets[random_tr_indice]
     # print("Random tr indice {}".format(random_tr_indice))
     # target_digit = target
@@ -488,12 +491,12 @@ def create_node():
         # plot_energies(image_energies)
 
         for _ in range(1):
-            image_energies = calculate_energies(node)
+            image_energies = calculate_energies(node, use_train_data=True)
             # plot_energies(image_energies)
             # Only get activated images
             image_energies = image_energies[image_energies[:, 3] == 1]
             # Only get images of the same class
-            image_energies = image_energies[image_energies[:, 1] == target_digit]
+            # image_energies = image_energies[image_energies[:, 1] == target_digit]
             # print("Class specific: {}".format(len(image_energies[image_energies[:, 1] == target_digit])))
 
             if len(image_energies) == 0:
@@ -503,6 +506,7 @@ def create_node():
 
             node = train_node(node, image_energies[:, 2].astype(np.int), train=True)
             node = train_node(node, [random_tr_indice], train=False, update_threshold=True)
+            # node = train_node(node, image_energies[:, 2].astype(np.int), train=False, update_threshold=True)
 
         node.eval()
 
@@ -511,14 +515,14 @@ def create_node():
         n_activations = t_energies.shape[0]
         print("Number of general activations: {}".format(n_activations))
 
-        t_energies = t_energies[t_energies[:, 1] == target_digit]
-        n_activations = t_energies.shape[0]
-        print("Number of targeted activations: {}".format(n_activations))
+        # t_energies = t_energies[t_energies[:, 1] == target_digit]
+        # n_activations = t_energies.shape[0]
+        # print("Number of targeted activations: {}".format(n_activations))
 
         if True:
         # if n_activations <= 2000:
-        # if n_activations >= 25:
-        # if n_activations >= 100 and n_activations <= 200:
+        # if n_activations >= 100:
+        # if n_activations >= 100 and n_activations <= 500:
             plot_energies(image_energies, use_train_data=False)
             n_activations_history.append(n_activations)
             break
@@ -581,8 +585,8 @@ ax.set_ylabel('Number of Activations')
 # ax.set_ylabel('500 Test Score')
 
 plt.grid()
-# plt.savefig('test_fig.png')
-plt.show()
+plt.savefig('test_fig.png')
+# plt.show()
 
 print('Class {}'.format(target_classes[target_digit]))
 print('10 test: mean {} std {}'.format(round(c_hist_10.mean(), 2), round(c_hist_10.std(), 2)))

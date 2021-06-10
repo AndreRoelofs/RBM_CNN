@@ -277,41 +277,41 @@ def calculate_average_accuracy_over_clusters(train_predictions, test_predictions
     print(accuracies)
 
 
-def train_knn(train_features, val_features, test_features, n_clusters):
-    device = torch.device('cpu')
-    tr_features = torch.tensor(train_features, dtype=torch.float)
-    va_features = torch.tensor(val_features, dtype=torch.float)
-    te_features = torch.tensor(test_features, dtype=torch.float)
-
-    cluster_ids_x, cluster_centers = kmeans(
-        X=tr_features, num_clusters=n_clusters,
-        distance='euclidean',
-        device=device
-    )
-    cluster_ids_val = kmeans_predict(va_features, cluster_centers,
-                                   distance='euclidean',
-                                   device=device)
-
-    cluster_ids_y = kmeans_predict(te_features, cluster_centers,
-                                   distance='euclidean',
-                                   device=device)
-
-    return cluster_ids_x, cluster_ids_val, cluster_ids_y
-
-# def train_knn(train_features, test_features, n_clusters):
+# def train_knn(train_features, val_features, test_features, n_clusters):
 #     device = torch.device('cpu')
 #     tr_features = torch.tensor(train_features, dtype=torch.float)
+#     va_features = torch.tensor(val_features, dtype=torch.float)
 #     te_features = torch.tensor(test_features, dtype=torch.float)
+#
 #     cluster_ids_x, cluster_centers = kmeans(
 #         X=tr_features, num_clusters=n_clusters,
 #         distance='euclidean',
 #         device=device
 #     )
+#     cluster_ids_val = kmeans_predict(va_features, cluster_centers,
+#                                    distance='euclidean',
+#                                    device=device)
+#
 #     cluster_ids_y = kmeans_predict(te_features, cluster_centers,
 #                                    distance='euclidean',
 #                                    device=device)
 #
-#     return cluster_ids_x, cluster_ids_y
+#     return cluster_ids_x, cluster_ids_val, cluster_ids_y
+
+def train_knn(train_features, test_features, n_clusters):
+    device = torch.device('cpu')
+    tr_features = torch.tensor(train_features, dtype=torch.float)
+    te_features = torch.tensor(test_features, dtype=torch.float)
+    cluster_ids_x, cluster_centers = kmeans(
+        X=tr_features, num_clusters=n_clusters,
+        distance='euclidean',
+        device=device
+    )
+    cluster_ids_y = kmeans_predict(te_features, cluster_centers,
+                                   distance='euclidean',
+                                   device=device)
+
+    return cluster_ids_x, cluster_ids_y
 
 def calculate_max_clusters(train_features, test_features):
     cluster_ids_x = np.zeros(train_features.shape[0], dtype=np.int)
@@ -415,9 +415,9 @@ if __name__ == "__main__":
     n_levels = 1
     n_classes = 10
     # model_name = '{}_rbm_cnn_finetuned_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
-    # model_name = '{}_rbm_cnn_extra_training_supervised_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
-    model_name = '{}_rbm_cnn_data_normalized_quality_wide_levels_{}'.format(config['GENERAL']['Dataset'] + '_old_val', n_levels)
-    for model_number in range(5, 6):
+    model_name = '{}_rbm_cnn_data_normalized_quality_wide_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
+    # model_name = '{}_rbm_cnn_data_normalized_quality_wide_levels_{}'.format(config['GENERAL']['Dataset'] + '_old_val', n_levels)
+    for model_number in [12]:
         wdn_settings = {
             'model_name': model_name,
             'n_clusters': n_clusters,
@@ -432,12 +432,6 @@ if __name__ == "__main__":
             'log_interval': 50,
 
             'levels_info': [
-                # {
-                #     'input_channels': input_filters, 'encoder_channels': 1, 'rbm_visible_units': image_size ** 2,
-                #     'encoder_weight_mean': 0.0, 'encoder_weight_variance': 0.5,
-                #     'rbm_weight_mean': 0.0, 'rbm_weight_variance': 0.01,
-                #     'rbm_hidden_units': 300, 'encoder_learning_rate': 1e-3, 'n_training': 50
-                # },
                 {
                     'input_channels': input_filters, 'encoder_channels': 1, 'rbm_visible_units': image_size ** 2,
                     'encoder_weight_mean': 0.1, 'encoder_weight_variance': 0.001,
@@ -456,39 +450,39 @@ if __name__ == "__main__":
         # test_data.data = test_data.data[test_subset]
         # test_data.targets = test_data.targets[test_subset]
 
-        indices = np.load('../random_erasing/fashion_mnist_training_indices.npy')
-        train_indices = indices[:50000]
-        val_indices = indices[50000:]
-
-        train_data.data = train_data.data[train_indices]
-        train_data.targets = train_data.targets[train_indices]
-
-        val_data.data = val_data.data[val_indices]
-        val_data.targets = val_data.targets[val_indices]
-
-        # print("Train WDN")
-        # model = train_wdn(train_data, val_data, wdn_settings, wbc)
-        # print("Convert train images to latent vectors")
-        # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+        # indices = np.load('../random_erasing/fashion_mnist_training_indices.npy')
+        # train_indices = indices[:50000]
+        # val_indices = indices[50000:]
+        #
+        # train_data.data = train_data.data[train_indices]
+        # train_data.targets = train_data.targets[train_indices]
+        #
+        # val_data.data = val_data.data[val_indices]
+        # val_data.targets = val_data.targets[val_indices]
+        #
+        print("Train WDN")
+        model = train_wdn(train_data, test_data, wdn_settings, wbc)
+        print("Convert train images to latent vectors")
+        train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
         # print("Convert val images to latent vectors")
         # val_features, _, val_labels = convert_images_to_latent_vector(val_data, model)
-        # print("Convert test images to latent vectors")
-        # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
-        # #
-        # np.save('train_features_{}_{}'.format(model_name, model_number), train_features)
-        # np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
+        print("Convert test images to latent vectors")
+        test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+        #
+        np.save('train_features_{}_{}'.format(model_name, model_number), train_features)
+        np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
         #
         # np.save('val_features_{}_{}'.format(model_name, model_number), val_features)
         # np.save('val_labels_{}_{}'.format(model_name, model_number), val_labels)
-        #
-        # np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
-        # np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
+
+        np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
+        np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
         #
         train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
         train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))
-
-        val_features = np.load('val_features_{}_{}.npy'.format(model_name, model_number))
-        val_labels = np.load('val_labels_{}_{}.npy'.format(model_name, model_number))
+        #
+        # val_features = np.load('val_features_{}_{}.npy'.format(model_name, model_number))
+        # val_labels = np.load('val_labels_{}_{}.npy'.format(model_name, model_number))
 
         test_features = np.load('test_features_{}_{}.npy'.format(model_name, model_number))
         test_labels = np.load('test_labels_{}_{}.npy'.format(model_name, model_number))
@@ -507,41 +501,42 @@ if __name__ == "__main__":
         #
         # print("Calculate Max RBM")
         # cluster_ids_x, cluster_ids_y, n_clusters = calculate_max_clusters(train_features, test_features)
-        # print("Fit KNN")
+        print("Fit KNN")
         # cluster_ids_x, cluster_ids_val, cluster_ids_y = train_knn(train_features, val_features, test_features, n_clusters)
-        #
-        # np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
+        cluster_ids_x, cluster_ids_y = train_knn(train_features, test_features, n_clusters)
+
+        np.save('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
         # np.save('val_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_val)
-        # np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+        np.save('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
 
         cluster_ids_x = np.load('train_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
-        cluster_ids_val = np.load('val_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
+        # cluster_ids_val = np.load('val_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
         cluster_ids_y = np.load('test_clusters_{}_{}_{}.npy'.format(model_name, model_number, n_clusters))
 
         train_bins = calculate_cluster_bins(cluster_ids_x, train_labels, n_clusters, n_classes)
-        val_bins = calculate_cluster_bins(cluster_ids_val, val_labels, n_clusters, n_classes)
+        # val_bins = calculate_cluster_bins(cluster_ids_val, val_labels, n_clusters, n_classes)
         test_bins = calculate_cluster_bins(cluster_ids_y, test_labels, n_clusters, n_classes)
         #
-        equal_clusters = calculate_equal_clusters(train_bins)
-
-        cluster_ids_x = compress_clusters(cluster_ids_x, equal_clusters)
-        cluster_ids_val = compress_clusters(cluster_ids_val, equal_clusters)
-        cluster_ids_y = compress_clusters(cluster_ids_y, equal_clusters)
+        # equal_clusters = calculate_equal_clusters(train_bins)
+        # #
+        # cluster_ids_x = compress_clusters(cluster_ids_x, equal_clusters)
+        # # cluster_ids_val = compress_clusters(cluster_ids_val, equal_clusters)
+        # cluster_ids_y = compress_clusters(cluster_ids_y, equal_clusters)
+        # # #
+        # # np.save('train_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
+        # # np.save('val_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_val)
+        # # np.save('test_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
+        # #
+        # n_clusters = cluster_ids_x.max() + 1
         #
-        np.save('train_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_x)
-        np.save('val_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_val)
-        np.save('test_clusters_{}_{}_{}_compressed.npy'.format(model_name, model_number, n_clusters), cluster_ids_y)
-        #
-        n_clusters = cluster_ids_x.max() + 1
-
-        train_bins = calculate_cluster_bins(cluster_ids_x, train_labels, n_clusters, n_classes)
-        val_bins = calculate_cluster_bins(cluster_ids_val, val_labels, n_clusters, n_classes)
-        test_bins = calculate_cluster_bins(cluster_ids_y, test_labels, n_clusters, n_classes)
+        # train_bins = calculate_cluster_bins(cluster_ids_x, train_labels, n_clusters, n_classes)
+        # # val_bins = calculate_cluster_bins(cluster_ids_val, val_labels, n_clusters, n_classes)
+        # test_bins = calculate_cluster_bins(cluster_ids_y, test_labels, n_clusters, n_classes)
 
         print_cluster_ids(train_bins)
         print("________________")
-        print_cluster_ids(val_bins)
-        print("________________")
+        # print_cluster_ids(val_bins)
+        # print("________________")
         print_cluster_ids(test_bins)
 
         error_counter = 0

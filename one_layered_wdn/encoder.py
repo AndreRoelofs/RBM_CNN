@@ -15,6 +15,7 @@ class Encoder(nn.Module):
         self.conv1 = nn.Conv2d(channels, filters, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
+
         # self.conv4 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
         # self.conv5 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
 

@@ -26,24 +26,17 @@ classes = [
 #     'Ship',
 #     'Truck']
 
-# model_type = 'simple'
-# model_type = 'large'
-# model_type = 'CIFAR_10_rbm_fixed_5'
-# model_type = 'rbm_fixed_5'
-# model_type = 'CIFAR_10_large_rbm_fixed_3'
-model_type = 'large_rbm_fixed_3'
-# model_type = 'large_fixed'
-# model_type = 'sequential'
-# n_levels =
-
 # dataset = 'CIFAR_10'
 dataset = 'Fashion_MNIST'
 
 # train_features = np.load('one_layered_wdn/test_features_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_1.npy')
 # train_labels = np.load('one_layered_wdn/test_labels_Fashion_MNIST_old_rbm_cnn_extra_training_supervised_levels_1_1.npy')
 
-train_features = np.load('one_layered_wdn/train_features_{}_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_4.npy'.format(dataset))
-train_labels = np.load('one_layered_wdn/train_labels_{}_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_4.npy'.format(dataset))
+train_features = np.load('one_layered_wdn/train_features_{}_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_7.npy'.format(dataset))
+train_labels = np.load('one_layered_wdn/train_labels_{}_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_7.npy'.format(dataset))
+#
+# train_features = np.load('one_layered_wdn/test_features_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_9.npy'.format(dataset))
+# train_labels = np.load('one_layered_wdn/test_labels_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_9.npy'.format(dataset))
 #
 # train_features = np.load('one_layered_wdn/train_features_CIFAR_10_old_rbm_cnn_data_normalized_quality_wide_levels_1_1.npy')
 # train_labels = np.load('one_layered_wdn/train_labels_CIFAR_10_old_rbm_cnn_data_normalized_quality_wide_levels_1_1.npy')
@@ -53,7 +46,7 @@ train_features /= train_features.max(0)
 
 # data = np.array(np.vstack([train_features, test_features]), dtype=np.float64)
 
-# embedding = umap.UMAP(n_neighbors=10).fit_transform(train_features)
+# embedding = umap.UMAP(n_neighbors=50).fit_transform(train_features)
 embedding = umap.UMAP().fit_transform(train_features)
 
 fig, ax = plt.subplots(1, figsize=(14, 10))

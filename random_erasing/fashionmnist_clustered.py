@@ -149,21 +149,21 @@ def main():
     trainset = dataloader(root='../data', train=True, download=True, transform=transform_train)
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
-    indices = np.load('fashion_mnist_training_indices.npy')
-    train_indices = indices[:50000]
+    # indices = np.load('fashion_mnist_training_indices.npy')
+    # train_indices = indices[:50000]
     # val_indices = indices[50000:]
 
     # trainset = trainset[train_indices]
 
-    n_clusters = 80
+    n_clusters = 160
 
-    for model_number in range(8, 9):
-        # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_extra_training_levels_1_clusters_{}".format(n_clusters),
+    for model_number in range(4, 5):
+        # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}".format(n_clusters),
         #            reinit=True)
         train_predictions = np.load(
-            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(model_number, n_clusters))
         test_predictions = np.load(
-            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(model_number, n_clusters))
+            "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(model_number, n_clusters))
 
         title = 'fashionmnist-' + args.arch
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
@@ -172,7 +172,7 @@ def main():
         best_acc = 0
         # for cluster_id in range(0, 12):
         for cluster_id in range(0, train_predictions.max() + 1):
-        # for cluster_id in [6]:
+        # for cluster_id in [1]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -182,8 +182,8 @@ def main():
                 cluster = train_predictions[i]
                 if cluster != cluster_id:
                     continue
-                # train_cluster_idx.append(i)
-                train_cluster_idx.append(train_indices[i])
+                train_cluster_idx.append(i)
+                # train_cluster_idx.append(train_indices[i])
 
 
             print("Train size: {}".format(len(train_cluster_idx)))
@@ -194,8 +194,8 @@ def main():
                 # batch_size=min(64, len(train_cluster_idx)),
                 shuffle=False,
                 num_workers=args.workers,
-                sampler=SubsetRandomSampler(train_cluster_idx),
-                # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+                # sampler=SubsetRandomSampler(train_cluster_idx),
+                sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
             )
 
             print("Train batch: ", args.train_batch)

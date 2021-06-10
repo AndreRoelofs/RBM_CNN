@@ -39,20 +39,22 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
         weights = [1.0 / label_to_count[self._get_label(dataset, idx)]
                    for idx in self.indices]
         self.weights = torch.DoubleTensor(weights)
+        # self.weights = torch.FloatTensor(weights)
 
-    def _get_label(self, dataset, idx):
-        if self.callback_get_label:
-            return self.callback_get_label(dataset, idx)
-        elif isinstance(dataset, torchvision.datasets.MNIST):
-            return dataset.targets[idx].item()
-        elif isinstance(dataset, torchvision.datasets.CIFAR10):
-            return dataset.targets[idx]
-        elif isinstance(dataset, torchvision.datasets.ImageFolder):
-            return dataset.imgs[idx][1]
-        elif isinstance(dataset, torch.utils.data.Subset):
-            return dataset.dataset.imgs[idx][1]
-        else:
-            raise NotImplementedError
+
+    # def _get_label(self, dataset, idx):
+    #     if self.callback_get_label:
+    #         return self.callback_get_label(dataset, idx)
+    #     elif isinstance(dataset, torchvision.datasets.MNIST):
+    #         return dataset.targets[idx].item()
+    #     elif isinstance(dataset, torchvision.datasets.CIFAR10):
+    #         return dataset.targets[idx]
+    #     elif isinstance(dataset, torchvision.datasets.ImageFolder):
+    #         return dataset.imgs[idx][1]
+    #     elif isinstance(dataset, torch.utils.data.Subset):
+    #         return dataset.dataset.imgs[idx][1]
+    #     else:
+    #         raise NotImplementedError
 
     def _get_label(self, dataset, idx):
         label = dataset.targets[idx]
