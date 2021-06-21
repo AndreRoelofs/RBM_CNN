@@ -90,8 +90,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 # parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.6, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.5, type=float, help='aspect of erasing area')
 #
 parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
@@ -155,9 +155,9 @@ def main():
 
     # trainset = trainset[train_indices]
 
-    n_clusters = 160
+    n_clusters = 80
 
-    for model_number in range(4, 5):
+    for model_number in [19]:
         # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}".format(n_clusters),
         #            reinit=True)
         train_predictions = np.load(
@@ -172,7 +172,7 @@ def main():
         best_acc = 0
         # for cluster_id in range(0, 12):
         for cluster_id in range(0, train_predictions.max() + 1):
-        # for cluster_id in [1]:
+        # for cluster_id in [5]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -194,8 +194,8 @@ def main():
                 # batch_size=min(64, len(train_cluster_idx)),
                 shuffle=False,
                 num_workers=args.workers,
-                # sampler=SubsetRandomSampler(train_cluster_idx),
-                sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+                sampler=SubsetRandomSampler(train_cluster_idx),
+                # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
             )
 
             print("Train batch: ", args.train_batch)
@@ -440,7 +440,8 @@ def test(testloader, model, criterion, epoch, use_cuda):
             _, pred = outputs.topk(1, 1, True, True)
             incorrect_indices = (pred.t()[0] != targets).nonzero().t()[0]
             if incorrect_indices.shape[0] > 0:
-                incorrect_classes += pred.t()[0][incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                incorrect_classes += targets[incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                # incorrect_classes += pred.t()[0][incorrect_indices].cpu().detach().numpy().flatten().tolist()
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, targets.data, topk=(1, 5))

@@ -35,7 +35,7 @@ parser.add_argument('-d', '--dataset', default='fashionmnist', type=str)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 # Optimization options
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -43,7 +43,7 @@ parser.add_argument('--train-batch', default=128, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--test-batch', default=100, type=int, metavar='N',
                     help='test batchsize')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
@@ -75,10 +75,10 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='wrn',
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet20)')
-parser.add_argument('--depth', type=int, default=28, help='Model depth.')
-parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
-# parser.add_argument('--depth', type=int, default=40, help='Model depth.')
-# parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
+# parser.add_argument('--depth', type=int, default=28, help='Model depth.')
+# parser.add_argument('--widen-factor', type=int, default=10, help='Widen factor. 10')
+parser.add_argument('--depth', type=int, default=40, help='Model depth.')
+parser.add_argument('--widen-factor', type=int, default=4, help='Widen factor. 10')
 parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
 parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
 # Miscs
@@ -88,8 +88,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 # parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.6, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.5, type=float, help='aspect of erasing area')
 
 parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
@@ -153,7 +153,7 @@ def main():
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
     n_clusters = 80
-    model_number = 4
+    model_number = 18
 
     train_predictions = np.load(
         "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
@@ -179,8 +179,8 @@ def main():
     val_correct_preds = []
     best_acc = 0
     n_accuracy_decimals = 3
-    for cluster_id in range(0, train_predictions.max() + 1):
-    # for cluster_id in [13]:
+    # for cluster_id in range(0, train_predictions.max() + 1):
+    for cluster_id in [2]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
@@ -332,8 +332,8 @@ def main():
         # max_val_correct = 0
         # Train and val
         for epoch in range(start_epoch, args.epochs):
-            if best_acc >= 100:
-                break
+            # if best_acc >= 100:
+            #     break
             if og_test_acc >= 100:
                 break
             adjust_learning_rate(optimizer, epoch)
@@ -512,8 +512,8 @@ def test(testloader, model, criterion, epoch, use_cuda):
             _, pred = outputs.topk(1, 1, True, True)
             incorrect_indices = (pred.t()[0] != targets).nonzero().t()[0]
             if incorrect_indices.shape[0] > 0:
-                # incorrect_classes += targets[incorrect_indices].cpu().detach().numpy().flatten().tolist()
-                incorrect_classes += pred.t()[0][incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                incorrect_classes += targets[incorrect_indices].cpu().detach().numpy().flatten().tolist()
+                # incorrect_classes += pred.t()[0][incorrect_indices].cpu().detach().numpy().flatten().tolist()
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, targets.data, topk=(1, 5))
