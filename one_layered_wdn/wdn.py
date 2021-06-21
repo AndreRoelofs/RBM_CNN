@@ -416,7 +416,7 @@ class WDN(nn.Module):
                 if n_activations >= activation_threshold:
                     # models.append([model, score, t_energies[:, 2]])
                     models.append([model, score])
-                    break
+                    # break
             # if score >= activation_threshold:
             if len(models) != 0:
                 models = np.array(models)

@@ -90,8 +90,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 # Random Erasing
 # parser.add_argument('--p', default=1.0, type=float, help='Random Erasing probability')
-parser.add_argument('--sh', default=0.8, type=float, help='max erasing area')
-parser.add_argument('--r1', default=0.7, type=float, help='aspect of erasing area')
+parser.add_argument('--sh', default=0.6, type=float, help='max erasing area')
+parser.add_argument('--r1', default=0.5, type=float, help='aspect of erasing area')
 #
 parser.add_argument('--p', default=0.5, type=float, help='Random Erasing probability')
 # parser.add_argument('--sh', default=0.4, type=float, help='max erasing area')
@@ -194,8 +194,8 @@ def main():
                 # batch_size=min(64, len(train_cluster_idx)),
                 shuffle=False,
                 num_workers=args.workers,
-                # sampler=SubsetRandomSampler(train_cluster_idx),
-                sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+                sampler=SubsetRandomSampler(train_cluster_idx),
+                # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
             )
 
             print("Train batch: ", args.train_batch)
