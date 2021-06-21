@@ -483,25 +483,25 @@ if __name__ == "__main__":
         #
 
 
-        # print("Train WDN")
-        # model = train_wdn(train_data, test_data, wdn_settings, wbc)
-        # print("Convert train images to latent vectors")
-        # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+        print("Train WDN")
+        model = train_wdn(train_data, test_data, wdn_settings, wbc)
+        print("Convert train images to latent vectors")
+        train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
+
+        # print("Convert val images to latent vectors")
+        # val_features, _, val_labels = convert_images_to_latent_vector(val_data, model)
+
+        print("Convert test images to latent vectors")
+        test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
+
+        np.save('train_features_{}_{}'.format(model_name, model_number), train_features)
+        np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
         #
-        # # print("Convert val images to latent vectors")
-        # # val_features, _, val_labels = convert_images_to_latent_vector(val_data, model)
-        #
-        # print("Convert test images to latent vectors")
-        # test_features, _, test_labels = convert_images_to_latent_vector(test_data, model)
-        #
-        # np.save('train_features_{}_{}'.format(model_name, model_number), train_features)
-        # np.save('train_labels_{}_{}'.format(model_name, model_number), train_labels)
-        # #
-        # # np.save('val_features_{}_{}'.format(model_name, model_number), val_features)
-        # # np.save('val_labels_{}_{}'.format(model_name, model_number), val_labels)
-        #
-        # np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
-        # np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
+        # np.save('val_features_{}_{}'.format(model_name, model_number), val_features)
+        # np.save('val_labels_{}_{}'.format(model_name, model_number), val_labels)
+
+        np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
+        np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
 
         train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
         train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))

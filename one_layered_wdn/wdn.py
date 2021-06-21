@@ -171,7 +171,7 @@ class WDN(nn.Module):
                 # Only get activated images
                 image_energies = image_energies[image_energies[:, 3] == 1]
                 # Only get images of target class
-                # image_energies = image_energies[image_energies[:, 1] == target]
+                image_energies = image_energies[image_energies[:, 1] == target]
 
                 image_idx = image_energies[:, 2].astype(np.int)
 
@@ -416,7 +416,7 @@ class WDN(nn.Module):
                 if n_activations >= activation_threshold:
                     # models.append([model, score, t_energies[:, 2]])
                     models.append([model, score])
-                    break
+                    # break
             # if score >= activation_threshold:
             if len(models) != 0:
                 models = np.array(models)

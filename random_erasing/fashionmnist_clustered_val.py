@@ -153,7 +153,7 @@ def main():
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
     n_clusters = 80
-    model_number = 18
+    model_number = 21
 
     train_predictions = np.load(
         "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
@@ -179,8 +179,8 @@ def main():
     val_correct_preds = []
     best_acc = 0
     n_accuracy_decimals = 3
-    # for cluster_id in range(0, train_predictions.max() + 1):
-    for cluster_id in [2]:
+    for cluster_id in range(0, train_predictions.max() + 1):
+    # for cluster_id in [2]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
