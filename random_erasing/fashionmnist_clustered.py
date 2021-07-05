@@ -157,9 +157,9 @@ def main():
 
     n_clusters = 80
 
-    for model_number in [21]:
-        # wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}".format(n_clusters),
-        #            reinit=True)
+    for model_number in [23]:
+        wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}".format(n_clusters),
+                   reinit=True)
         train_predictions = np.load(
             "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(model_number, n_clusters))
         test_predictions = np.load(
@@ -172,7 +172,7 @@ def main():
         best_acc = 0
         # for cluster_id in range(0, 12):
         for cluster_id in range(0, train_predictions.max() + 1):
-        # for cluster_id in [5]:
+        # for cluster_id in [1]:
             state['lr'] = args.lr
 
             # for cluster_id in range(0, 1):
@@ -260,6 +260,10 @@ def main():
             start_epoch = 0
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
+
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = args.lr
+
             # print(checkpoint['optimizer'])
 
             # for param in model.module.parameters():

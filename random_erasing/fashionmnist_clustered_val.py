@@ -49,11 +49,11 @@ parser.add_argument('--drop', '--dropout', default=0.0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+',
                     # default=[150, 225],
-                    default=[100],
+                    # default=[50],
                     # default=[50, 75],
-                    # default=[],
+                    default=[],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=10.0, help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
@@ -128,9 +128,6 @@ def main():
     transform_train = transforms.Compose([
         transforms.RandomCrop(28, padding=4),
         transforms.RandomHorizontalFlip(),
-        # transforms.GaussianBlur(3),
-        # transforms.RandomRotation(1),
-        # transforms.RandomVerticalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,)),
         transforms.RandomErasing(probability=args.p, sh=args.sh, r1=args.r1, mean=[0.4914]),
@@ -153,16 +150,16 @@ def main():
     testset = dataloader(root='../data', train=False, download=False, transform=transform_test)
 
     n_clusters = 80
-    model_number = 21
+    model_number = 23
 
     train_predictions = np.load(
-        "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
+        "../one_layered_wdn/train_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
             model_number, n_clusters))
     # val_predictions = np.load(
     #     "../one_layered_wdn/val_clusters_Fashion_MNIST_old_val_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
     #         model_number, n_clusters))
     test_predictions = np.load(
-        "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}.npy".format(
+        "../one_layered_wdn/test_clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}_{}_compressed.npy".format(
             model_number, n_clusters))
 
     # train_predictions = np.load("../one_layered_wdn/1_level_train_clusters_80_Fashion_MNIST_rbm_fixed_7_val.npy")
@@ -180,7 +177,7 @@ def main():
     best_acc = 0
     n_accuracy_decimals = 3
     for cluster_id in range(0, train_predictions.max() + 1):
-    # for cluster_id in [2]:
+    # for cluster_id in [12]:
         state['lr'] = args.lr
 
         # for cluster_id in range(0, 1):
@@ -213,8 +210,8 @@ def main():
             # batch_size=min(64, len(train_cluster_idx)),
             shuffle=False,
             num_workers=args.workers,
-            # sampler=SubsetRandomSampler(train_cluster_idx),
-            sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
+            sampler=SubsetRandomSampler(train_cluster_idx),
+            # sampler=ImbalancedDatasetSampler(dataset=trainset, indices=train_cluster_idx),
         )
         #
         # for i in range(len(val_predictions)):
@@ -350,8 +347,8 @@ def main():
             # print('Epoch: [%d | %d] LR: %f Best Accuracy: %f Valid Accuracy: %f' % (
             #     epoch + 1, args.epochs, state['lr'], best_acc, val_acc))
 
-            if epoch <= 5:
-                continue
+            # if epoch <= 50:
+            #     continue
 
             # exit(1)
 

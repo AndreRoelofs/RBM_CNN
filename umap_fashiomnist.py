@@ -29,8 +29,10 @@ classes = [
 # dataset = 'CIFAR_10'
 dataset = 'Fashion_MNIST'
 
-train_features = np.load('one_layered_wdn/train_features_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_21.npy'.format(dataset))
-train_labels = np.load('one_layered_wdn/train_labels_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_21.npy'.format(dataset))
+model_number = 23
+
+train_features = np.load('one_layered_wdn/train_features_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}.npy'.format(dataset, model_number))
+train_labels = np.load('one_layered_wdn/train_labels_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}.npy'.format(dataset, model_number))
 
 # train_features = np.load('one_layered_wdn/test_features_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_18.npy'.format(dataset))
 # train_labels = np.load('one_layered_wdn/test_labels_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_18.npy'.format(dataset))
@@ -43,8 +45,8 @@ train_features /= train_features.max(0)
 
 # data = np.array(np.vstack([train_features, test_features]), dtype=np.float64)
 
-# embedding = umap.UMAP(n_neighbors=50).fit_transform(train_features)
-embedding = umap.UMAP().fit_transform(train_features)
+embedding = umap.UMAP(n_neighbors=50).fit_transform(train_features)
+# embedding = umap.UMAP().fit_transform(train_features)
 
 fig, ax = plt.subplots(1, figsize=(14, 10))
 plt.scatter(*embedding.T, s=0.3, c=train_labels, cmap='Spectral', alpha=1.0)
