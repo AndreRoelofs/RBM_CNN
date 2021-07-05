@@ -438,7 +438,7 @@ if __name__ == "__main__":
     # model_name = '{}_rbm_cnn_finetuned_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
     model_name = '{}_rbm_cnn_data_normalized_quality_wide_levels_{}'.format(config['GENERAL']['Dataset'] + '_old', n_levels)
     # model_name = '{}_rbm_cnn_data_normalized_quality_wide_levels_{}'.format(config['GENERAL']['Dataset'] + '_old_val', n_levels)
-    for model_number in [23]:
+    for model_number in [24]:
         wdn_settings = {
             'model_name': model_name,
             'n_clusters': n_clusters,
@@ -484,7 +484,7 @@ if __name__ == "__main__":
 
 
         # print("Train WDN")
-        # model = train_wdn(train_data, test_data, wdn_settings, wbc)
+        # model = train_wdn(train_data, train_data, wdn_settings, wbc)
         # print("Convert train images to latent vectors")
         # train_features, _, train_labels = convert_images_to_latent_vector(train_data, model)
         #
@@ -502,7 +502,7 @@ if __name__ == "__main__":
         #
         # np.save('test_features_{}_{}'.format(model_name, model_number), test_features)
         # np.save('test_labels_{}_{}'.format(model_name, model_number), test_labels)
-
+        #
         train_features = np.load('train_features_{}_{}.npy'.format(model_name, model_number))
         train_labels = np.load('train_labels_{}_{}.npy'.format(model_name, model_number))
         #

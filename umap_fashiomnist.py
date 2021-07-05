@@ -29,7 +29,7 @@ classes = [
 # dataset = 'CIFAR_10'
 dataset = 'Fashion_MNIST'
 
-model_number = 23
+model_number = 24
 
 train_features = np.load('one_layered_wdn/train_features_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}.npy'.format(dataset, model_number))
 train_labels = np.load('one_layered_wdn/train_labels_{}_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}.npy'.format(dataset, model_number))
