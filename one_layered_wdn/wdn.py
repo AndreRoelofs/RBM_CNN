@@ -128,10 +128,10 @@ class WDN(nn.Module):
 
         if train:
             lr = self.levels[network.level]['encoder_learning_rate']
-            encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
-                                                 lr=lr)
-            # encoder_optimizer = torch.optim.SGD(network.encoder.parameters(),
+            # encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
             #                                      lr=lr)
+            encoder_optimizer = torch.optim.SGD(network.encoder.parameters(),
+                                                 lr=lr)
             n_train_epochs = self.levels[level]['n_training']
             if not first_training:
                 n_train_epochs = self.levels[level]['n_training_second']
@@ -185,10 +185,10 @@ class WDN(nn.Module):
                     sampler=SubsetRandomSampler(image_idx)
                 )
 
-                # encoder_optimizer = torch.optim.SGD(network.encoder.parameters(),
-                #                                     lr=1e-3)
-                encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
-                                                     lr=1e-5)
+                encoder_optimizer = torch.optim.SGD(network.encoder.parameters(),
+                                                    lr=1e-5)
+                # encoder_optimizer = torch.optim.Adam(network.encoder.parameters(),
+                #                                      lr=1e-5)
                 for i in range(self.levels[level]['n_training_second']):
                     for batch_idx, (data, target) in enumerate(train_loader):
                         data = data.to(self.device)

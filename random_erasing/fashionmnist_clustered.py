@@ -157,7 +157,7 @@ def main():
 
     n_clusters = 80
 
-    for model_number in [23]:
+    for model_number in [24]:
         wandb.init(project="Clusters_Fashion_MNIST_old_rbm_cnn_data_normalized_quality_wide_levels_1_{}".format(n_clusters),
                    reinit=True)
         train_predictions = np.load(
